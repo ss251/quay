@@ -2,6 +2,8 @@
 
 Account state version `2`. Standard name `quay`. Event version `2.0.0`.
 
+**Version 3** (`3.0.0`, state version 3) keeps every method and view below with the same JSON and adds data, members, routes and templates, external files, payments, functions and cron. Its methods are in `docs/fullstack-interface.md`, with the contract's deviations at the end of that file. In v3, `get_version` and events report `3.0.0`, `seal` takes an optional `routes`, a `FileIn` may carry `external`, `migrate` also accepts v2 state, and `web4_get` checks a release's routes before its files.
+
 The account that holds the contract is the only account that can write. A function-call key is limited a second time: `promote`, `rollback`, and `delete` each require exactly 1 yoctoNEAR, which that key cannot attach. `publish_methods` is the allow-list for a publish-only key.
 
 `quay-bb.testnet` stays on v1 until an owner deploys this wasm and calls `migrate`. A new account calls `new`. Both paths are covered by unit tests. The product deploy is a new account so the live v1 site keeps serving.

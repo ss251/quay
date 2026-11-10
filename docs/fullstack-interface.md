@@ -161,6 +161,8 @@ A release may declare routes. They are sealed with the release, so `quay rollbac
 
 `"prefix": "digest-"` (list routes only) keeps docs whose id starts with it. Routes may read the system collections `_receipts` and `_fn` like any collection; writes to them stay contract-only. `_fn` doc ids are `<fn-name>-<n>`, so a `prefix` picks one function's results.
 
+`"also": [{"name": "digest", "collection": "_fn", "prefix": "digest-", "limit": 1, "order": "desc"}]` (doc and list routes, at most 3 entries, `limit` 1 to 10, default 5, `order` default `desc`) loads extra lists next to the route's own data. The template reads them as `lists.<name>`, each an array of `DocView`, hidden docs left out. Each extra list reads at most 50 sequence numbers. That lets `/` show the latest cron digest without client JavaScript.
+
 At most 16 routes per release. `web4_get` checks routes before static files, in declaration order, for both production (`/…`) and previews (`/r/<id>/…`).
 
 - `doc` loads `db_get(collection, params.id)`. Missing or hidden is 404 with the release `404.html` when there is one.
@@ -340,6 +342,7 @@ Each line is a choice the contract makes where this spec was silent or could not
 - **Doc ids.** An explicit id may not be all digits. Digit ids are the automatic ids, so a writer cannot block the next sequence number by taking it first.
 - **Pool.** `get_pool().balance` is pool NEAR not held by any doc. `db_withdraw` transfers nothing, because the site owner is the contract account and the NEAR is already there. It only releases the amount from the pool and emits `pool_withdrawn {yocto}`.
 - **`CollectionView`** flattens the rules: `{name, write, max_doc_bytes, moderated, payer, max_docs_per_account, on_add, count, bytes, next_seq}`. `list_collections` leaves out system collections; `get_collection("_receipts")` still answers.
+- **Pins.** `pinned_until` in a `DocView` is `null` once it is at or before now, and `pinned_first` lifts only docs whose pin is still active.
 - **`db_list`** clamps `limit` to 1..=50 instead of refusing. `pinned_first` puts live pins first on the first page (no `from`); every page then skips live pins, so a pinned doc appears once. At most 16 docs per collection are pinned at once (`pin list is full`).
 - **Storage accounting.** Every charge is recorded on the doc (`deposit`) and every refund comes out of that record, so a doc never returns more than was paid for it. A shrink refunds at most the recorded deposit. The first doc a writer adds in a collection also pays for that writer's count record; it is freed with the writer's last doc.
 - **Payments.** `price_yocto` and `price_token` are each optional; one is required. `pin_seconds` is 1..=31,536,000 for grant `pin` and ignored for `receipt`. `ref` is 1 to 128 bytes of `[A-Za-z0-9._/:-]`. A NEAR receipt's storage must fit inside the price (`price does not cover receipt storage`). A token receipt's storage comes from the pool, so `ft_on_transfer` refuses (returns the full amount) unless the pool holds at least 1,000 bytes of storage (0.01 NEAR). `ft_on_transfer` returns the unused amount: the excess over `price_token` when accepted, the full amount when refused. `pay` returns nothing.
