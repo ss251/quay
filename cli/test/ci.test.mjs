@@ -20,4 +20,10 @@ test("the CI workflow deploys a preview and does not promote", () => {
   assert.doesNotMatch(action, /inputs:\s*\n(?:.*\n)*?\s+QUAY_CI_KEY:/);
   assert.match(workflow, /secrets\.QUAY_CI_KEY/);
   assert.match(workflow, /uses: \.\/action/);
+  const local = readFileSync(`${root}/scripts/ci-local.sh`, "utf8");
+  assert.match(local, /quay deploy/);
+  assert.match(local, /--ci --yes --json/);
+  assert.match(local, /quay promote 1 --ci/);
+  assert.match(local, /code" != 3/);
+  assert.doesNotMatch(local, /private_key/);
 });

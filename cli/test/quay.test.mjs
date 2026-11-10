@@ -4,7 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { deploy, promote, releases, run } from "../src/app.mjs";
+import {
+  deploy,
+  initLines,
+  promote,
+  releases,
+  run,
+  waitForGateway,
+} from "../src/app.mjs";
 import { gatewayFor } from "../src/config.mjs";
 import {
   classifyChainError,
@@ -132,6 +139,7 @@ test("deploy skips chunks the contract already has", async () => {
         rpc: "https://test.rpc.fastnear.com",
       },
       signer: { secret: "local", limited: false, publicKey: "ed25519:abc" },
+      probe: async () => 200,
       chain: {
         async view(method) {
           if (method === "list_releases") return { releases: [], next: null };
@@ -167,6 +175,8 @@ test("deploy skips chunks the contract already has", async () => {
   assert.equal(uploaded.length, 1);
   assert.match(io.err(), /reused/);
   assert.match(io.text(), /https:\/\/quay-demo\.testnet\.page\/r\/1\//);
+  assert.match(io.text(), /transactions\/seal-tx/);
+  assert.match(io.text(), /quay promote 1 to make this production/);
 });
 
 test("a failed seal drops the chunks just uploaded", async () => {
@@ -191,6 +201,7 @@ test("a failed seal drops the chunks just uploaded", async () => {
             rpc: "https://test.rpc.fastnear.com",
           },
           signer: { secret: "local", limited: false, publicKey: "ed25519:abc" },
+          probe: async () => 200,
           chain: {
             async view(method) {
               if (method === "list_releases")
@@ -342,4 +353,56 @@ test("missing publish_methods falls back to put_chunk and seal", async () => {
   assert.deepEqual(methods, [["put_chunk", "seal"]]);
   assert.match(io.text(), /ed25519:NEWSECRETVALUE12/);
   assert.doesNotMatch(io.err(), /NEWSECRETVALUE12/);
+});
+
+test("init tells you the account, the funding, and the next command", () => {
+  const text = initLines({
+    adopted: false,
+    account: "quay-demo.testnet",
+    funded: "9.9900 NEAR",
+    version: "2.0.0",
+    hash: "abc",
+    gateway: "https://quay-demo.testnet.page",
+  });
+  assert.match(text, /created quay-demo.testnet/);
+  assert.match(text, /funded 9.9900 NEAR/);
+  assert.match(text, /contract 2.0.0/);
+  assert.match(text, /transactions\/abc/);
+  assert.match(text, /next {2}quay deploy/);
+});
+
+test("a gateway that is already up does not announce a wait", async () => {
+  const io = streams();
+  const status = await waitForGateway(
+    {
+      ...io,
+      probe: async () => 404,
+      gatewayTimeoutMs: 50,
+      gatewayIntervalMs: 1,
+    },
+    "https://quay-demo.testnet.page",
+  );
+  assert.equal(status, 404);
+  assert.equal(io.err(), "");
+});
+
+test("a gateway timeout explains the certificate delay", async () => {
+  const io = streams();
+  await assert.rejects(
+    () =>
+      waitForGateway(
+        {
+          ...io,
+          probe: async () => {
+            throw new Error("certificate");
+          },
+          gatewayTimeoutMs: 0,
+          gatewayIntervalMs: 1,
+        },
+        "https://quay-new.testnet.page",
+      ),
+    (error) =>
+      error.code === 2 &&
+      /certificate is issued on the first request/.test(error.message),
+  );
 });

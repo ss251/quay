@@ -148,11 +148,12 @@ export function createChain({ accountId, rpc, secret }) {
     },
     async addPublishKey(publicKey, methodNames) {
       try {
+        // Omit allowance. The default is unlimited gas. A zero allowance cannot
+        // pay for put_chunk. A function-call key still cannot attach a deposit.
         const outcome = await account.addFunctionCallAccessKey({
           publicKey,
           contractId: accountId,
           methodNames,
-          allowance: "0",
         });
         return { hash: transactionHashOf(outcome) };
       } catch (error) {

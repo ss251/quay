@@ -51,6 +51,65 @@ export function explorerUrl(hash) {
   return `https://explorer.testnet.near.org/transactions/${hash}`;
 }
 
+export function initLines({
+  adopted,
+  account,
+  funded,
+  version,
+  hash,
+  gateway,
+}) {
+  const lines = [
+    `${adopted ? "adopted" : "created"} ${account}`,
+    `funded ${funded}`,
+    `contract ${version}`,
+  ];
+  if (hash) lines.push(`transaction ${explorerUrl(hash)}`);
+  lines.push(`gateway ${gateway}`);
+  lines.push("next  quay deploy");
+  return lines.join("\n");
+}
+
+export async function waitForGateway(ctx, url) {
+  const probe = ctx.probe ?? probeGateway;
+  const timeoutMs = ctx.gatewayTimeoutMs ?? 120_000;
+  const intervalMs = ctx.gatewayIntervalMs ?? 3_000;
+  const started = Date.now();
+  let announced = false;
+  let last = "no response";
+  for (;;) {
+    try {
+      const status = await probe(url);
+      if (typeof status === "number" && status >= 100 && status < 600) {
+        return status;
+      }
+      last = `HTTP ${status}`;
+    } catch (error) {
+      const cause = error?.cause;
+      last = cause?.code || cause?.message || error?.message || String(error);
+    }
+    if (Date.now() - started >= timeoutMs) {
+      throw new QuayError(
+        `the gateway at ${url} did not answer within 2 minutes (${last}). The certificate is issued on the first request. Open the URL again in a minute.`,
+        2,
+      );
+    }
+    if (!announced) {
+      writeErr(
+        ctx,
+        "waiting for the gateway certificate, usually under 2 minutes",
+      );
+      announced = true;
+    }
+    await new Promise((done) => setTimeout(done, intervalMs));
+  }
+}
+
+async function probeGateway(url) {
+  const response = await fetch(url, { redirect: "manual" });
+  return response.status;
+}
+
 export async function run(ctx, parsed) {
   if (parsed.flags.version) {
     writeOut(ctx, "2.0.0");
@@ -190,8 +249,13 @@ export async function deploy(ctx, parsed) {
       `storage estimate ${summary.estimated_near} NEAR (0.01 NEAR / 1000 bytes, plus trie overhead)`,
     ].join("\n"),
   );
+  const next = `quay promote ${id} to make this production`;
   if (ctx.dryRun) {
-    emit(ctx, { ...summary, dry_run: true }, `${summary.url}\ndry run`);
+    emit(
+      ctx,
+      { ...summary, dry_run: true, next },
+      `${summary.url}\ndry run\nnext  ${next}`,
+    );
     return;
   }
   const ok = await confirm(ctx, `Store release ${id} on ${account}?`);
@@ -227,6 +291,7 @@ export async function deploy(ctx, parsed) {
     await dropAbandoned(ctx, uploaded);
     throw error;
   }
+  const transactionUrl = explorerUrl(sealed.hash);
   emit(
     ctx,
     {
@@ -234,10 +299,18 @@ export async function deploy(ctx, parsed) {
       message,
       spa,
       transaction: sealed.hash,
+      transaction_url: transactionUrl,
       chunk_transactions: chunkHashes,
+      next,
     },
-    `${paint(ctx.color, "36", id)}  ${summary.url}\nreused ${formatBytes(summary.reused_bytes)}`,
+    [
+      `${paint(ctx.color, "36", id)}  ${summary.url}`,
+      `reused ${formatBytes(summary.reused_bytes)}`,
+      `transaction ${transactionUrl}`,
+      `next  ${next}`,
+    ].join("\n"),
   );
+  if (listed.length === 0) await waitForGateway(ctx, summary.url);
 }
 
 async function dropAbandoned(ctx, hashes) {
@@ -274,7 +347,12 @@ export async function promote(ctx, parsed) {
   if (!ok) return stopped(ctx);
   const sent = await ctx.chain.promote(id);
   const url = previewUrl(ctx.config.gateway);
-  emit(ctx, { id, url, transaction: sent.hash }, `${id} is production\n${url}`);
+  const transactionUrl = explorerUrl(sent.hash);
+  emit(
+    ctx,
+    { id, url, transaction: sent.hash, transaction_url: transactionUrl },
+    `${id} is production\n${url}\ntransaction ${transactionUrl}`,
+  );
 }
 
 export async function rollback(ctx) {
@@ -286,10 +364,17 @@ export async function rollback(ctx) {
   const sent = await ctx.chain.rollback();
   const id = typeof sent.value === "string" ? sent.value : current.previous;
   const url = previewUrl(ctx.config.gateway);
+  const transactionUrl = explorerUrl(sent.hash);
   emit(
     ctx,
-    { id, previous: current.production, url, transaction: sent.hash },
-    `${id} is production\n${url}`,
+    {
+      id,
+      previous: current.production,
+      url,
+      transaction: sent.hash,
+      transaction_url: transactionUrl,
+    },
+    `${id} is production\n${url}\ntransaction ${transactionUrl}`,
   );
 }
 
@@ -573,7 +658,7 @@ export async function init(ctx, parsed) {
     await waitForAccount(ctx);
     const wasm = ctx.readWasm();
     const sent = await ctx.chain.deployAndInit(wasm);
-    finishInit(ctx, account, key, sent.hash, false);
+    await finishInit(ctx, account, key, sent.hash, false);
     return;
   }
   if (!/^[a-z0-9._-]+\.testnet$/.test(account)) {
@@ -598,7 +683,7 @@ export async function init(ctx, parsed) {
   if (!hasCode) {
     const wasm = ctx.readWasm();
     const sent = await ctx.chain.deployAndInit(wasm);
-    finishInit(ctx, account, key, sent.hash, false);
+    await finishInit(ctx, account, key, sent.hash, false);
     return;
   }
   let version = null;
@@ -608,7 +693,7 @@ export async function init(ctx, parsed) {
     version = null;
   }
   if (!replacing) {
-    finishInit(ctx, account, key, null, true, version?.version ?? null);
+    await finishInit(ctx, account, key, null, true, version?.version ?? null);
     return;
   }
   const ok = await confirm(
@@ -618,7 +703,14 @@ export async function init(ctx, parsed) {
   if (!ok) return stopped(ctx);
   const wasm = ctx.readWasm();
   const sent = await ctx.chain.replaceWasm(wasm);
-  finishInit(ctx, account, key, sent.hash, true, version?.version ?? null);
+  await finishInit(
+    ctx,
+    account,
+    key,
+    sent.hash,
+    true,
+    version?.version ?? null,
+  );
 }
 
 function reconnect(ctx, account, key) {
@@ -630,7 +722,7 @@ function reconnect(ctx, account, key) {
   return next;
 }
 
-function finishInit(ctx, account, key, hash, adopted, version = "2.0.0") {
+async function finishInit(ctx, account, key, hash, adopted, version = "2.0.0") {
   const file = join(ctx.credentialsDir, `${account}.json`);
   if (key?.secret && key?.publicKey) {
     writeKeyFile(file, {
@@ -649,10 +741,43 @@ function finishInit(ctx, account, key, hash, adopted, version = "2.0.0") {
     join(ctx.cwd, "quay.json"),
     `${JSON.stringify(config, null, 2)}\n`,
   );
+  let funded = "unknown";
+  try {
+    const view = await ctx.chain.accountView();
+    if (view?.amount != null) {
+      funded = `${formatNear(BigInt(view.amount))} NEAR`;
+    }
+  } catch {
+    funded = "unknown";
+  }
+  let reported = version || "unknown";
+  try {
+    const got = await ctx.chain.view("get_version", {});
+    if (got?.version) reported = got.version;
+  } catch {
+    reported = version || "unknown";
+  }
+  await waitForGateway(ctx, config.gateway);
+  const plain = initLines({
+    adopted,
+    account,
+    funded,
+    version: reported,
+    hash,
+    gateway: config.gateway,
+  });
   emit(
     ctx,
-    { ...config, adopted, version, transaction: hash, credential_file: file },
-    `${adopted ? "adopted" : "created"} ${account}\n${config.gateway}\n`,
+    {
+      ...config,
+      adopted,
+      version: reported,
+      funded,
+      transaction: hash,
+      transaction_url: hash ? explorerUrl(hash) : null,
+      credential_file: file,
+    },
+    `${plain}\n`,
   );
 }
 
