@@ -130,25 +130,43 @@
         <tbody>
           <tr><td>Storage<small>NEAR's rate for contract state</small></td><td class="v">0.01 NEAR / 1,000 B</td></tr>
           <tr><td>The harbour sample<small>5 releases, 17,717 bytes sealed</small></td><td class="v">≈ 0.18 NEAR</td></tr>
-          <tr><td>The Quay contract<small>216,419 bytes of wasm, once per account</small></td><td class="v">≈ 2.16 NEAR</td></tr>
-          <tr><td>A packed install, end to end<small>2 site releases, a CI preview and an agent page</small></td><td class="v">2.3151 NEAR</td></tr>
+          <tr><td>The Quay contract<small>295,899 bytes of wasm, once per account</small></td><td class="v">≈ 2.96 NEAR</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </section>
 
-<section class="section" id="host">
+<section class="section" id="board">
   <div class="container split-sec top">
     <div>
-      <span class="kicker">Hosting</span>
-      <h2>Serve it from anywhere</h2>
-      <p class="lede">A Quay site is bytes in a contract. Anything that can call <code>web4_get</code> can serve it. <code>testnet.page</code> was down for hours on 2026-11-10, so this page is served by the same gateway code on Cloudflare Workers.</p>
-      <p class="lede"><code>quay gateway --account &lt;account&gt;</code> serves a site from your machine over RPC. The <a href="{{P}}architecture/index.html#trust">trust table</a> lists what each piece depends on.</p>
+      <span class="kicker">Beyond static files</span>
+      <h2>A whole site on one account</h2>
+      <p class="lede">Harbour Board is a notice board on <code>harbour-board.testnet</code>. Its pages are rendered by the contract from posts it stores. Members join with no NEAR, a function on OutLayer screens each post, and a post can be pinned by paying in NEAR or test USDC. Its 493 KB photo is stored off chain on FastFS and checked by sha256.</p>
+      <p class="lede">Weak spots, stated plainly: OutLayer calls take 5 to 17 seconds, and testnet.page, OutLayer and FastNEAR are one operator each. The scheduled digest is set, not armed. Wallet sign-in is not shown on testnet yet. Read the <a href="{{P}}architecture/index.html#trust">trust table</a>.</p>
+      <div class="ctas"><a class="btn btn-primary" href="https://harbour-board.testnet.page/">Open Harbour Board</a><a class="btn" href="{{P}}docs/layers/index.html">What each layer does</a></div>
     </div>
     <div class="card">
-      <div class="card-head"><span class="card-title">Coming next</span><span class="chip chip-warn">Not deployed</span></div>
-      <p class="muted" style="padding:16px">Data, sign-in without a wallet, functions, routes, large files, payments and scheduled jobs are written and tested in the repository. They are not on a testnet account yet. <a href="{{P}}docs/layers/index.html">What each layer does, and what is proven</a>.</p>
+      <div class="card-head"><span class="card-title">Layers, checked on testnet</span></div>
+      <ol class="rows">
+        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Data and server-rendered pages</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
+        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Members and a gasless relayer</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
+        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Functions on OutLayer</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
+        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Payments, test USDC only</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
+        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Large files on FastFS</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
+        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Scheduled jobs</div></div><span class="chip chip-warn">Set, not armed</span></li>
+        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Wallet sign-in</div></div><span class="chip chip-warn">Pending</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="host">
+  <div class="container">
+    <div class="section-head">
+      <span class="kicker">Hosting</span>
+      <h2>Serve it from anywhere</h2>
+      <p class="lede">A Quay site is bytes in a contract. Anything that can call <code>web4_get</code> can serve it. <code>testnet.page</code> was down for hours on 2026-11-10, so this page is served by the same gateway code on Cloudflare Workers. <code>quay gateway --account &lt;account&gt;</code> serves a site from your machine over RPC.</p>
     </div>
   </div>
 </section>

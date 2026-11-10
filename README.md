@@ -8,11 +8,12 @@ Hosts, in the order to try them:
 | --- | --- | --- | --- | --- |
 | Product site and dashboard | `quay-esc0v902.testnet` | https://quay.ss251.workers.dev/ and `/dashboard/` | https://quay-esc0v902.testnet.page/ | `quay gateway --account quay-esc0v902.testnet`, then http://127.0.0.1:8787/ |
 | Harbour sample, five releases, production on 5 | `quay-65nqd3rn.testnet` | https://quay-harbour.ss251.workers.dev/ | https://quay-65nqd3rn.testnet.page/ | `quay gateway --account quay-65nqd3rn.testnet`, then http://127.0.0.1:8787/ |
+| Harbour Board, the full-stack sample (contract 3.0.0) | `harbour-board.testnet` | none yet | https://harbour-board.testnet.page/ | `quay gateway --account harbour-board.testnet`, then http://127.0.0.1:8787/ |
 | Old demo, left on v1 | `quay-bb.testnet` | none | https://quay-bb.testnet.page/ | `quay gateway --account quay-bb.testnet` |
 
 The Workers hosts are the owner's Cloudflare account running `gateway/worker` unchanged, one site per host. They exist because `testnet.page` answered every account with HTTP 400 for several hours on 2026-11-10 (deprecated default RPC). The mirrors are listed in `web/hosts.json`. The static pages use relative links, so they work on whichever host serves them.
 
-Status on 2026-11-11: both live contracts report version 2.0.0. The full-stack layers below are written and tested in this repo. They are not deployed to a testnet account, so each is marked pending.
+Status on 2026-11-11: the product site and the harbour sample run contract 2.0.0 (releases and the production pointer). Harbour Board runs contract 3.0.0 with data, routes, members, functions, payments and a large file, all on one account. Every layer below says whether it is proven live, set but not running, or pending. The Board has no Workers mirror yet, so it is served by `testnet.page` or a local gateway.
 
 ## Install
 
@@ -144,33 +145,57 @@ No key. You need `cargo`, `curl`, `node`, and `shasum` on `PATH`. The same check
 
    The receipt fails because that key cannot call `promote`.
 
+6. Open Harbour Board, the full-stack sample. There is no Workers mirror, so use `testnet.page`, then a local gateway.
+
+   ```sh
+   curl -fsS https://harbour-board.testnet.page/
+   curl -fsS https://harbour-board.testnet.page/api/posts
+   curl -sS -o /dev/null -w '%{http_code}\n' https://harbour-board.testnet.page/posts/9
+   ```
+
+   If `testnet.page` is down, run `quay gateway --account harbour-board.testnet` and open http://127.0.0.1:8787/, http://127.0.0.1:8787/api/posts and http://127.0.0.1:8787/posts/9.
+
+   See "Harbour digest" and the digest text on `/`, the two pinned posts first while their 24 hour pins last, 13 or more posts in `/api/posts` without post 9, and `404` for `/posts/9`. The RPC views for members, functions, receipts and the large file are in "Full-stack layers". `sh scripts/judge.sh` step 9 runs all of them.
+
 ## Full-stack layers
 
-One account can hold a site's pages, data, sign-in, scheduled work and payments. The interface is frozen in `docs/fullstack-interface.md`. Command help for every layer is on the docs site at `/docs/layers/`. Who you trust for each layer, and how to replace it, is at `/architecture/`.
+One account holds a site's pages, data, sign-in, scheduled work and payments. The interface is in `docs/fullstack-interface.md`. Command help for every layer is on the docs site at `/docs/layers/`. Who you trust for each layer, and how to replace it, is at `/architecture/`. Every transaction is recorded in `examples/board/LIVE.md`.
 
-"Proven" below means a transaction or a request we made on testnet. The layer rows say which of those used Quay's own contract and which were spikes with plain accounts. Spikes ran on 2026-11-10. Nothing in this section is deployed to a Quay account yet except the site and the gateway.
+"Live" means we made the transaction or request on testnet, and the link or command below lets you check it. The sample is Harbour Board, https://harbour-board.testnet.page/, account `harbour-board.testnet`. All checks need no key. `sh scripts/judge.sh` runs them.
 
-**Site (live).** `quay init`, `quay deploy ./dist`, `quay promote`, `quay rollback`. Proven: the transactions in this README, contract 2.0.0 on two accounts.
+Define this once for the RPC checks:
 
-**Gateway (live).** `quay gateway --account <id>` serves a site from your machine; `node gateway/build.mjs` writes a single file for Node, Deno or Bun, and `cd gateway/worker && npx wrangler deploy` ships the Workers build. Proven: `https://quay.ss251.workers.dev/` and `https://quay-harbour.ss251.workers.dev/` answer from RPC, and `scripts/judge.sh` fetches through them. Measured: the public `testnet.page` outage of 2026-11-10.
+```sh
+view() {
+  curl -fsS https://test.rpc.fastnear.com -H 'content-type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"query\",\"params\":{\"request_type\":\"call_function\",\"account_id\":\"harbour-board.testnet\",\"method_name\":\"$1\",\"args_base64\":\"$(printf '%s' "$2" | base64)\",\"finality\":\"final\"}}" |
+    node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(Buffer.from(JSON.parse(s).result.result).toString()))'
+}
+```
 
-**Data (pending deploy).** `quay db collection set posts --write anyone --payer site --moderated`, `quay db fund 2`, `quay db add posts '{"title":"…"}'`, `quay db list posts`. Pending: the v3 contract is not on a testnet account.
+**Site (live).** `quay init`, `quay deploy ./dist`, `quay promote`, `quay rollback`. Proven by the transactions in this README on contract 2.0.0, and on the Board: [init](https://explorer.testnet.near.org/transactions/9He5iL5Ne5b5XBhWDAj34PmW3hg26tYYuGx6xoNuGBaz), release 4 [sealed](https://explorer.testnet.near.org/transactions/44t7hUBpfqKGR5FYgsMU7ak5FuAjv2jB6M1vvH1RpVm3). Check: `view get_status '{}'` shows production 4.
 
-**Members and sign-in (pending deploy).** `quay members list|open|close`; sign-in is NEP-413 through `@quay/client`. Spike proof: a zero-balance sub-account in [CEshJvn3…](https://explorer.testnet.near.org/transactions/CEshJvn3mucm4VhfuGhBkBdJD99Y6JWV2XHTNkyQucBi). Quay's `join` is pending.
+**Gateway (live).** `quay gateway --account <id>` serves a site from your machine, `node gateway/build.mjs` writes a single file for Node, Deno or Bun, and `cd gateway/worker && npx wrangler deploy` ships the Workers build. Proven: the two Workers hosts answer from RPC, the Board is served by `testnet.page` and by a local gateway, and `scripts/judge.sh` fetches through all three. Measured: the `testnet.page` outage of 2026-11-10. Check: `curl -fsS https://quay.ss251.workers.dev/_quay/health`.
 
-**Relay (pending deploy).** `quay relay create --near 0.5`, `quay relay serve --port 8788`, `quay relay status`. Spike proof: a relayed delegate [HpNGtV3W…](https://explorer.testnet.near.org/transactions/HpNGtV3WQLtCNsmMU8gbidDhB1d7gB9wCpvPMs35cxkY), a function-call session key delegate [BkN8S7Zx…](https://explorer.testnet.near.org/transactions/BkN8S7Zx3xsvA9SppF9ghCLXnGdb86jYMtBuiudxUCie), and a delegate with a deposit, which the relayer paid, [4zVRVvNh…](https://explorer.testnet.near.org/transactions/4zVRVvNhL25VbXCkbAbjp6vvxNJxxtZVc5FzSD1Gvk8v). That is why Quay's relayer refuses any deposit. Quay's relay against a v3 site is pending.
+**Data (live).** `quay db collection set`, `quay db fund`, `quay db add|list|rm|hide`. The Board's `posts` collection is `write: anyone`, `payer: site`, moderated, with `on_add: moderate`. Proven: [collection](https://explorer.testnet.near.org/transactions/AEg7rzCvAYnvr3R9gUdukQDZ2jsZSMkiRwFTS6r2dyp9), [pool funded](https://explorer.testnet.near.org/transactions/DPnpKqji4wcLbgeHD9PukEu3trVKPZyE2HYn56hqAmqp). Check: `view list_collections '{}'`, `view db_list '{"collection":"posts","query":{"limit":5}}'`.
 
-**Functions (pending deploy).** Rust compiled to WASI and run on OutLayer. `quay functions` and `quay secrets` are not in this CLI build yet, so the docs page shows no help for them. Spike proof: a function with a secret and outbound HTTPS, called from a contract by yield and resume, [A2JT46x6…](https://explorer.testnet.near.org/transactions/A2JT46x6jHYfhQ55weJFcHwNMwn2eumy75LdQX4yRnpg), and over HTTPS, with the wasm fetched from a URL and no GitHub. Quay's registry is pending.
+**Routes (live).** The contract fills templates sealed in the release, so a page is complete HTML without JavaScript. Proven: https://harbour-board.testnet.page/ lists posts with the digest, `/posts/5` renders one, `/api/posts` is JSON, and the hidden spam post is a 404 at `/posts/9`. Check: `curl -fsS https://harbour-board.testnet.page/api/posts` and `view get_release '{"id":"4"}'`.
 
-**Routes (pending deploy).** Declared in `quay.json` and applied by `quay up`. `quay up --dry-run` checks every route and template. Pending: the contract renderer is not deployed.
+**Members (live).** `quay members list|open|close`. A member is `<name>.harbour-board.testnet`, created with no NEAR. Six exist. Proven through both relays below. Check: `view list_members '{"from_index":0,"limit":50}'`.
 
-**Large files (blocked on testnet).** `files.external_over` and `quay up --store nearfs|pinata|filebase`. NEARFS accepted an `fs_store` upload in [9xj3bLha…](https://explorer.testnet.near.org/transactions/9xj3bLhaN7MFp7xwwteAhduq5GsXfqYT74LiXoB2fbV8) and did not serve it: 404 for hours. Pinata and Filebase were not run against the live services.
+**Sign-in (partly proven).** A member's NEP-413-signed session key is verified by `verifySignIn` in the sandbox suite. Wallet sign-in through near-connect is pending: it has not been shown on testnet.
 
-**Payments (pending deploy).** `quay products set pin --name "Pin for a day" --price 0.1 --grant pin --pin-seconds 86400`, `quay products token <account>`, `quay receipts`. Pending: not deployed.
+**Relay (live).** Two hosts, one protocol. Members joined and posted gasless through the relayer running as an OutLayer function, with no server, and through `quay relay serve`, the Node host. The relayer is its own account, `relay.harbour-board.testnet`, and its NEAR balance is the spend limit. The OutLayer host needs a payment key, which is public in the page, so anyone who reads it can spend it: the Board's key holds about $0.05 of test USDC at most $0.01 per call. Weak spot: OutLayer calls took 5 to 17 seconds, and stalled before the relay fix. Proven: [relayer account](https://explorer.testnet.near.org/transactions/CmoixGMs3HEDPgb6MUrETueHPn8ZmHEjhwhCimFfs8kR), [relay deployed](https://explorer.testnet.near.org/transactions/9rnqpKHJYq2JB9Yc9pDNFJH1xRUWbZKX8gcLwwuWwVwT). Check: `view list_members '{"from_index":0,"limit":50}'` and the posts by `maren.harbour-board.testnet`. Earlier spikes with plain accounts: [relayed delegate](https://explorer.testnet.near.org/transactions/HpNGtV3WQLtCNsmMU8gbidDhB1d7gB9wCpvPMs35cxkY), [session key delegate](https://explorer.testnet.near.org/transactions/BkN8S7Zx3xsvA9SppF9ghCLXnGdb86jYMtBuiudxUCie), [a delegate whose deposit the relayer paid, which is why the relayer refuses any deposit](https://explorer.testnet.near.org/transactions/4zVRVvNhL25VbXCkbAbjp6vvxNJxxtZVc5FzSD1Gvk8v).
 
-**Cron (pending deploy).** `quay cron add "every 60m" digest`, `quay cron arm`, `quay cron status`. The mechanism is a yield chain: a hop about every 2 minutes at about 2.25 Tgas, about 14.5 hours per 1 PGas, then a transaction must re-arm it. Spike proof: [EaBzBzUg…](https://explorer.testnet.near.org/transactions/EaBzBzUgyV9g55njrZUFqFPLXizES3jY6JtD2tn94dLz) and [7Ff67z7N…](https://explorer.testnet.near.org/transactions/7Ff67z7N1eY6ZtnHg1wJmMrkFQbo1S8zw5XxAejDQCa1). Quay's cron is pending.
+**Functions (live).** Rust compiled to WASI, run on OutLayer, registered on the contract. `quay functions deploy|list|invoke|logs|rm|key`, `quay secrets set|list|rm`. The Board's `moderate` runs on every post with a secret and an outbound HTTPS call: the secret round-tripped through an authenticated echo API (`auth: "ok"`), it attaches a link preview, and it hid a spam post. `digest` ran by hand through `fn_call`. Proven: [moderate project](https://explorer.testnet.near.org/transactions/AyEpD8LfocJDMovR6LZDa8pcsHdNji86TiYpSCWARHBh), [secret stored](https://explorer.testnet.near.org/transactions/3cZfXHtLAbCVGmFJxkGLF75v56B4tAwvjWVqq24Zwkud), [digest run](https://explorer.testnet.near.org/transactions/9vX1o2oDv4cKdE1Qf95LGW6xQoJ6J5KXBYjqRND3RWAD). Weak spot: OutLayer is one operator, and a run takes 5 to 17 seconds. Check: `view fn_list '{}'` and `view db_list '{"collection":"_fn","query":{"limit":3}}'`.
 
-**`quay up` (pending deploy).** `quay up --dry-run`, then `quay up -m "harbour board"`. It applies `quay.json`, deploys the site with its routes and promotes it. Versioned per release: files, routes and templates. Not versioned: docs, rules, products, members, function code and secrets, relay and cron settings.
+**Large files (live on FastFS, NEARFS cut).** A file over `files.external_over` goes to FastFS, which stores it for gas only, and the release holds its https URL and sha256. The Board's 493,183 byte hero photo was uploaded to FastFS, sealed as an external URL in [release 4](https://explorer.testnet.near.org/transactions/44t7hUBpfqKGR5FYgsMU7ak5FuAjv2jB6M1vvH1RpVm3) and is served through the gateway. NEARFS accepted uploads in [9xj3bLha](https://explorer.testnet.near.org/transactions/9xj3bLhaN7MFp7xwwteAhduq5GsXfqYT74LiXoB2fbV8) and never served them, so it is not the default. Pinata and Filebase are implemented and were never run against the live services. Check: `curl -fsS https://harbour-board.testnet.page/assets/img/harbour.png | shasum -a 256` prints `16cca45160bd57f293b580dc754cf8313cdc41cbcb7d982c4696bbf5c9f38ccf`.
+
+**Payments (live, test USDC only).** `quay products set|list|rm|token`, `quay receipts`. Two posts are pinned: post 5 was paid in NEAR and post 6 in test USDC, `usdc.fakes.testnet`, which anyone can mint. Circle USDC is not used. A pin lasts 24 hours, so the order on `/` changes when it ends. Proven: [product](https://explorer.testnet.near.org/transactions/BzpjbDMxaUdoYm8kiXiqG7sjbv3QHSEVVo5XthMkTkLj), [token](https://explorer.testnet.near.org/transactions/3Gt1S2QFj4zB2WxcPpiE5nTXfzwSuo5Y5Hxydb3sS5yK). Check: `view list_receipts '{"limit":10}'`.
+
+**Cron (set, not armed).** `quay cron add "every 60m" digest`, `quay cron arm`, `quay cron status`. The Board's `digest` job is set in [cron_set](https://explorer.testnet.near.org/transactions/27D5zLACRqV5PKMEwroVqc2JwKYoAp7bq2ZN9GfnRPao). It is not armed: arming needs about 1.1 NEAR liquid and the site does not have it. The mechanism is a yield chain, a hop about every 2 minutes at about 2.25 Tgas, about 14.5 hours per 1 PGas, then a transaction must arm it again. Spike proof of the chain with a plain contract: [EaBzBzUg](https://explorer.testnet.near.org/transactions/EaBzBzUgyV9g55njrZUFqFPLXizES3jY6JtD2tn94dLz) and [7Ff67z7N](https://explorer.testnet.near.org/transactions/7Ff67z7N1eY6ZtnHg1wJmMrkFQbo1S8zw5XxAejDQCa1). Check: `view cron_list '{}'` and `view cron_status '{}'` show the job and `"armed":false`.
+
+**`quay up` (live).** `quay up --dry-run`, then `quay up -m "harbour board"`. It applies `quay.json`, deploys the site with its routes and promotes it. The Board's functions, collection, product and releases were deployed with it. Versioned per release: files, routes and templates. Not versioned: docs, rules, products, members, function code and secrets, relay and cron settings.
 
 ## Limits
 

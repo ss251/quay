@@ -138,7 +138,6 @@ echo "3. product home, docs, and dashboard"
 fetch quay-esc0v902.testnet /
 expect_code 200
 expect "Move production on purpose"
-expect "2.3151 NEAR"
 fetch quay-esc0v902.testnet /docs/
 expect_code 200
 expect "quay deploy"
@@ -211,18 +210,96 @@ console.log("   " + process.argv[2] + " contract " + v.version);
 ' "$version_json" "$account"
 done
 
-# TODO(full-stack): the checks below are filled in when the v3 contract and the
-# board sample are deployed. Until then they are not run and nothing here claims them.
-# Every one is a read-only RPC view or a page fetch, and needs no key.
-#   data        list_collections, get_pool, db_list on the board's posts collection
-#   members     get_members_open, list_members
-#   routes      GET /, /posts/<id>, /api/posts on the board; expect rendered HTML and JSON
-#   functions   fn_list, fn_results (the moderate and digest results)
-#   large files get_release shows external.cid; GET of the image answers through the gateway
-#   payments    list_products, list_receipts
-#   cron        cron_status, cron_list
-#   relay       GET <relay>/health
-#   dashboard   /docs/layers/ and /architecture/ on the product site after it is redeployed
-echo "   pending until deployed: data, members, routes, functions, large files, payments, cron, relay (see README, Full-stack layers)"
+echo "9. Harbour Board, the full-stack sample on harbour-board.testnet"
+# Contract 3.0.0 with data, routes, members, functions, payments and a large file.
+# It has no Workers mirror, so pages come from testnet.page or a local gateway.
+board=harbour-board.testnet
+
+# view <method> <args json>: the JSON text a view call on the board returns.
+view() {
+  args=$(printf '%s' "$2" | base64 | tr -d '\n')
+  rpc "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"query\",\"params\":{\"request_type\":\"call_function\",\"account_id\":\"$board\",\"method_name\":\"$1\",\"args_base64\":\"$args\",\"finality\":\"final\"}}" |
+    node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!j.result)process.exit(1);process.stdout.write(Buffer.from(j.result.result).toString("utf8"))})'
+}
+
+# check <json> <js expression over d> <message>: fail unless the expression is true.
+check() {
+  if ! node -e 'const d=JSON.parse(process.argv[1]);if(!(eval(process.argv[2])))process.exit(1)' "$1" "$2"; then
+    echo "   failed: $3" >&2
+    exit 1
+  fi
+}
+
+contract=$(view get_version '{}')
+check "$contract" 'd.version==="3.0.0"' "board contract is 3.0.0"
+echo "   contract 3.0.0"
+
+echo "   data and routes"
+check "$(view list_collections '{}')" 'd.some(c=>c.name==="posts"&&c.on_add==="moderate"&&c.payer==="site"&&c.moderated)' "posts collection with on_add moderate"
+fetch "$board" /
+expect_code 200
+expect "Harbour digest"
+expect "Digest of posts"
+cp "$work/body" "$work/home"
+fetch "$board" /api/posts
+expect_code 200
+expect '"docs":['
+node -e '
+const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+if (d.docs.length < 5) process.exit(1);
+if (d.docs.some((doc) => doc.id === "9" || doc.hidden)) process.exit(1);
+' "$work/body"
+fetch "$board" /posts/9
+expect_code 404
+if grep -F 'href="/posts/9"' "$work/home" >/dev/null; then
+  echo "   the hidden spam post 9 is listed on /" >&2
+  exit 1
+fi
+check "$(view db_get '{"collection":"posts","id":"9"}')" 'd.hidden===true' "posts/9 is hidden by the moderate function"
+echo "   server-rendered / and /api/posts answer, hidden spam post 9 is absent and /posts/9 is 404"
+
+echo "   payments and pins"
+check "$(view list_receipts '{"limit":10}')" 'd.receipts.length>=2&&d.receipts.some(r=>r.token==="near")&&d.receipts.some(r=>r.token==="usdc.fakes.testnet")' "a NEAR receipt and a test-USDC receipt"
+pinned=$(view db_get '{"collection":"posts","id":"6"}')
+# A pin lasts 24 hours, so the order check only holds while the pin is live.
+if node -e 'const d=JSON.parse(process.argv[1]);process.exit(d.pinned_until&&BigInt(d.pinned_until)>BigInt(Date.now())*1000000n?0:1)' "$pinned"; then
+  node -e '
+const html = require("fs").readFileSync(process.argv[1], "utf8");
+const at = (id) => html.indexOf(`href="/posts/${id}"`);
+if (!(at(6) > 0 && at(6) < at(5) && at(5) < at(15))) process.exit(1);
+' "$work/home"
+  echo "   2 receipts (NEAR and test USDC); pinned posts 6 and 5 come before post 15 on /"
+else
+  echo "   2 receipts (NEAR and test USDC); the 24 hour pins have expired, so the pinned-first order check is skipped"
+fi
+
+echo "   members"
+check "$(view list_members '{"from_index":0,"limit":50}')" 'd.members.length>=6&&d.members.every(m=>m.endsWith(".harbour-board.testnet"))' "at least 6 members"
+check "$(view is_member '{"account":"maren.harbour-board.testnet"}')" 'd===true' "maren is a member"
+echo "   at least 6 members, created with no NEAR"
+
+echo "   functions"
+check "$(view fn_list '{}')" 'd.some(f=>f.name==="moderate"&&f.secrets)&&d.some(f=>f.name==="digest")' "moderate (with a secret) and digest registered"
+check "$(view db_list '{"collection":"_fn","query":{"prefix":"digest-","limit":1}}')" 'd.docs.length===1&&d.docs[0].data.ok===true&&d.docs[0].data.output.title' "a digest result in _fn"
+check "$(view db_list '{"collection":"_fn","query":{"prefix":"moderate-","limit":5}}')" 'd.docs.some(x=>x.data.ok&&x.data.output.auth==="ok")' "a moderate result with auth ok"
+echo "   moderate and digest registered; both have results on chain"
+
+echo "   large file"
+release=$(view get_release '{"id":"4"}')
+sha=16cca45160bd57f293b580dc754cf8313cdc41cbcb7d982c4696bbf5c9f38ccf
+check "$release" "d.files.some(f=>f.path==='assets/img/harbour.png'&&f.external&&f.external.sha256==='$sha'&&f.external.url.startsWith('https://test.fastfs.io/'))" "release 4 holds the hero as an external https file"
+fetch "$board" /assets/img/harbour.png
+expect_code 200
+test "$(shasum -a 256 "$work/body" | cut -d' ' -f1)" = "$sha"
+echo "   hero photo, 493,183 bytes on FastFS, served through the gateway with sha256 $sha"
+
+echo "   cron"
+check "$(view cron_list '{}')" 'd.some(j=>j.name==="digest"&&j.every_minutes===60)' "digest job set"
+armed=$(view cron_status '{}' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).armed?"armed":"set but not armed"))')
+echo "   the digest job is set, $armed"
+
+# Not checked, because not proven: the wallet sign-in through near-connect, Pinata and
+# Filebase, Circle USDC, and an armed cron chain. See README, Full-stack layers.
+echo "   not checked here: wallet sign-in, Pinata and Filebase, Circle USDC, an armed cron chain"
 
 echo "judge checks passed"
