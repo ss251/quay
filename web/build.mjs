@@ -12,13 +12,22 @@ import { COMMANDS, helpText } from "../cli/src/text.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const dist = join(root, "dist");
-const SITE = "https://quay-esc0v902.testnet.page/";
+// Hosts that serve each account come from hosts.json. Static pages use relative
+// links for themselves, so they work on any host; SITE is only for og: tags,
+// which must be absolute.
+const hosts = JSON.parse(readFileSync(join(root, "hosts.json"), "utf8"));
+const SITE = `${hosts.mirrors["quay-esc0v902.testnet"]}/`;
+const SAMPLE = hosts.mirrors["quay-65nqd3rn.testnet"];
+const SAMPLE_PUBLIC = hosts.public.replace("{name}", "quay-65nqd3rn");
 
 // {{i:name}} or {{i:name sm}} expands to a reference into the sprite that
 // `inlineSprite` puts in the page, so icons never need a second request.
 function expand(html, prefix) {
   return html
     .replaceAll("{{P}}", prefix)
+    .replaceAll("{{SAMPLE_HOST}}", SAMPLE.replace("https://", ""))
+    .replaceAll("{{SAMPLE_PUBLIC}}", SAMPLE_PUBLIC)
+    .replaceAll("{{SAMPLE}}", SAMPLE)
     .replace(/\{\{i:([a-z-]+)( sm)?\}\}/g, (_, name, sm) => {
       return `<svg class="icon${sm ? " sm" : ""}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
     })
@@ -93,7 +102,7 @@ function siteNav(prefix, current) {
   return `<a class="skip" href="#content">Skip to content</a>
 <header class="site-nav"><div class="container">
 <a class="brand" href="${prefix}index.html">${mark()}Quay</a>
-<nav aria-label="Site">${link("docs/index.html", "Docs")}${link("dashboard/index.html", "Dashboard", "hide-s")}<a class="hide-s" href="https://quay-65nqd3rn.testnet.page/">Sample</a></nav>
+<nav aria-label="Site">${link("docs/index.html", "Docs")}${link("architecture/index.html", "Architecture", "hide-s")}${link("dashboard/index.html", "Dashboard", "hide-s")}<a class="hide-s" href="{{SAMPLE}}/">Sample</a></nav>
 <div class="nav-end"><span class="net hide-s"><span class="dot dot-live"></span>Testnet</span>
 <button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme">{{i:moon}}<svg class="icon i-sun" aria-hidden="true"><use href="#i-sun"/></svg></button>
 <a class="btn btn-sm btn-primary" href="${prefix}dashboard/index.html">Open dashboard</a></div>
@@ -107,8 +116,8 @@ function siteFoot(prefix) {
   return `<footer class="site-foot"><div class="container">
 <div class="cols">
 <div><a class="brand" href="${prefix}index.html">${mark()}Quay</a><p class="muted" style="margin-top:14px;max-width:34ch">Sealed releases and a production pointer for static sites on NEAR testnet.</p></div>
-<div><h2>Product</h2><ul><li><a href="${prefix}docs/index.html">Docs</a></li><li><a href="${prefix}dashboard/index.html">Dashboard</a></li><li><a href="${prefix}docs/index.html#cli">Commands</a></li></ul></div>
-<div><h2>Sample</h2><ul><li><a href="https://quay-65nqd3rn.testnet.page/">Production</a></li><li><a href="https://quay-65nqd3rn.testnet.page/r/1/">Release 1</a></li><li><a href="${prefix}dashboard/index.html?account=quay-65nqd3rn.testnet">In the dashboard</a></li></ul></div>
+<div><h2>Product</h2><ul><li><a href="${prefix}docs/index.html">Docs</a></li><li><a href="${prefix}docs/layers/index.html">Layers</a></li><li><a href="${prefix}architecture/index.html">Architecture</a></li><li><a href="${prefix}dashboard/index.html">Dashboard</a></li><li><a href="${prefix}docs/index.html#cli">Commands</a></li></ul></div>
+<div><h2>Sample</h2><ul><li><a href="{{SAMPLE}}/">Production</a></li><li><a href="{{SAMPLE}}/r/1/">Release 1</a></li><li><a href="{{SAMPLE_PUBLIC}}/">On testnet.page</a></li><li><a href="${prefix}dashboard/index.html?account=quay-65nqd3rn.testnet">In the dashboard</a></li></ul></div>
 <div><h2>On chain</h2><ul><li><a href="https://explorer.testnet.near.org/accounts/quay-esc0v902.testnet">This site's account</a></li><li><a href="https://explorer.testnet.near.org/accounts/quay-65nqd3rn.testnet">Sample account</a></li><li><a href="${prefix}docs/index.html#how">How it works</a></li></ul></div>
 </div>
 <div class="small"><span>Testnet only. No mainnet path and no real funds.</span><span class="mono">quay-esc0v902.testnet</span></div>
@@ -168,6 +177,16 @@ const cli = escapeHtml(
     "\n\n",
   ),
 );
+// Command help for one layer, cut before the global options. A command that is
+// not in this build of the CLI says so, so a quick start never shows help that
+// does not exist.
+function layerHelp(name) {
+  if (!COMMANDS.some((command) => command.name === name))
+    return `<p class="muted"><code>quay ${name}</code> is not in this build of the CLI yet.</p>`;
+  const text = helpText(name).split("\n\nGlobal options")[0];
+  const more = helpText(name).split("\n\nGlobal options")[1]?.split("\n\n")[1];
+  return `<div class="term"><div class="term-bar"><span>quay ${name} --help</span></div><pre tabindex="0" aria-label="quay ${name} help">${escapeHtml(more ? `${text}\n\n${more}` : text)}</pre></div>`;
+}
 const read = (name) => readFileSync(join(root, "pages", name), "utf8");
 
 const pages = {
@@ -184,6 +203,22 @@ const pages = {
       "Install Quay, deploy a folder, and read the command reference generated from quay --help.",
     href: "docs/index.html",
     body: read("docs.html").replace("{{CLI}}", cli),
+  }),
+  "docs/layers/index.html": page({
+    title: "Layers · Quay",
+    description:
+      "Data, sign-in, relay, functions, routes, large files, payments and cron on one NEAR testnet account: commands and what is proven.",
+    href: "docs/layers/index.html",
+    body: read("layers.html").replace(/\{\{HELP:([a-z]+)\}\}/g, (_, name) =>
+      layerHelp(name),
+    ),
+  }),
+  "architecture/index.html": page({
+    title: "Architecture · Quay",
+    description:
+      "What is on chain, what depends on one operator, and how to replace or self-host each piece.",
+    href: "architecture/index.html",
+    body: read("architecture.html"),
   }),
   "dashboard/index.html": page({
     title: "Dashboard · Quay",
@@ -228,8 +263,19 @@ writeFileSync(
       ).code
     : minifyCss(cssSource),
 );
+// hosts.json is inlined into the dashboard so it needs no extra request.
+const HOSTS_LINE = "const HOSTS = {};";
 for (const name of ["quay.js", "dashboard.js"]) {
-  const js = readFileSync(join(root, "assets", name), "utf8");
+  let js = readFileSync(join(root, "assets", name), "utf8");
+  if (name === "dashboard.js") {
+    if (!js.includes(HOSTS_LINE))
+      throw new Error("dashboard.js lost its HOSTS line");
+    const { mirrors, public: pub, local } = hosts;
+    js = js.replace(
+      HOSTS_LINE,
+      `const HOSTS = ${JSON.stringify({ mirrors, public: pub, local })};`,
+    );
+  }
   writeFileSync(
     join(dist, "assets", name),
     esbuild
@@ -244,6 +290,22 @@ for (const name of ["quay.js", "dashboard.js"]) {
       : tidyJs(js),
   );
 }
+// The layer status module the dashboard loads on demand (also @quay/client/status).
+if (esbuild)
+  await esbuild.build({
+    entryPoints: [join(root, "..", "client", "src", "status.mjs")],
+    outfile: join(dist, "assets", "status.js"),
+    bundle: true,
+    minify: true,
+    format: "esm",
+    target: "es2022",
+    legalComments: "none",
+  });
+else
+  cpSync(
+    join(root, "..", "client", "src", "status.mjs"),
+    join(dist, "assets", "status.js"),
+  );
 for (const [href, html] of Object.entries(pages)) {
   const target = join(dist, href);
   mkdirSync(dirname(target), { recursive: true });

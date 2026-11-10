@@ -5,10 +5,12 @@
     <a href="#ci">CI</a>
     <a href="#how">How it works</a>
     <a href="#limits">Limits</a>
+    <a href="{{P}}docs/layers/index.html">Layers</a>
+    <a href="{{P}}architecture/index.html">Architecture</a>
   </nav>
   <article class="prose">
     <h1>Docs</h1>
-    <p class="lead">Install Quay, publish a folder, and point production at a release.</p>
+    <p class="lead">Install Quay, publish a folder, and point production at a release. Data, sign-in, functions and the rest are on the <a href="{{P}}docs/layers/index.html">layers page</a>.</p>
 
     <h2 id="quickstart">Quickstart</h2>
     <p>You need Node 20 or newer and a checkout of this repository. The package is not on the npm registry. The account is on testnet, and the faucet creates it. Keys stay in <code>~/.near-credentials/testnet/</code> and are not written into the project.</p>
@@ -56,7 +58,7 @@ quay open</pre>
     </tbody></table></div>
     <p>This is testnet. The faucet is rate-limited and does not spend mainnet NEAR. There is no mainnet deploy path in the CLI.</p>
     <p>The public gateway issues a TLS certificate the first time a new host is requested. That often takes under a minute, and <code>curl</code> can fail the handshake before it succeeds. <code>quay init</code> and the first <code>quay deploy</code> poll the gateway and print "waiting for the gateway certificate, usually under 2 minutes". If that wait times out, the account and the release are already on chain. Open the URL again in a minute.</p>
-    <p>The public site depends on the <code>testnet.page</code> gateway. If the gateway is down, the contract still holds the bytes, and the CLI can still read them by RPC.</p>
+    <p>A public site is only as available as the gateway that serves it. On 2026-11-10 <code>testnet.page</code> answered every account with HTTP 400 for several hours. The contract still held the bytes. Run <code>quay gateway --account &lt;account&gt;</code> and open <code>http://127.0.0.1:8787/</code>, or deploy <code>gateway/worker</code> to your own Cloudflare account. The <a href="{{P}}architecture/index.html#trust">trust table</a> lists every service a site depends on.</p>
     <p>A full-access key can replace the contract wasm. A release is not owner-proof against that key. The publish-only key cannot.</p>
     <p>Dotfiles, <code>node_modules</code>, <code>target</code>, and <code>.git</code> are skipped. A directory release needs <code>index.html</code>. About 1 NEAR is locked per 100 KB until you delete the release, so keep the site small. The contract code lock is separate and comes back only if you delete the account.</p>
   </article>

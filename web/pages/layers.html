@@ -1,0 +1,112 @@
+<div class="container docs">
+  <nav class="docs-nav" aria-label="Layers">
+    <a href="{{P}}docs/index.html">Docs</a>
+    <a href="#status">Status</a>
+    <a href="#site">Site</a>
+    <a href="#gateway">Gateway</a>
+    <a href="#data">Data</a>
+    <a href="#members">Members and sign-in</a>
+    <a href="#relay">Relay</a>
+    <a href="#functions">Functions</a>
+    <a href="#routes">Routes</a>
+    <a href="#files">Large files</a>
+    <a href="#payments">Payments</a>
+    <a href="#cron">Cron</a>
+    <a href="#up">quay up</a>
+  </nav>
+  <article class="prose">
+    <h1>Layers</h1>
+    <p class="lead">A site on one NEAR testnet account can hold its pages, its data, its sign-in and its scheduled work. Each layer below lists the commands and what has been shown to work.</p>
+
+    <h2 id="status">Status on 2026-11-11</h2>
+    <p>The two live accounts, <code>quay-esc0v902.testnet</code> and <code>quay-65nqd3rn.testnet</code>, still run contract 2.0.0: releases and the production pointer. The layers from Data to <code>quay up</code> are written and tested in the repository, and are not deployed to a testnet account yet. Each section says so. The command help below is generated from the CLI in this build, so a command that is missing from the build says that it is missing.</p>
+    <div class="callout">{{i:info}}<p>Collections, docs, rules, products, members, function code and cron settings are live state. Only files, routes and templates are sealed with a release, so <code>quay rollback</code> restores those three and never your data.</p></div>
+
+    <h2 id="site">Site</h2>
+    <p><span class="chip chip-live"><span class="dot dot-live"></span>Live</span> A folder becomes a sealed release. Production is a pointer.</p>
+    <div class="term"><div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="q-site" aria-label="Copy the commands">{{i:copy sm}}</button></div>
+<pre id="q-site">quay init
+quay deploy ./site -m "first look"
+quay promote 1
+quay rollback</pre></div>
+    <p>Read the <a href="{{P}}docs/index.html#quickstart">quickstart</a> and the <a href="{{P}}docs/index.html#cli">command reference</a>. Proof: the transactions in the repository README.</p>
+
+    <h2 id="gateway">Gateway</h2>
+    <p><span class="chip chip-live"><span class="dot dot-live"></span>Live</span> The gateway turns a browser request into a <code>web4_get</code> view call. This site is served by one running on Cloudflare Workers. The same code runs on your machine, in a container, or under Deno and Bun. On 2026-11-10 the public <code>testnet.page</code> gateway answered every account with HTTP 400 for several hours, which is why this exists.</p>
+    <div class="term"><div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="q-gateway" aria-label="Copy the commands">{{i:copy sm}}</button></div>
+<pre id="q-gateway">quay gateway --account &lt;account&gt;
+# serving &lt;account&gt; at http://127.0.0.1:8787/
+cd gateway/worker &amp;&amp; npx wrangler deploy</pre></div>
+    {{HELP:gateway}}
+
+    <h2 id="data">Data</h2>
+    <p><span class="chip chip-warn">Pending deploy</span> A collection holds JSON docs. Its rules say who may add, who pays for storage, and whether the owner can hide a doc. With <code>--payer site</code> a visitor needs no NEAR.</p>
+    <div class="term"><div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="q-data" aria-label="Copy the commands">{{i:copy sm}}</button></div>
+<pre id="q-data">quay db fund 2
+quay db collection set posts --write anyone --payer site --moderated
+quay db add posts '{"title":"Tide table is up"}'
+quay db list posts --limit 10</pre></div>
+    {{HELP:db}}
+
+    <h2 id="members">Members and sign-in</h2>
+    <p><span class="chip chip-warn">Pending deploy</span> A member is an account named <code>&lt;name&gt;.&lt;site&gt;</code>, created with no NEAR. Sign-in is a NEP-413 signature checked off chain, by a wallet or by a member key kept in the browser. A zero-balance sub-account was created on testnet in <a href="https://explorer.testnet.near.org/transactions/CEshJvn3mucm4VhfuGhBkBdJD99Y6JWV2XHTNkyQucBi">CEshJvn3…</a>. That was a spike, not this contract.</p>
+    <div class="term"><div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="q-members" aria-label="Copy the commands">{{i:copy sm}}</button></div>
+<pre id="q-members">quay members list
+quay members close
+quay members open</pre></div>
+    {{HELP:members}}
+
+    <h2 id="relay">Relay</h2>
+    <p><span class="chip chip-warn">Pending deploy</span> A relayer signs nothing for the user. It sends a delegate action the member signed, and pays the gas. Its policy refuses any deposit, so only site-paid writes work. The relayer is a separate account and its balance is the spend limit. Spikes on testnet: a relayed delegate <a href="https://explorer.testnet.near.org/transactions/HpNGtV3WQLtCNsmMU8gbidDhB1d7gB9wCpvPMs35cxkY">HpNGtV3W…</a>, a function-call session key delegate <a href="https://explorer.testnet.near.org/transactions/BkN8S7Zx3xsvA9SppF9ghCLXnGdb86jYMtBuiudxUCie">BkN8S7Zx…</a>, and a delegate whose deposit the relayer had to pay <a href="https://explorer.testnet.near.org/transactions/4zVRVvNhL25VbXCkbAbjp6vvxNJxxtZVc5FzSD1Gvk8v">4zVRVvNh…</a>.</p>
+    <div class="term"><div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="q-relay" aria-label="Copy the commands">{{i:copy sm}}</button></div>
+<pre id="q-relay">quay relay create --near 0.5
+quay relay serve --port 8788
+quay relay status</pre></div>
+    {{HELP:relay}}
+
+    <h2 id="functions">Functions</h2>
+    <p><span class="chip chip-warn">Pending deploy</span> A function is Rust compiled to WASI, run on OutLayer's TEE workers, and called from the contract. It can hold a secret and make outbound HTTPS calls. There is no JavaScript runtime. On testnet a contract called an OutLayer function with a secret and outbound HTTPS in <a href="https://explorer.testnet.near.org/transactions/A2JT46x6jHYfhQ55weJFcHwNMwn2eumy75LdQX4yRnpg">A2JT46x6…</a>. That was a spike.</p>
+    {{HELP:functions}}
+    {{HELP:secrets}}
+
+    <h2 id="routes">Routes</h2>
+    <p><span class="chip chip-warn">Pending deploy</span> A release can declare routes: a pattern, a collection, and a template that is a file in the same release. The contract fills the template in <code>web4_get</code>, so a page is complete HTML without JavaScript. Routes live in <code>quay.json</code> and are applied by <code>quay up</code>. Templates escape every value. There is no raw output.</p>
+    <div class="term"><div class="term-bar"><span>quay.json</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="q-routes" aria-label="Copy the routes">{{i:copy sm}}</button></div>
+<pre id="q-routes">"routes": [
+  { "pattern": "/", "kind": "list", "collection": "posts", "template": "templates/home.html", "limit": 10, "order": "desc" },
+  { "pattern": "/posts/:id", "kind": "doc", "collection": "posts", "template": "templates/post.html" },
+  { "pattern": "/api/posts", "kind": "json", "collection": "posts" }
+]</pre></div>
+    <p><code>quay up --dry-run</code> checks every route and template before anything is sent.</p>
+
+    <h2 id="files">Large files</h2>
+    <p><span class="chip chip-warn">Blocked on testnet</span> A file over <code>files.external_over</code> bytes is stored off chain, and the release holds its CID and sha256. NEARFS on testnet accepted an upload in <a href="https://explorer.testnet.near.org/transactions/9xj3bLhaN7MFp7xwwteAhduq5GsXfqYT74LiXoB2fbV8">9xj3bLha…</a> and did not serve it: it answered 404 for hours on 2026-11-10. Pinata and Filebase stores exist and take an API key from the environment. They were not run against the live services.</p>
+    <div class="term"><div class="term-bar"><span>quay.json</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="q-files" aria-label="Copy the setting">{{i:copy sm}}</button></div>
+<pre id="q-files">"files": { "external_over": 65536, "store": "nearfs" }</pre></div>
+    <p>Pass <code>--store nearfs|pinata|filebase</code> to <code>quay up</code> to override it.</p>
+
+    <h2 id="payments">Payments</h2>
+    <p><span class="chip chip-warn">Pending deploy</span> A product has a price in NEAR or in one NEP-141 token, and a grant: pin a doc for a time, or record a receipt. Receipts are a system collection that routes can read.</p>
+    <div class="term"><div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="q-pay" aria-label="Copy the commands">{{i:copy sm}}</button></div>
+<pre id="q-pay">quay products set pin --name "Pin for a day" --price 0.1 --grant pin --pin-seconds 86400
+quay products list
+quay receipts</pre></div>
+    {{HELP:products}}
+
+    <h2 id="cron">Cron</h2>
+    <p><span class="chip chip-warn">Pending deploy</span> OutLayer has no scheduler, so the contract keeps a chain of yielded promises alive. Each hop runs about every 2 minutes and costs about 2.25 Tgas, so 1 PGas lasts about 14.5 hours. After that the chain stops until a transaction arms it again. Spikes on testnet: <a href="https://explorer.testnet.near.org/transactions/EaBzBzUgyV9g55njrZUFqFPLXizES3jY6JtD2tn94dLz">EaBzBzUg…</a> and <a href="https://explorer.testnet.near.org/transactions/7Ff67z7N1eY6ZtnHg1wJmMrkFQbo1S8zw5XxAejDQCa1">7Ff67z7N…</a>.</p>
+    <div class="term"><div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="q-cron" aria-label="Copy the commands">{{i:copy sm}}</button></div>
+<pre id="q-cron">quay cron add "every 60m" digest
+quay cron arm
+quay cron status</pre></div>
+    {{HELP:cron}}
+
+    <h2 id="up"><code>quay up</code></h2>
+    <p><span class="chip chip-warn">Pending deploy</span> One command applies <code>quay.json</code>: functions, collection rules, products, the members setting and cron jobs, then it deploys the site folder with its routes and promotes it. It never arms cron. <code>--dry-run</code> prints the plan and changes nothing.</p>
+    <div class="term"><div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="q-up" aria-label="Copy the commands">{{i:copy sm}}</button></div>
+<pre id="q-up">quay up --dry-run
+quay up -m "harbour board"</pre></div>
+    {{HELP:up}}
+    <p>For the trust assumptions of each layer, read the <a href="{{P}}architecture/index.html">architecture page</a>.</p>
+  </article>
+</div>

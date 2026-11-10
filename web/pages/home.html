@@ -42,7 +42,7 @@
 <pre><span class="p">$</span> quay deploy ./dist -m "harbour office, new look"
 <span class="d">8 files, 8.1 KB new, 781 B reused</span>
 <span class="bar"></span><span class="d">7/7 uploaded</span>
-<span class="g">5</span>  <span class="u">https://quay-65nqd3rn.testnet.page/r/5/</span>
+<span class="g">5</span>  <span class="u">{{SAMPLE}}/r/5/</span>
 <span class="p">$</span> quay promote 5
 <span class="g">5 is production</span></pre>
       </div>
@@ -138,6 +138,21 @@
   </div>
 </section>
 
+<section class="section" id="host">
+  <div class="container split-sec top">
+    <div>
+      <span class="kicker">Hosting</span>
+      <h2>Serve it from anywhere</h2>
+      <p class="lede">A Quay site is bytes in a contract. Anything that can call <code>web4_get</code> can serve it. <code>testnet.page</code> was down for hours on 2026-11-10, so this page is served by the same gateway code on Cloudflare Workers.</p>
+      <p class="lede"><code>quay gateway --account &lt;account&gt;</code> serves a site from your machine over RPC. The <a href="{{P}}architecture/index.html#trust">trust table</a> lists what each piece depends on.</p>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Coming next</span><span class="chip chip-warn">Not deployed</span></div>
+      <p class="muted" style="padding:16px">Data, sign-in without a wallet, functions, routes, large files, payments and scheduled jobs are written and tested in the repository. They are not on a testnet account yet. <a href="{{P}}docs/layers/index.html">What each layer does, and what is proven</a>.</p>
+    </div>
+  </div>
+</section>
+
 <section class="section" id="sample">
   <div class="container">
     <div class="section-head">
@@ -147,17 +162,17 @@
     </div>
     <div class="sample-grid">
       <div class="window">
-        <div class="window-bar"><div class="lights"><i></i><i></i><i></i></div><div class="url"><span>{{i:lock sm}}quay-65nqd3rn.testnet.page</span></div><div class="spacer"></div></div>
-        <div class="live-frame"><iframe src="https://quay-65nqd3rn.testnet.page/" title="The harbour sample, live" sandbox="allow-scripts allow-same-origin" tabindex="-1" aria-hidden="true"></iframe></div>
+        <div class="window-bar"><div class="lights"><i></i><i></i><i></i></div><div class="url"><span>{{i:lock sm}}{{SAMPLE_HOST}}</span></div><div class="spacer"></div></div>
+        <div class="live-frame"><iframe src="{{SAMPLE}}/" title="The harbour sample, live" sandbox="allow-scripts allow-same-origin" tabindex="-1" aria-hidden="true"></iframe></div>
       </div>
       <div class="card">
         <div class="card-head"><span class="card-title">quay-65nqd3rn.testnet</span><a class="btn btn-sm" href="{{P}}dashboard/index.html?account=quay-65nqd3rn.testnet">Open in dashboard</a></div>
         <ol class="rows">
-          <li class="rel-row is-live" style="grid-template-columns:40px 1fr auto"><span class="id">5</span><div><div class="l1">harbour office, new look <span class="chip chip-live">Production</span></div><div class="l2 mono">/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="https://quay-65nqd3rn.testnet.page/" aria-label="Open production">{{i:ext}}</a></li>
-          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">4</span><div><div class="l1">harbour office <span class="chip chip-prev">Previous</span></div><div class="l2 mono">/r/4/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="https://quay-65nqd3rn.testnet.page/r/4/" aria-label="Open release 4">{{i:ext}}</a></li>
-          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">3</span><div><div class="l1">latest preview</div><div class="l2 mono">/r/3/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="https://quay-65nqd3rn.testnet.page/r/3/" aria-label="Open release 3">{{i:ext}}</a></li>
-          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">2</span><div><div class="l1">tide log linked</div><div class="l2 mono">/r/2/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="https://quay-65nqd3rn.testnet.page/r/2/" aria-label="Open release 2">{{i:ext}}</a></li>
-          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">1</span><div><div class="l1">harbour opens</div><div class="l2 mono">/r/1/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="https://quay-65nqd3rn.testnet.page/r/1/" aria-label="Open release 1">{{i:ext}}</a></li>
+          <li class="rel-row is-live" style="grid-template-columns:40px 1fr auto"><span class="id">5</span><div><div class="l1">harbour office, new look <span class="chip chip-live">Production</span></div><div class="l2 mono">/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="{{SAMPLE}}/" aria-label="Open production">{{i:ext}}</a></li>
+          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">4</span><div><div class="l1">harbour office <span class="chip chip-prev">Previous</span></div><div class="l2 mono">/r/4/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="{{SAMPLE}}/r/4/" aria-label="Open release 4">{{i:ext}}</a></li>
+          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">3</span><div><div class="l1">latest preview</div><div class="l2 mono">/r/3/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="{{SAMPLE}}/r/3/" aria-label="Open release 3">{{i:ext}}</a></li>
+          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">2</span><div><div class="l1">tide log linked</div><div class="l2 mono">/r/2/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="{{SAMPLE}}/r/2/" aria-label="Open release 2">{{i:ext}}</a></li>
+          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">1</span><div><div class="l1">harbour opens</div><div class="l2 mono">/r/1/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="{{SAMPLE}}/r/1/" aria-label="Open release 1">{{i:ext}}</a></li>
         </ol>
       </div>
     </div>
@@ -173,7 +188,7 @@
         <div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="start-cmds" aria-label="Copy the commands">{{i:copy sm}}</button></div>
 <pre id="start-cmds">npm install -g ./cli
 quay init
-quay deploy ./dist -m "first release"
+quay deploy ./dist -m "harbour office"
 quay promote 1</pre>
       </div>
     </div>

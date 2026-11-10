@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — full-stack
+
+- Contract 3.0.0 (written, tested, not deployed): a document database with collection rules and a storage pool, members with no NEAR, a function registry for OutLayer, routes with templates sealed in a release, large files by CID, products and receipts, and yield-chain cron. v2 methods keep their JSON. The spec is `docs/fullstack-interface.md`.
+- CLI: `quay db`, `members`, `products`, `receipts`, `relay`, `cron`, `gateway` and `quay up`, which applies `quay.json`. `quay functions` and `quay secrets` are not in the build yet.
+- `@quay/gateway` serves a site over RPC on Node, Deno, Bun, a container or Cloudflare Workers, with an RPC fallback list. `@quay/client` has the db API, NEP-413 sign-in, member sessions and the relayer host. `examples/board` uses every layer.
+- Docs site: a layers page with command help generated from the CLI, an architecture page with a trust table, and relative links, so the pages work on any host. The home page is served from Cloudflare Workers (`quay.ss251.workers.dev`) because `testnet.page` answered HTTP 400 for several hours on 2026-11-10.
+- `scripts/judge.sh` tries the Workers host, then `testnet.page`, then a local gateway, and prints which one answered. It checks the gateway and the contract versions. Checks for each full-stack layer are listed as TODO until that layer is deployed.
+- README: a Full-stack layers section that marks each layer live, pending deploy or blocked, with the transactions from the 2026-11-10 spikes.
+
 ## Unreleased
 
 - The site, docs, dashboard, 404 page, and the harbour sample have a new design: Geist and Geist Mono subset to 20 KB, light and dark from one token set, one green for what is live. The home page shows the dashboard and a deploy session built from the sample's real data.
