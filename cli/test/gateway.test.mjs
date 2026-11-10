@@ -28,7 +28,7 @@ function streams() {
 }
 
 // Answers web4_get with HTML for any account, like a working RPC.
-function rpcFetch(url, init) {
+function rpcFetch(_url, init) {
   if (init?.method !== "POST") return new Response("", { status: 404 });
   const value = {
     status: 200,
