@@ -1,0 +1,36 @@
+:root {
+  color-scheme: light dark;
+  --paper: #f3efe6;
+  --ink: #1c1915;
+  --water: #0f3c44;
+  --line: #d4ccbe;
+  --serif: "Iowan Old Style", Palatino, Georgia, serif;
+  --sans: "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #14181b;
+    --ink: #ece6da;
+    --water: #b7dfde;
+    --line: #30383c;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.5;
+}
+
+main { width: min(38rem, calc(100% - 2rem)); margin: 3rem auto; }
+
+h1 { font-family: var(--serif); font-size: 2.4rem; line-height: 1.15; font-weight: 560; }
+
+a { color: var(--water); }
+
+.eyebrow { letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.78rem; }
+
+img { display: block; border: 1px solid var(--line); }

@@ -1,0 +1,28 @@
+name: Quay preview
+description: Deploy a folder as a Quay preview with the publish-only key.
+
+inputs:
+  directory:
+    description: Folder to upload, relative to the workspace root.
+    required: true
+  message:
+    description: Release message.
+    required: false
+    default: ci preview
+
+runs:
+  using: composite
+  steps:
+    - name: Install Quay from this checkout
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: npm install -g ./cli
+    - name: Deploy the preview
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        if [ -z "$QUAY_ACCOUNT" ] || [ -z "$QUAY_CI_KEY" ]; then
+          echo "Set QUAY_ACCOUNT and QUAY_CI_KEY on the workflow step. Do not pass the key as an action input."
+          exit 1
+        fi
+        quay deploy "${{ inputs.directory }}" --message "${{ inputs.message }}" --ci --yes --json

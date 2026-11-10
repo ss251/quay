@@ -26,7 +26,7 @@ release=$(mktemp)
 curl -fsS "https://quay-bb.testnet.page/r/1" -o "$release"
 grep -F "release 1" "$release" >/dev/null
 got=$(shasum -a 256 "$release" | awk '{print $1}')
-want=$(tr -d '[:space:]' < releases/1.sha256)
+want=$(tr -d '[:space:]' < examples/original-demo/releases/1.sha256)
 rm -f "$release"
 test "$got" = "$want"
 echo "   sha256 $got"

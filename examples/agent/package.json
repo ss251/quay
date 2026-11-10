@@ -1,0 +1,8 @@
+{
+  "name": "quay-agent-example",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "quay-near": "file:../../cli"
+  }
+}
