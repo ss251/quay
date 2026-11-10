@@ -73,3 +73,50 @@ site 4.181 (about 0.23 liquid), relayer 0.376, buyer 0.157, pool 0.514 free and 
 | production 4 | https://explorer.testnet.near.org/transactions/9kjjYt6NYbrs6xPnsxQZbmx4BtAjzPgbMNwYgqjeR3pv |
 | mistake: `quay functions rm relay` (meant to drop a stray contract entry) also deleted the relay's OutLayer secrets and project | https://explorer.testnet.near.org/transactions/4RRb9RbC9wN6krLyLaDRa2P5rDvtSCCRZkSD8Y6EGzXk / https://explorer.testnet.near.org/transactions/3d3XPTPrxYqSZuGRg9aSq8NjDcQW9U5Nf2L16QyDKoZL |
 | fixed minutes later: `quay relay deploy` re-created the project and re-stored RELAY_KEY; health answered with the existing payment key | https://explorer.testnet.near.org/transactions/9rnqpKHJYq2JB9Yc9pDNFJH1xRUWbZKX8gcLwwuWwVwT / https://explorer.testnet.near.org/transactions/AJe1CeRKu6s1ZSQgw7iaEhm3RKh7xhwyJbCrgZUorVYh |
+
+## Browser check (2026-11-11)
+
+A new isolated headless Chrome (`chrome-devtools-axi`, its own profile, closed afterwards) drove the live page https://harbour-board.testnet.page/new/. Testnet only, no wallet, no NEAR on the member side.
+
+### Member flow: passed
+
+| Step | Result |
+| --- | --- |
+| Join as `e2e-4eb351a1` (page -> OutLayer relay `POST /call/harbour-board.testnet/relay`) | Account `e2e-4eb351a1.harbour-board.testnet` created, balance 0. The relay call took 9.1 s and the page said "Signed in ... with a member key" about 10 s after the click. Tx https://explorer.testnet.near.org/transactions/BVSDQt281ZxdMrTTRbtwuuvB4onhos75wCFhq7n8RK7H (`relay.harbour-board.testnet` -> `join`, event `member_joined`). |
+| Post "[TEST] Live page check, will be removed" (signed delegate through the relay) | Relay call 6.0 s. Tx https://explorer.testnet.near.org/transactions/99NtZvYBfG1B3FFT3faaxmLjxUtUvFxD33smjYAYTKfX (`Delegate` on the member account, events `doc_added` for `posts/v12j7o3omj` and `fn_called` `moderate`). |
+| Moderation trigger | The page showed "Published and checked. Open your notice" 17.2 s after submit (it polls every 2 s). `fn` came back `auth: "ok"`, `hide: false`, preview title "Example Domain" for the https link. |
+| `/posts/v12j7o3omj` (server-rendered) | Title, body, member, topic and the link preview rendered. `/api/posts/v12j7o3omj` returned the same doc. |
+| Removal as site owner, `quay db rm posts v12j7o3omj --yes` | https://explorer.testnet.near.org/transactions/EQySECJ2QJAVgvNSGaZwH3LYyqHeMDhY7MmQ1BzVYFJf ; the post URL then answered 404. The member account stays. |
+
+### Wallet NEP-413 sign-in with near-connect: not completed (two attempts, both blocked outside the board)
+
+The "Sign in with a wallet" button opened the real near-connect picker on testnet (Meteor Wallet, Intear Wallet, Ledger, Nightly Wallet, NEAR CLI, NEAR Connector; `docs/screenshots/board-new-wallet-picker-desktop.png`). A throwaway zero-balance account `walletchk-he8kli.harbour-board.testnet` was made from the site account for this (tx https://explorer.testnet.near.org/transactions/9mDqWA6RByk556f3ZrtCRUxbX3WvxDL4tUf3Kxq8YNx7 ). It is left in place, because a zero-balance account cannot pay to delete itself. Its key is mode 600 in `~/.near-credentials/testnet/` and was only typed into the wallet's import box.
+
+1. Intear Wallet: "Web" opened the wallet popup (`wallet.intear.tech/connect`, `board-wallet-intear-connect.png`). "I already have a NEAR wallet" -> "Private Key" with the throwaway key -> "No accounts found for this private key" and Import stayed disabled. The wallet looks keys up at `api-testnet.intea.rs/public_key/<pk>` and `test.api.fastnear.com`. FastNEAR returned the account at once. `api-testnet.intea.rs` returned `account_ids: []` for this key, still empty after about 10 minutes, and also for older testnet accounts here (`quay-i7qkbbp3.testnet` and others), which means Intear's testnet key index is currently empty and is not specific to a new account. The earlier session's Intear sign-in (README "Dashboard signing") therefore does not repeat today. The popup's "Create New Account" offers only a `.near` (mainnet) name, so it was not used.
+2. Meteor Wallet: "Meteor Web" opened `wallet.meteorwallet.app/connect/testnet/login` and Cloudflare answered "Sorry, you have been blocked" (`board-wallet-meteor-blocked.png`, Ray ID a587eb5c9c3dba32) to the headless browser. Not worked around.
+
+So no NEP-413 proof was produced and `verifySignIn` was not run on a wallet proof. The test wallet stub was not used for this claim. The wallet half stays open until an Intear testnet index or a headed wallet is available.
+
+### Bug found (not patched, live page unchanged)
+
+`site/assets/board.js`, post page, the test USDC pin button handler:
+
+```js
+tokenButton?.addEventListener("click", () =>
+  pin(event.target, { token: true }, "test USDC (usdc.fakes.testnet, not Circle USDC)"),
+);
+```
+
+`pin(options, label)` takes two arguments, and this passes three, the first being the global `event.target`. `options` becomes a DOM node, so `{ token: true }` never reaches `quay.pay` and `label` becomes the object ("Approve the [object Object] payment"). Found by reading the code, not by a live click (that needs a funded wallet). Fix:
+
+```js
+tokenButton?.addEventListener("click", () =>
+  pin({ token: true }, "test USDC (usdc.fakes.testnet, not Circle USDC)"),
+);
+```
+
+Also seen: near-connect stores `selected-wallet` in localStorage, so after one wallet attempt the button reopens that wallet and skips the picker until site data is cleared.
+
+### Screenshots (real data, `docs/screenshots/`)
+
+`board-home-desktop.png`, `board-home-phone.png`, `board-post-desktop.png`, `board-post-phone.png` (the test post with its preview), `board-new-1-join-desktop.png`, `board-new-2-done-desktop.png`, `board-new-2-done-phone.png`, `board-new-wallet-picker-desktop.png`, `board-wallet-intear-connect.png`, `board-wallet-meteor-blocked.png`. Phone shots use a 360 px emulated viewport (headless Chrome's window will not go below 500 px). No horizontal overflow at 360 px on `/`, `/posts/<id>` or `/new/`.
