@@ -7,9 +7,6 @@ const RPCS = [
   "https://testnet-rpc.intea.rs",
   "https://near-testnet.drpc.org",
 ];
-// Any testnet.page host reflects the shared gateway. This file is on the
-// product site, so its answer is a fair probe from any origin.
-const GATEWAY_PROBE = "https://quay-esc0v902.testnet.page/assets/mark.svg";
 const GAS = "30000000000000";
 const EXPLORER = "https://explorer.testnet.near.org/transactions/";
 // The built page carries the icon sprite inline.
@@ -212,68 +209,74 @@ async function listAll(account, method, field) {
 }
 
 // ---------- public gateway health ----------
-// The preview frame and production links go through testnet.page. The probe
-// is one small request: same origin when this page is on testnet.page, so the
-// status and body are readable; otherwise an image that loads or fails.
+// One timed request to the viewed account's public host. A CORS read shows the
+// status (and the deprecated-RPC body); without CORS, a no-cors request only
+// tells reachable from unreachable.
 let gateway = null;
 let probing = null;
-function probeGateway() {
+function probeGateway(account) {
+  const origin = publicOrigin(account);
   const started = performance.now();
   const ms = () => Math.round(performance.now() - started);
-  if (location.hostname.endsWith(".testnet.page")) {
-    const url = new URL("mark.svg", import.meta.url);
-    url.searchParams.set("probe", Date.now());
-    return fetch(url, { cache: "no-store", signal: AbortSignal.timeout(5000) })
-      .then(async (res) => {
-        if (res.ok) return { ok: true, ms: ms() };
-        const text = await res.text().catch(() => "");
-        return {
-          ok: false,
-          ms: ms(),
-          reason: /deprecated/i.test(text)
-            ? `HTTP ${res.status}: it still calls the deprecated rpc.testnet.near.org`
-            : `HTTP ${res.status}`,
-        };
-      })
-      .catch(() => ({ ok: false, ms: ms(), reason: "no answer in 5 s" }));
-  }
-  return new Promise((resolve) => {
-    const img = new Image();
-    const done = (ok, reason) => {
-      clearTimeout(timer);
-      img.onload = img.onerror = null;
-      resolve({ ok, ms: ms(), reason });
-    };
-    const timer = setTimeout(() => done(false, "no answer in 5 s"), 5000);
-    img.onload = () => done(true);
-    img.onerror = () => done(false, "a test request to it failed");
-    img.src = `${GATEWAY_PROBE}?probe=${Date.now()}`;
-  });
+  const get = (mode) =>
+    fetch(`${origin}/`, {
+      mode,
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+  return get("cors")
+    .then(async (res) => {
+      if (res.ok) return { ok: true, ms: ms() };
+      const text = await res.text().catch(() => "");
+      return {
+        ok: false,
+        ms: ms(),
+        reason: /deprecated/i.test(text)
+          ? `HTTP ${res.status}: it still calls the deprecated rpc.testnet.near.org`
+          : `HTTP ${res.status}`,
+      };
+    })
+    .catch(() =>
+      get("no-cors")
+        .then(() => ({ ok: true, ms: ms(), opaque: true }))
+        .catch(() => ({ ok: false, ms: ms(), reason: "no answer in 5 s" })),
+    );
 }
 function checkGateway(force) {
-  if (probing) return probing;
-  if (!force && gateway && Date.now() - gateway.at < 60_000) return gateway;
-  probing = probeGateway().then((result) => {
-    gateway = { ...result, at: Date.now() };
+  const account = viewed;
+  if (!account) return null;
+  if (probing?.account === account) return probing.promise;
+  if (
+    !force &&
+    gateway?.account === account &&
+    Date.now() - gateway.at < 60_000
+  )
+    return gateway;
+  const promise = probeGateway(account).then((result) => {
+    gateway = { ...result, at: Date.now(), account };
     probing = null;
-    renderGateway();
+    if (viewed === account) renderGateway();
     return gateway;
   });
-  return probing;
+  probing = { account, promise };
+  return promise;
 }
 function renderGateway() {
   const chip = $("gw-chip");
   const banner = $("gw-banner");
-  chip.hidden = !gateway;
-  banner.hidden = !gateway || gateway.ok;
-  if (!gateway) return;
+  const fresh = gateway?.account === viewed ? gateway : null;
+  chip.hidden = !fresh;
+  banner.hidden = !fresh || fresh.ok;
+  if (!fresh) return;
   chip.className = gateway.ok ? "chip chip-live" : "chip chip-warn";
   chip.title = gateway.ok
     ? "testnet.page answered"
     : `testnet.page: ${gateway.reason}`;
   chip.replaceChildren(
     h("span", { class: gateway.ok ? "dot dot-live" : "dot" }),
-    gateway.ok ? `testnet.page up · ${gateway.ms} ms` : "testnet.page down",
+    gateway.ok
+      ? `testnet.page ${gateway.opaque ? "reachable" : "up"} · ${gateway.ms} ms`
+      : "testnet.page down",
   );
   const command = `quay gateway --account ${viewed || "<name>.testnet"}`;
   $("gw-copy").dataset.copy = command;
@@ -918,24 +921,6 @@ function statusModule() {
   statusP ??= import("./status.js");
   return statusP;
 }
-// A reachability probe for a host this page cannot read (CORS): resolves when
-// the host answers at all.
-function reach(origin) {
-  const started = performance.now();
-  const ms = () => Math.round(performance.now() - started);
-  const same = origin === location.origin;
-  return fetch(`${origin}/`, {
-    mode: same ? "cors" : "no-cors",
-    cache: "no-store",
-    signal: AbortSignal.timeout(5000),
-  })
-    .then((res) =>
-      res.type === "opaque" || res.ok
-        ? { ok: true, ms: ms() }
-        : { ok: false, ms: ms(), reason: `HTTP ${res.status}` },
-    )
-    .catch(() => ({ ok: false, ms: ms(), reason: "no answer in 5 s" }));
-}
 function relayOption() {
   return new URL(location.href).searchParams.get("relay") || undefined;
 }
@@ -949,7 +934,6 @@ async function layerStatus(account, options = {}) {
     rpc: (params) => rpc(params),
     mirror,
     relay: relayOption(),
-    probe: (kind) => (kind === "mirror" ? reach(mirror) : checkGateway()),
     ...options,
   });
 }

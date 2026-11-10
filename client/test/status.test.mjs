@@ -119,21 +119,38 @@ test("gateway: self-hosted health, and mirror and public are reported separately
   const bad = (await run(stub({ hosts: { "http://127.0.0.1:8787/_quay/health": [503, { ok: false, error: "no rpc" }] } }), { gateway: "http://127.0.0.1:8787" })).layers.gateway;
   assert.equal(bad.state, "down");
 
-  const mirror = "https://board.example.workers.dev/";
-  const both = (await run(stub({ hosts: { ...pubOk, [mirror]: [200, "<html>"] } }), { mirror: "https://board.example.workers.dev" })).layers.gateway;
+  const mirror = "https://board.example.workers.dev/_quay/health";
+  const opt = { mirror: "https://board.example.workers.dev" };
+  const both = (await run(stub({ hosts: { ...pubOk, [mirror]: [200, { ok: true, rpc: "https://rpc.example" }] } }), opt)).layers.gateway;
   assert.equal(both.state, "ok");
-  assert.deepEqual([both.metrics.mirror, both.metrics.public], ["ok", "ok"]);
-  const half = (await run(stub({ hosts: { [PUB]: [502, "x"], [mirror]: [200, "<html>"] } }), { mirror: "https://board.example.workers.dev" })).layers.gateway;
+  assert.deepEqual([both.metrics.mirror, both.metrics.public, both.metrics.rpc], ["ok", "ok", "https://rpc.example"]);
+  const half = (await run(stub({ hosts: { [PUB]: [502, "x"], [mirror]: [200, { ok: true }] } }), opt)).layers.gateway;
   assert.equal(half.state, "warn");
   assert.deepEqual([half.metrics.mirror, half.metrics.public], ["ok", "down"]);
   assert.match(half.error, /Public testnet\.page: HTTP 502/);
 });
 
-test("gateway: an injected probe replaces the public fetch", async () => {
-  const up = (await run(stub(), { probe: async () => ({ ok: true, ms: 42 }) })).layers.gateway;
-  assert.deepEqual([up.state, up.metrics.public_ms], ["ok", 42]);
-  const down = (await run(stub(), { probe: async () => ({ ok: false, ms: 9, reason: "HTTP 500: deprecated" }) })).layers.gateway;
-  assert.equal(down.state, "down");
+test("gateway: a host without CORS falls back to a no-cors reach check", async () => {
+  const base = stub({ hosts: pubOk });
+  const modes = [];
+  const f = async (url, init = {}) => {
+    if (url === PUB) {
+      modes.push(init.mode ?? "cors");
+      if (!init.mode) throw new TypeError("Failed to fetch");
+      return { type: "opaque", ok: false, status: 0, text: async () => "", json: async () => null };
+    }
+    return base(url, init);
+  };
+  const g = (await run(f)).layers.gateway;
+  assert.deepEqual(modes, ["cors", "no-cors"]);
+  assert.equal(g.state, "ok");
+  assert.match(g.summary, /status unreadable/);
+  // a network error in both modes is down
+  const dead = async (url, init) => {
+    if (url === PUB) throw new TypeError("Failed to fetch");
+    return base(url, init);
+  };
+  assert.equal((await run(dead)).layers.gateway.state, "down");
 });
 
 test("data: warns when a site-paid collection cannot be covered; off when empty", async () => {
@@ -217,4 +234,27 @@ test("samplePath", () => {
   assert.equal(samplePath("/api/:collection/:id"), "/api/1/1");
   assert.equal(samplePath("/files/*rest"), "/files/");
   assert.equal(samplePath("/*rest"), "/");
+});
+
+test("manifest: a node relay URL is health-checked; an OutLayer relay reads chain balance and says why", async () => {
+  const manifestAt = (url, body) => ({ [url]: [200, body] });
+  const node = { site: SITE, relay: { host: "node", url: "http://relay.test" }, functions_https: false, version: "3.0.0" };
+  const ok = (await run(stub({ hosts: { ...pubOk, ...manifestAt(`${PUB}quay-site.json`, node), "http://relay.test/health": [200, { relayer: `relay.${SITE}`, balance: yocto(2), ok: true }] } }))).layers.relay;
+  assert.deepEqual([ok.state, ok.metrics.checked, ok.metrics.host], ["ok", true, "node"]);
+
+  const outlayer = { site: SITE, relay: { host: "outlayer", owner: SITE, project: "relay" }, functions_https: true, version: "3.0.0" };
+  const mirrorManifest = "https://m.example/quay-site.json";
+  const ol = (await run(stub({ hosts: { ...pubOk, [mirrorManifest]: [200, outlayer] }, accounts: { [`relay.${SITE}`]: { amount: yocto(1.2) } } }), { mirror: "https://m.example" })).layers.relay;
+  assert.equal(ol.state, "ok");
+  assert.match(ol.summary, /health check needs a payment key/);
+  assert.doesNotMatch(ol.summary, /no health URL/);
+  assert.equal(ol.metrics.balance_near, "1.2000");
+
+  const none = (await run(stub({ hosts: { ...pubOk, ...manifestAt(`${PUB}quay-site.json`, { site: SITE, relay: null, functions_https: false }) } }))).layers.relay;
+  assert.equal(none.state, "off");
+  assert.match(none.summary, /publishes no relay/);
+
+  // an explicit manifest option skips the fetch
+  const given = (await run(stub({ hosts: pubOk }), { manifest: { relay: null } })).layers.relay;
+  assert.equal(given.state, "off");
 });

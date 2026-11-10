@@ -74,57 +74,63 @@ async function siteLayer({ r, site, memo }) {
 }
 
 // One gateway host: a timed GET. A JSON body that says the RPC is deprecated is down even at HTTP 200.
+// When the host does not allow CORS the read fails; a no-cors retry then tells reachable from down,
+// but cannot see the status, so the answer says so.
 async function checkHost(o, url, signal, now, self) {
   const started = now();
+  const get = (init) => o.fetch(url, { signal, cache: "no-store", ...init });
+  let res;
   try {
-    const res = await o.fetch(url, { signal, cache: "no-store" });
-    const ms = now() - started;
-    const text = (await res.text().catch(() => "")).slice(0, 4000);
-    const out = { ok: false, ms, status: res.status, error: null };
-    if (/^\s*\{/.test(text) && /deprecated/i.test(text)) out.error = "the gateway still calls the deprecated rpc.testnet.near.org";
-    else if (!res.ok) out.error = `HTTP ${res.status}`;
-    else if (self) {
-      let body = null;
-      try {
-        body = JSON.parse(text);
-      } catch {}
-      if (body?.ok === false) out.error = body.error ?? "health check failed";
-      else if (body?.rpc) out.rpc = body.rpc;
-    }
-    out.ok = !out.error;
-    return out;
+    res = await get();
   } catch (e) {
-    return { ok: false, ms: now() - started, status: 0, error: e.name === "AbortError" ? "no answer in time" : e.message };
+    try {
+      await get({ mode: "no-cors" });
+      return { ok: true, ms: now() - started, opaque: true };
+    } catch {
+      return { ok: false, ms: now() - started, error: signal.aborted ? "no answer in time" : e.message };
+    }
   }
+  const ms = now() - started;
+  const text = (await res.text().catch(() => "")).slice(0, 4000);
+  const out = { ms, error: null };
+  if (/^\s*\{/.test(text) && /deprecated/i.test(text)) out.error = "the gateway still calls the deprecated rpc.testnet.near.org";
+  else if (!res.ok) out.error = `HTTP ${res.status}`;
+  else if (self) {
+    let body = null;
+    try {
+      body = JSON.parse(text);
+    } catch {}
+    if (body?.ok === false) out.error = body.error ?? "health check failed";
+    else if (body?.rpc) out.rpc = body.rpc;
+  }
+  out.ok = !out.error;
+  return out;
 }
 
 async function gatewayLayer({ o, site, signal, now }) {
   const pub = `https://${host(site)}`;
-  const targets = [];
-  if (o.gateway) targets.push(["local", `${o.gateway.replace(/\/+$/, "")}/_quay/health`, true]);
-  if (o.mirror) targets.push(["mirror", o.probe ? null : `${o.mirror.replace(/\/+$/, "")}/`, false]);
-  if (o.probe) targets.push(["public", null, false]);
-  else if (!o.gateway || o.mirror) targets.push(["public", `${pub}/`, false]);
-  const got = await Promise.all(
-    targets.map(async ([name, url, self]) => [name, url ? await checkHost(o, url, signal, now, self) : ((p) => ({ ok: p.ok, ms: p.ms ?? 0, status: p.ok ? 200 : 0, error: p.ok ? null : (p.reason ?? "no answer") }))(await o.probe(name))]),
-  );
-  const metrics = {};
-  const links = [];
+  const trim = (u) => u.replace(/\/+$/, "");
   const label = { local: "Local gateway", mirror: "Mirror", public: "Public testnet.page" };
+  const hrefs = { local: o.gateway && `${trim(o.gateway)}/`, mirror: o.mirror && `${trim(o.mirror)}/`, public: `${pub}/` };
+  const targets = [];
+  if (o.gateway) targets.push(["local", `${trim(o.gateway)}/_quay/health`, true]);
+  if (o.mirror) targets.push(["mirror", `${trim(o.mirror)}/_quay/health`, true]);
+  if (!o.gateway || o.mirror) targets.push(["public", `${pub}/`, false]);
+  const got = await Promise.all(targets.map(async ([name, url, self]) => [name, await checkHost(o, url, signal, now, self)]));
+  const metrics = { mirror: "off", public: "off" };
+  const links = [];
   for (const [name, c] of got) {
     metrics[name] = c.ok ? "ok" : "down";
     metrics[`${name}_ms`] = c.ms;
     if (c.rpc) metrics.rpc = c.rpc;
-    links.push({ label: label[name], href: name === "local" ? `${o.gateway.replace(/\/+$/, "")}/` : name === "mirror" ? `${o.mirror.replace(/\/+$/, "")}/` : `${pub}/` });
+    links.push({ label: label[name], href: hrefs[name] });
   }
-  for (const n of ["mirror", "public"]) if (!(n in metrics)) metrics[n] = "off";
   const up = got.filter(([, c]) => c.ok);
   const down = got.filter(([, c]) => !c.ok);
   const why = down.map(([n, c]) => `${label[n]}: ${c.error}`).join("; ") || null;
   if (!up.length) return layer("down", `${down.map(([n]) => label[n]).join(" and ")} not answering`, metrics, links, why);
-  const first = up[0];
-  const summary = `${up.map(([n, c]) => `${label[n]} ${c.ms} ms`).join(", ")}${down.length ? `; ${down.map(([n]) => label[n]).join(", ")} down` : ""}`;
-  return layer(down.length ? "warn" : "ok", summary || `${first[0]} up`, metrics, links, why);
+  const part = ([n, c]) => `${label[n]} ${c.opaque ? `reachable in ${c.ms} ms (status unreadable from this origin)` : `${c.ms} ms`}`;
+  return layer(down.length ? "warn" : "ok", `${up.map(part).join(", ")}${down.length ? `; ${down.map(([n]) => label[n]).join(", ")} down` : ""}`, metrics, links, why);
 }
 
 async function dataLayer({ r, site }) {
@@ -178,15 +184,33 @@ async function routesLayer({ r, site, memo }) {
   return layer("ok", summary, metrics, links);
 }
 
-async function relayLayer({ r, o, site, signal }) {
+// The public manifest a release carries (quay deploy and quay up write it): where the relay and functions are.
+async function readManifest(o, site, signal) {
+  if (o.manifest !== undefined) return o.manifest;
+  for (const base of [o.mirror, `https://${host(site)}`]) {
+    if (!base) continue;
+    try {
+      const res = await o.fetch(`${base.replace(/\/+$/, "")}/quay-site.json`, { signal, cache: "no-store" });
+      const m = res.ok ? await res.json() : null;
+      if (m && typeof m === "object") return m;
+    } catch {}
+  }
+  return null;
+}
+
+async function relayLayer({ r, o, site, signal, memo }) {
+  const manifest = o.relay ? null : await memo.manifest(signal);
+  const published = manifest && "relay" in manifest ? manifest.relay : undefined;
+  if (published === null) return off("This site publishes no relay. Add one with quay relay deploy, then quay up.");
+  const relay = o.relay ?? (published?.host === "node" && published.url ? published.url : undefined);
   const relayer = `relay.${site}`;
   let health = null;
-  if (typeof o.relay === "string") {
-    const res = await o.fetch(`${o.relay.replace(/\/+$/, "")}/health`, { signal });
+  if (typeof relay === "string") {
+    const res = await o.fetch(`${relay.replace(/\/+$/, "")}/health`, { signal });
     if (!res.ok) return layer("down", `Relay answered HTTP ${res.status}`, {}, [], `HTTP ${res.status}`);
     health = await res.json();
-  } else if (o.relay?.outlayer) {
-    const { owner, project = "relay", paymentKey, api = OUTLAYER } = o.relay.outlayer;
+  } else if (relay?.outlayer) {
+    const { owner, project = "relay", paymentKey, api = OUTLAYER } = relay.outlayer;
     const res = await o.fetch(`${String(api).replace(/\/+$/, "")}/call/${owner}/${project}`, {
       method: "POST",
       signal,
@@ -205,13 +229,13 @@ async function relayLayer({ r, o, site, signal }) {
       if (isAccountMissing(e)) return off(`No relayer for this site. Create one with quay relay deploy (account ${relayer}).`);
       throw e;
     }
-    health = { relayer, balance: acct.amount, unchecked: true };
+    health = { relayer, balance: acct.amount, unchecked: published?.host === "outlayer" ? "health check needs a payment key" : "no health URL given" };
   }
   const balance = health.balance == null ? null : BigInt(health.balance);
-  const metrics = { relayer: health.relayer ?? relayer, balance_near: balance == null ? "unknown" : near(balance), checked: !health.unchecked };
+  const metrics = { relayer: health.relayer ?? relayer, ...(published?.host ? { host: published.host } : {}), balance_near: balance == null ? "unknown" : near(balance), checked: !health.unchecked };
   if (health.policy) Object.assign(metrics, { per_account_per_hour: health.policy.per_account_per_hour, daily_tgas: health.policy.daily_tgas });
   const links = [{ label: "Relayer account", href: explorer(metrics.relayer) }];
-  const summary = `Relayer ${metrics.relayer} holds ${metrics.balance_near} NEAR${health.unchecked ? " (no health URL given)" : ""}`;
+  const summary = `Relayer ${metrics.relayer} holds ${metrics.balance_near} NEAR${health.unchecked ? ` (${health.unchecked})` : ""}`;
   if (balance == null) return layer("warn", summary, metrics, links, "the relay did not report a balance");
   if (balance < MIN_RELAY_YOCTO) return layer("warn", summary, metrics, links, "balance is below 0.05 NEAR; top it up");
   if (health.ok === false) return layer("warn", summary, metrics, links, "the relay reports it is not ready");
@@ -250,7 +274,7 @@ const IMPLS = { site: siteLayer, gateway: gatewayLayer, data: dataLayer, functio
 /**
  * Measure every layer. Options: site, rpc (URL, list of URLs, or a query function; default is the public failover list), gateway (self-hosted URL),
  * mirror (URL of a Workers or other gateway that serves the site), relay (URL or { outlayer: { owner, project, paymentKey, api } }), fetch, timeoutMs, now (ms, for tests),
- * probe (async ("mirror" | "public") => { ok, ms, reason } used where CORS blocks a fetch).
+ * manifest (the site's quay-site.json; read from the mirror, then testnet.page, when omitted).
  */
 export async function layerStatus(options) {
   const o = { timeoutMs: 6000, ...options };
@@ -259,7 +283,8 @@ export async function layerStatus(options) {
   const clock = o.now == null ? () => Date.now() : typeof o.now === "function" ? o.now : () => o.now;
   const r = reader(querier({ rpc: o.rpc, fetch: o.fetch }));
   let status = null;
-  const memo = { status: () => (status ??= r.view(o.site, "get_status")) };
+  let manifest = null;
+  const memo = { status: () => (status ??= r.view(o.site, "get_status")), manifest: (signal) => (manifest ??= readManifest(o, o.site, signal)) };
   const out = {};
   await Promise.all(
     LAYERS.map(async (name) => {
