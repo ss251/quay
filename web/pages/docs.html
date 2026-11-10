@@ -1,66 +1,63 @@
-<h1>Docs</h1>
-<p class="lede">Install Quay, publish a folder, and point production at a release.</p>
-<nav class="row" aria-label="On this page">
-  <a href="#quickstart">Quickstart</a>
-  <a href="#cli">Commands</a>
-  <a href="#ci">CI</a>
-  <a href="#how">How it works</a>
-  <a href="#limits">Limits</a>
-</nav>
+<div class="container docs">
+  <nav class="docs-nav" aria-label="Docs">
+    <a href="#quickstart">Quickstart</a>
+    <a href="#cli">Commands</a>
+    <a href="#ci">CI</a>
+    <a href="#how">How it works</a>
+    <a href="#limits">Limits</a>
+  </nav>
+  <article class="prose">
+    <h1>Docs</h1>
+    <p class="lead">Install Quay, publish a folder, and point production at a release.</p>
 
-<h2 id="quickstart">Quickstart</h2>
-<div class="measure">
-  <p>You need Node 20 or newer. The account is on testnet. The faucet creates it. Keys stay in <code>~/.near-credentials/testnet/</code> and are not written into the project.</p>
-  <pre>npm install -g ./cli
+    <h2 id="quickstart">Quickstart</h2>
+    <p>You need Node 20 or newer and a checkout of this repository. The package is not on the npm registry. The account is on testnet, and the faucet creates it. Keys stay in <code>~/.near-credentials/testnet/</code> and are not written into the project.</p>
+    <div class="term">
+      <div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="qs" aria-label="Copy the commands">{{i:copy sm}}</button></div>
+<pre id="qs">npm install -g ./cli
 quay init
 quay deploy ./dist -m "harbour office"
 quay promote 1
 quay open</pre>
-  <p><code>quay init</code> writes <code>quay.json</code> with the account, the testnet RPC, and the gateway. Later commands read that file from the current directory or a parent.</p>
-  <p>The preview for release 1 is <code>https://&lt;account&gt;.testnet.page/r/1/</code>. After promote, the same files are also at the host root. An extra host label, such as <code>www.&lt;account&gt;.testnet.page</code>, fails TLS. Use the account host only.</p>
-</div>
+    </div>
+    <p><code>quay init</code> writes <code>quay.json</code> with the account, the testnet RPC, and the gateway. Later commands read that file from the current directory or a parent.</p>
+    <p>The preview for release 1 is <code>https://&lt;account&gt;.testnet.page/r/1/</code>. After promote, the same files are also at the host root.</p>
+    <div class="callout">{{i:info}}<p>Use the account host only. An extra host label, such as <code>www.&lt;account&gt;.testnet.page</code>, fails TLS.</p></div>
 
-<h2 id="cli">CLI</h2>
-<p>This reference is generated from the command help in the <code>quay-near</code> package.</p>
-<pre>{{CLI}}</pre>
+    <h2 id="cli">Commands</h2>
+    <p>This reference is generated from the command help in the <code>quay-near</code> package.</p>
+    <div class="term">
+      <div class="term-bar"><span>quay --help</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="cli-ref" aria-label="Copy the command reference">{{i:copy sm}}</button></div>
+<pre id="cli-ref" tabindex="0" aria-label="Command reference">{{CLI}}</pre>
+    </div>
 
-<h2 id="ci">CI</h2>
-<div class="measure">
-  <p>Create a publish-only key on your machine:</p>
-  <pre>quay keys create --ci</pre>
-  <p>The secret is printed once. Store it as the GitHub Actions secret <code>QUAY_CI_KEY</code>. Store the account id as <code>QUAY_ACCOUNT</code>. Do not commit the key.</p>
-  <p>The composite action in <code>action/</code> runs <code>quay deploy --ci --yes</code>. The example workflow is <code>examples/harbour/.github/workflows/preview.yml</code>. A job that uses that key can upload a preview. <code>quay promote</code> exits 3 and does not send the call.</p>
-</div>
+    <h2 id="ci">CI</h2>
+    <p>Create a publish-only key on your machine:</p>
+    <div class="term"><div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy="quay keys create --ci" aria-label="Copy the command">{{i:copy sm}}</button></div><pre>quay keys create --ci</pre></div>
+    <p>The secret is printed once. Store it as the GitHub Actions secret <code>QUAY_CI_KEY</code>, and the account id as <code>QUAY_ACCOUNT</code>. Do not commit the key.</p>
+    <p>The composite action in <code>action/</code> runs <code>quay deploy --ci --yes</code>. The example workflow is <code>examples/harbour/.github/workflows/preview.yml</code>. A job that uses that key can upload a preview. <code>quay promote</code> exits 3 and does not send the call.</p>
 
-<h2 id="how">How it works</h2>
-<div class="measure">
-  <p>The contract account is the only account that can write. <code>put_chunk</code> stores up to 200,000 bytes under their sha256. <code>seal</code> records a release: the file list, the message, the byte count, and whether unknown paths should serve <code>index.html</code>. A chunk used by two releases is stored once. If sealing fails, an owner key drops the chunks that deploy just uploaded. A publish-only key cannot drop them, because that call needs 1 yoctoNEAR.</p>
-  <p><code>promote</code> sets the production id and keeps the previous id. <code>rollback</code> swaps them. <code>delete</code> removes a release that is not production. When the last reference to a chunk is gone, the bytes are removed and the locked NEAR unlocks on the contract account. It is not transferred to you.</p>
-  <p>The public gateway calls <code>web4_get</code>. Production responses use <code>public, max-age=0, must-revalidate</code>. A path under <code>/r/&lt;id&gt;/</code> uses a year-long immutable cache. A folder path serves <code>index.html</code> inside that folder. If the release was sealed with <code>--spa</code>, an unknown path serves the root <code>index.html</code>. Otherwise <code>404.html</code> is served with status 404 when that file exists.</p>
-  <p>NEAR locks 0.01 NEAR per 1000 bytes of storage, which is about 1 NEAR per 100 KB, plus a small amount for each trie record. The CLI adds 80 bytes per new chunk and 200 bytes for the release when it prints the estimate. Gas is small next to that lock. The contract code itself is about 216 KB and locks a little over 2 NEAR when you deploy it.</p>
-  <p>Events are one log line per action, prefixed with <code>EVENT_JSON:</code>, standard <code>quay</code>, version <code>2.0.0</code>.</p>
-</div>
+    <h2 id="how">How it works</h2>
+    <p>The contract account is the only account that can write. <code>put_chunk</code> stores up to 200,000 bytes under their sha256. <code>seal</code> records a release: the file list, the message, the byte count, and whether unknown paths should serve <code>index.html</code>. A chunk used by two releases is stored once. If sealing fails, an owner key drops the chunks that deploy just uploaded. A publish-only key cannot drop them, because that call needs 1 yoctoNEAR.</p>
+    <p><code>promote</code> sets the production id and keeps the previous id. <code>rollback</code> swaps them. <code>delete</code> removes a release that is not production. When the last reference to a chunk is gone, the bytes are removed and the locked NEAR unlocks on the contract account. It is not transferred to you.</p>
+    <p>The public gateway calls <code>web4_get</code>. Production responses use <code>public, max-age=0, must-revalidate</code>. A path under <code>/r/&lt;id&gt;/</code> uses a year-long immutable cache. A folder path serves the <code>index.html</code> inside it. If the release was sealed with <code>--spa</code>, an unknown path serves the root <code>index.html</code>. Otherwise <code>404.html</code> is served with status 404 when that file exists.</p>
+    <p>NEAR locks 0.01 NEAR per 1,000 bytes of storage, about 1 NEAR per 100 KB, plus a small amount for each trie record. The CLI adds 80 bytes per new chunk and 200 bytes for the release when it prints the estimate. Gas is small next to that lock. The contract code is about 216 KB and locks a little over 2 NEAR when you deploy it.</p>
+    <p>Events are one log line per action, prefixed with <code>EVENT_JSON:</code>, standard <code>quay</code>, version <code>2.0.0</code>.</p>
 
-<h2 id="limits">Limits and caveats</h2>
-<div class="scroll">
-<table>
-  <thead><tr><th>Limit</th><th>Value</th></tr></thead>
-  <tbody>
-    <tr><td>Chunk</td><td>1 to 200,000 bytes</td></tr>
-    <tr><td>File</td><td>800,000 bytes, at most 4 chunks</td></tr>
-    <tr><td>Files in one release</td><td>64</td></tr>
-    <tr><td>Live releases</td><td>32</td></tr>
-    <tr><td>Payload cap</td><td>2,000,000 bytes</td></tr>
-    <tr><td>Message</td><td>200 characters, no control characters</td></tr>
-    <tr><td>Path</td><td>1 to 180 bytes, letters, digits, <code>.</code> <code>_</code> <code>-</code> <code>/</code></td></tr>
-  </tbody>
-</table>
-</div>
-<div class="measure">
-  <p>This is testnet. The faucet is rate-limited and does not spend mainnet NEAR. There is no mainnet deploy path in the CLI.</p>
-  <p>The public gateway issues a TLS certificate the first time a new host is requested. That often takes under a minute, and <code>curl</code> can fail the handshake before it succeeds. <code>quay init</code> and the first <code>quay deploy</code> poll the gateway and print "waiting for the gateway certificate, usually under 2 minutes". If that wait times out, the account and the release are already on chain. Open the URL again in a minute.</p>
-  <p>The public site depends on the <code>testnet.page</code> gateway. If the gateway is down, the contract still holds the bytes, and the CLI can still read them by RPC.</p>
-  <p>A full-access key can replace the contract wasm. A release is not owner-proof against that key. The publish-only key cannot.</p>
-  <p>Dotfiles, <code>node_modules</code>, <code>target</code>, and <code>.git</code> are skipped. A directory release needs <code>index.html</code>.</p>
-  <p>About 1 NEAR is locked per 100 KB until you delete the release. Keep the site small. The contract code lock is separate and comes back only if you delete the account.</p>
+    <h2 id="limits">Limits and caveats</h2>
+    <div class="card"><table class="limits"><tbody>
+      <tr><td>Chunk</td><td>1 to 200,000 bytes</td></tr>
+      <tr><td>File</td><td>800,000 bytes, at most 4 chunks</td></tr>
+      <tr><td>Files in one release</td><td>64</td></tr>
+      <tr><td>Live releases</td><td>32</td></tr>
+      <tr><td>Payload cap</td><td>2,000,000 bytes</td></tr>
+      <tr><td>Message</td><td>200 characters, no control characters</td></tr>
+      <tr><td>Path</td><td>1 to 180 bytes: letters, digits, . _ - /</td></tr>
+    </tbody></table></div>
+    <p>This is testnet. The faucet is rate-limited and does not spend mainnet NEAR. There is no mainnet deploy path in the CLI.</p>
+    <p>The public gateway issues a TLS certificate the first time a new host is requested. That often takes under a minute, and <code>curl</code> can fail the handshake before it succeeds. <code>quay init</code> and the first <code>quay deploy</code> poll the gateway and print "waiting for the gateway certificate, usually under 2 minutes". If that wait times out, the account and the release are already on chain. Open the URL again in a minute.</p>
+    <p>The public site depends on the <code>testnet.page</code> gateway. If the gateway is down, the contract still holds the bytes, and the CLI can still read them by RPC.</p>
+    <p>A full-access key can replace the contract wasm. A release is not owner-proof against that key. The publish-only key cannot.</p>
+    <p>Dotfiles, <code>node_modules</code>, <code>target</code>, and <code>.git</code> are skipped. A directory release needs <code>index.html</code>. About 1 NEAR is locked per 100 KB until you delete the release, so keep the site small. The contract code lock is separate and comes back only if you delete the account.</p>
+  </article>
 </div>

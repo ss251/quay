@@ -10,6 +10,7 @@ Testnet contract and CLI that publish sealed site releases and move a production
 - Network is testnet. Do not use mainnet, NEAR Intents, or real funds. Do not migrate `quay-bb.testnet` in place. It stays on the v1 wasm.
 - Official NEAR skills live in `.grok/skills/` and are gitignored. The docs MCP is `.grok/config.toml`.
 - A full-access key can replace the wasm. Releases are not owner-proof.
+- The site in `web/` is plain HTML, CSS and JS: tokens and components in `web/assets/quay.css`, icons in `web/assets/icons.svg`, pages in `web/pages/`. `node web/build.mjs` writes `web/dist` and minifies with esbuild (a root dev dependency). Every byte is stored on chain, so check the size of `web/dist` before a deploy. Headless dashboard tests can supply a wallet stub as `globalThis.QUAY_TEST_WALLET`; never sign in a visible browser.
 - The public host is `https://<name>.testnet.page` for account `<name>.testnet`. An extra host label fails TLS. A new host has no certificate until the gateway sees the first request. `quay init` and the first `quay deploy` wait for that.
 
 ## Maintaining this file

@@ -4,23 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Harbour office</title>
-<meta name="description" content="The harbour office sample published with Quay. Release 4.">
+<meta name="description" content="The harbour office sample published with Quay. Release 5.">
 <link rel="stylesheet" href="./harbour.css">
-<link rel="icon" href="./mark.png" type="image/png">
+<link rel="icon" href="./mark.svg" type="image/svg+xml">
 </head>
 <body>
+<header><div><b><img src="./mark.svg" alt="">Harbour office</b><nav aria-label="Harbour"><a href="./" aria-current="page">Board</a><a href="./log/">Tide log</a><a href="./berth/">Berth 4</a></nav></div></header>
 <main>
-  <p class="eyebrow">Harbour office</p>
   <h1>Tide, berth, and the board.</h1>
-  <nav aria-label="Harbour">
-    <a href="./" aria-current="page">Board</a>
-    <a href="./log/">Tide log</a>
-    <a href="./berth/">Berth 4</a>
-  </nav>
-  <p>Release <strong id="release">4</strong>. This page is the build that was sealed as that release. Production can point at an older release after a rollback. The preview URL for this build does not change.</p>
-  <p><img src="./mark.png" width="48" height="48" alt="A small pier mark"></p>
-  <p class="muted">Published with Quay on NEAR testnet. The files live in the contract account.</p>
+  <p class="rel">Release <strong id="release">5</strong></p>
+  <p>This page is the build that was sealed as that release. Production can point at an older release after a rollback. The preview URL for this build does not change.</p>
+  <table>
+    <thead><tr><th>Berth</th><th>Boat</th><th>Due</th></tr></thead>
+    <tbody>
+      <tr><td>Berth 1</td><td>Pilot boat</td><td>06:40</td></tr>
+      <tr><td>Berth 2</td><td>Ferry</td><td>07:15</td></tr>
+      <tr><td>Berth 4</td><td>Supply</td><td>09:30</td></tr>
+    </tbody>
+  </table>
 </main>
+<footer><p>Published with Quay on NEAR testnet. The files live in the contract account.</p></footer>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

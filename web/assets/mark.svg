@@ -1,3 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" aria-hidden="true">
-  <path d="M4 25h24M7 25V11h5v14M15 25V7h5v18" fill="none" stroke="#0f3c44" stroke-width="1.7"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><style>rect{fill:#18191c}path{stroke:#fff}@media (prefers-color-scheme:dark){rect{fill:#f4f5f7}path{stroke:#18191c}}</style><rect width="24" height="24" rx="6"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="#1fae74"/></svg>

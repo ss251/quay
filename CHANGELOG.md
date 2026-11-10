@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- The site, docs, dashboard, 404 page, and the harbour sample have a new design: Geist and Geist Mono subset to 20 KB, light and dark from one token set, one green for what is live. The home page shows the dashboard and a deploy session built from the sample's real data.
+- The dashboard has tabs (overview, releases, history, storage), a live preview of production, the account's access keys and balance read from chain, a confirm dialog, a pending state while the wallet signs, toasts with the transaction link, and an Undo after a rollback.
+- The harbour sample is release 5 on `quay-65nqd3rn.testnet`. The site is release 7 on `quay-esc0v902.testnet`; the old design stays at `/r/4/`.
+
 ## 2.0.0
 
 - The contract stores release metadata, a promotion history, rollback, and delete with a storage unlock. `migrate` reads a v1 state. `quay-bb.testnet` stays on v1.

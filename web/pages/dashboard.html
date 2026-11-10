@@ -1,47 +1,118 @@
-<h1>Dashboard</h1>
-<p class="lede">Look up a Quay account. After you sign in as that account, you can promote, roll back, or delete. The page never holds a key.</p>
-<form id="lookup" class="row">
-  <div>
-    <label for="account">Account</label>
-    <input id="account" name="account" type="text" autocomplete="off" spellcheck="false" placeholder="quay-harbor.testnet" required>
+<a class="skip" href="#content">Skip to content</a>
+<header class="app-top">
+  <div class="row1 app-wrap">
+    <a href="{{P}}index.html" aria-label="Quay home"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--live)"/></svg></a>
+    <div class="crumb" id="crumb" hidden><span class="slash" aria-hidden="true">/</span><a class="acct" id="crumb-acct" href="?" title="Open another account"><span class="avatar"></span><span id="crumb-name"></span>{{i:down sm}}</a></div>
+    <div class="nav-end">
+      <a class="btn btn-sm btn-quiet hide-s" href="{{P}}docs/index.html">Docs</a>
+      <span class="net hide-s"><span class="dot dot-live"></span>Testnet</span>
+      <button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme"><svg class="icon i-moon" aria-hidden="true"><use href="{{P}}assets/icons.svg#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="{{P}}assets/icons.svg#i-sun"/></svg></button>
+      <button class="btn btn-sm btn-primary" type="button" id="sign-in">{{i:wallet sm}}Sign in</button>
+      <details class="menu" id="wallet-menu" hidden>
+        <summary class="wallet" aria-label="Wallet menu"><span class="avatar"></span><span id="wallet-name"></span>{{i:down sm}}</summary>
+        <div class="menu-list"><button type="button" id="sign-out">{{i:signout sm}}Sign out</button></div>
+      </details>
+    </div>
   </div>
-  <button type="submit">View</button>
-</form>
-<p id="wallet-line">Not signed in. Anyone can read. Only the contract account can change production.</p>
-<div class="row">
-  <button type="button" id="sign-in">Sign in</button>
-  <button type="button" id="sign-out" class="quiet" hidden>Sign out</button>
-</div>
-<p id="empty" class="panel">Enter a Quay account to see its releases. <a href="?account=quay-65nqd3rn.testnet">Try the sample: quay-65nqd3rn.testnet</a>.</p>
-<p id="loading" class="panel" hidden aria-live="polite">Loading releases.</p>
-<p id="error" class="panel error" role="alert" hidden></p>
-<p id="notice" class="panel error" role="alert" hidden></p>
-<section id="result" hidden>
-  <div id="summary" class="panel"></div>
-  <h2>Releases</h2>
-  <div class="scroll">
-    <table>
-      <thead>
-        <tr><th>Id</th><th>Date</th><th>Files</th><th>Size</th><th>Message</th><th>Role</th><th>Actions</th></tr>
-      </thead>
-      <tbody id="releases"></tbody>
-    </table>
-  </div>
-  <h2>History</h2>
-  <p><button type="button" id="rollback" data-action="rollback" class="quiet">Roll back</button></p>
-  <div class="scroll">
-    <table>
-      <thead>
-        <tr><th>Date</th><th>Kind</th><th>Release</th><th>Previous</th></tr>
-      </thead>
-      <tbody id="history"></tbody>
-    </table>
-  </div>
-</section>
-<dialog id="confirm" aria-labelledby="confirm-text">
-  <p id="confirm-text"></p>
-  <form method="dialog" class="row">
-    <button type="submit" class="quiet" value="cancel">Cancel</button>
-    <button type="button" id="confirm-yes" value="confirm">Confirm</button>
+  <nav class="tabs app-wrap" id="tabs" aria-label="Account views" hidden>
+    <a href="?tab=overview" data-tab="overview" aria-current="page">Overview</a>
+    <a href="?tab=releases" data-tab="releases">Releases</a>
+    <a href="?tab=history" data-tab="history">History</a>
+    <a href="?tab=storage" data-tab="storage">Storage</a>
+  </nav>
+</header>
+
+<main class="app-main" id="content">
+  <section id="view-empty" hidden>
+    <form class="card lookup" id="lookup" novalidate>
+      <div><h1>Open a Quay account</h1><p class="muted" style="font-size:14px;margin-top:4px">Anyone can read releases and history. Sign in with a testnet wallet to change production.</p></div>
+      <div class="field">
+        <label for="account">Account or host</label>
+        <div class="input-row"><input class="input" id="account" name="account" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="name.testnet" aria-describedby="account-err"><button class="btn btn-primary" type="submit" style="height:40px">Open</button></div>
+        <p class="err-text" id="account-err" hidden></p>
+      </div>
+      <p class="muted" style="font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">Try the sample: <a class="chip chip-outline mono" href="?account=quay-65nqd3rn.testnet">quay-65nqd3rn.testnet</a></p>
+    </form>
+  </section>
+
+  <section id="view-loading" hidden aria-busy="true" aria-live="polite">
+    <p class="sr">Reading the contract.</p>
+    <div class="page-head"><div style="display:grid;gap:10px;width:320px"><div class="skel" style="height:22px"></div><div class="skel" style="width:60%"></div></div></div>
+    <div class="card"><div class="card-head"><h2>Releases</h2><span class="muted" style="font-size:12.5px">Reading the contract</span></div>
+      <div style="display:grid;gap:18px;padding:18px 16px"><div class="skel"></div><div class="skel" style="width:70%"></div><div class="skel" style="width:85%"></div></div></div>
+  </section>
+
+  <section id="view-error" hidden>
+    <div class="card err-card" role="alert">{{i:alert}}<div><h1 style="font-size:15px" id="error-title">Could not load that account</h1><p class="muted" style="font-size:13.5px;margin-top:4px" id="error-text"></p>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn btn-sm" type="button" id="retry">Try again</button><a class="btn btn-sm btn-quiet" href="?">Open another account</a><a class="btn btn-sm btn-quiet" href="?account=quay-65nqd3rn.testnet">Open the sample</a></div></div></div>
+  </section>
+
+  <section id="view-ready" hidden>
+    <div class="page-head">
+      <div>
+        <h1><span id="acct-title"></span> <span class="chip chip-outline" id="contract-chip"></span></h1>
+        <a class="host" id="host-link" href="#">{{i:globe sm}}<span id="host-text"></span>{{i:ext sm}}</a>
+      </div>
+      <div class="tools">
+        <button class="btn btn-sm" type="button" id="copy-host" aria-label="Copy host">{{i:copy sm}}Copy host</button>
+        <a class="btn btn-sm btn-primary" id="visit-prod" href="#">Visit production{{i:ext sm}}</a>
+      </div>
+    </div>
+
+    <div class="notice" id="notice" hidden>{{i:lock}}<span class="grow" id="notice-text"></span><span id="notice-action"></span></div>
+
+    <div class="overview" data-in="overview storage">
+      <section class="card" aria-labelledby="prod-h" data-in="overview">
+        <div class="card-head"><h2 id="prod-h">Production</h2><div class="tools"><button class="btn btn-sm" type="button" id="rollback" data-action="rollback">{{i:undo sm}}<span>Roll back</span></button></div></div>
+        <div class="prod">
+          <a class="preview" id="prod-preview" href="#" aria-label="Open production" tabindex="-1"></a>
+          <div class="prod-info">
+            <div class="prod-title"><span class="chip chip-live" id="prod-chip"><span class="dot dot-live"></span>Live</span><strong id="prod-name"></strong><span class="muted" id="prod-msg"></span></div>
+            <a class="prod-url" id="prod-url" href="#">{{i:globe sm}}<span></span>{{i:ext sm}}</a>
+            <dl class="facts-grid">
+              <div><dt>Promoted</dt><dd id="f-promoted"></dd></div>
+              <div><dt>Size</dt><dd id="f-size" class="num"></dd></div>
+              <div><dt>Preview</dt><dd class="mono"><a id="f-preview" href="#"></a></dd></div>
+              <div><dt>Content hash</dt><dd class="mono" id="f-hash"></dd></div>
+              <div><dt>Unknown paths</dt><dd id="f-spa"></dd></div>
+              <div><dt>Releases</dt><dd id="f-count" class="num"></dd></div>
+            </dl>
+            <div class="prev-row" id="prev-row">{{i:undo}}<span class="grow" id="prev-text"></span><a class="mono faint" id="prev-link" href="#"></a></div>
+          </div>
+        </div>
+      </section>
+      <div class="side">
+        <section class="card" aria-labelledby="st-h" data-in="overview storage">
+          <div class="card-head"><h2 id="st-h">Storage</h2><span class="chip" id="st-chip">{{i:db sm}}<span></span></span></div>
+          <div class="card-body" style="display:grid;gap:12px">
+            <div class="stat-big"><span id="st-bytes"></span> <small id="st-max"></small></div>
+            <div class="meter" id="st-meter" role="img"><i></i></div>
+            <dl class="kv"><dt>Releases lock</dt><dd class="num" id="st-lock"></dd><dt>Account storage</dt><dd class="num" id="st-account"></dd><dt>Balance</dt><dd class="num" id="st-balance"></dd><dt>Rate</dt><dd>0.01 NEAR per 1,000 B</dd></dl>
+          </div>
+        </section>
+        <section class="card" aria-labelledby="keys-h" data-in="overview storage">
+          <div class="card-head"><h2 id="keys-h">Access keys</h2><span class="muted" style="font-size:12.5px">read from chain</span></div>
+          <ul class="keys" id="keys"></ul>
+        </section>
+      </div>
+    </div>
+
+    <div data-in="overview releases">
+      <div class="list-head"><h2>Releases <span id="rel-count"></span></h2><span class="muted note" style="font-size:13px">Newest first</span></div>
+      <section class="card" aria-label="Releases"><ol class="rows" id="releases"></ol></section>
+    </div>
+
+    <div data-in="overview history">
+      <div class="list-head"><h2>Production history</h2><span class="muted note" style="font-size:13px">Read from the contract, newest first</span></div>
+      <section class="card" aria-label="Production history"><ol class="timeline" id="history"></ol></section>
+    </div>
+  </section>
+</main>
+
+<dialog class="confirm" id="confirm" aria-labelledby="confirm-title">
+  <form method="dialog">
+    <div class="confirm-body"><h2 id="confirm-title"></h2><p id="confirm-text"></p></div>
+    <div class="confirm-foot"><button class="btn btn-sm" type="submit" value="cancel">Cancel</button><button class="btn btn-sm btn-primary" type="submit" value="confirm" id="confirm-yes">Confirm</button></div>
   </form>
 </dialog>
+<div class="toasts" id="toasts" aria-live="polite"></div>

@@ -2,7 +2,7 @@
 
 Quay publishes a folder of files to a NEAR testnet account. Each publish is a sealed release with its own URL. Production is a pointer you move with `quay promote` or `quay rollback`. A publish-only key can upload a preview. It cannot move production.
 
-The product site is https://quay-esc0v902.testnet.page/. The dashboard is https://quay-esc0v902.testnet.page/dashboard/. The sample, four releases with production on 4, is https://quay-65nqd3rn.testnet.page/. The old demo is still at https://quay-bb.testnet.page/ and was left on v1.
+The product site is https://quay-esc0v902.testnet.page/. The dashboard is https://quay-esc0v902.testnet.page/dashboard/. The sample, five releases with production on 5, is https://quay-65nqd3rn.testnet.page/. The old demo is still at https://quay-bb.testnet.page/ and was left on v1.
 
 ## Install
 
@@ -35,7 +35,7 @@ A directory needs `index.html`. Put `404.html` in the folder for unknown paths. 
 
 NEAR locks 0.01 NEAR per 1,000 bytes of stored state, about 1 NEAR per 100 KB, plus a little for each trie record. Deleting a release that is not production unlocks those bytes on the contract account. The lock is not transferred to you. The contract wasm is 216,419 bytes and locks a little over 2 NEAR by itself.
 
-After the current product deploy, `quay-esc0v902.testnet` holds 9.9888 NEAR, of which 3.6817 is locked and 6.3071 is free. The harbour sample holds 9.9720 NEAR, of which 2.3558 is locked and 7.6162 is free. Its sealed files are 9,588 bytes. The packed-CLI account holds 10.0134 NEAR, of which 2.3151 is locked and 7.6983 is free, and the contract reports 7,674 stored bytes.
+After the current product deploy, `quay-esc0v902.testnet` holds 9.9779 NEAR, of which 6.3373 is locked and 3.6406 is free; it keeps seven releases, including the old design (4) and two unpromoted previews of the new one (5 and 6). The harbour sample holds 9.9698 NEAR, of which 2.4704 is locked and 7.4994 is free. Its sealed files are 17,717 bytes. The packed-CLI account holds 10.0134 NEAR, of which 2.3151 is locked and 7.6983 is free, and the contract reports 7,674 stored bytes.
 
 ## CI
 
@@ -91,9 +91,9 @@ No key. You need `cargo`, `curl`, `node`, and `shasum` on `PATH`. The same check
    curl -fsS https://quay-esc0v902.testnet.page/dashboard/?account=quay-65nqd3rn.testnet
    ```
 
-   See "Move production when you mean to", `quay deploy`, and "Try the sample". The live release was sealed in [GVaCG3UJ2FYqxjgXhmGm6XU5JaoevjC42PEctAotwUuu](https://explorer.testnet.near.org/transactions/GVaCG3UJ2FYqxjgXhmGm6XU5JaoevjC42PEctAotwUuu) and promoted in [3Tpjeg2apmT38B686SxbfNsKnMsHeJxdFTuRyn5xXfDH](https://explorer.testnet.near.org/transactions/3Tpjeg2apmT38B686SxbfNsKnMsHeJxdFTuRyn5xXfDH).
+   See "Move production on purpose", `quay deploy`, and "Try the sample". The live release, 7, was sealed in [4H6j3yffh2paMpbrs69ZZY7iSztFvHmBf2sDVgipHGgM](https://explorer.testnet.near.org/transactions/4H6j3yffh2paMpbrs69ZZY7iSztFvHmBf2sDVgipHGgM) and promoted in [6gHbxsqhpoxZz15EddC89qHn13D6v2concXBo6KXYdqW](https://explorer.testnet.near.org/transactions/6gHbxsqhpoxZz15EddC89qHn13D6v2concXBo6KXYdqW). The previous design is still release 4, at https://quay-esc0v902.testnet.page/r/4/.
 
-3. Open the sample. Production is release 4. The previous pointer is 2. Releases 1, 2, and 3 stay at their URLs.
+3. Open the sample. Production is release 5. The previous pointer is 4. Releases 1 to 4 stay at their URLs.
 
    ```sh
    curl -fsS https://quay-65nqd3rn.testnet.page/
@@ -103,9 +103,9 @@ No key. You need `cargo`, `curl`, `node`, and `shasum` on `PATH`. The same check
    curl -fsS https://quay-65nqd3rn.testnet.page/r/3/
    ```
 
-   See `id="release">4` on production, the berth page, the chart, `1` on `/r/1/`, and `3` on `/r/3/`.
+   See `id="release">5` on production, the berth page, the chart, `1` on `/r/1/`, and `3` on `/r/3/`.
 
-   Seals and promotions: release 1 [vJzgAg1JYR4FFhMEVXnQCxC9RmLBmzr7Gef5WTBpSb1](https://explorer.testnet.near.org/transactions/vJzgAg1JYR4FFhMEVXnQCxC9RmLBmzr7Gef5WTBpSb1) and [CQL9fMZRyu2wQ3kYGHfoiuc1Fwpk57aA95fwL7i1nft5](https://explorer.testnet.near.org/transactions/CQL9fMZRyu2wQ3kYGHfoiuc1Fwpk57aA95fwL7i1nft5), release 2 [FZbrU9eYKc4D1zCoQUq9UawjCsWj2cVH5DPLKFKeyEno](https://explorer.testnet.near.org/transactions/FZbrU9eYKc4D1zCoQUq9UawjCsWj2cVH5DPLKFKeyEno) and [2koqS96kNYpFn7rarWzwEDHd9A48Ux18t5QEzHySnSkn](https://explorer.testnet.near.org/transactions/2koqS96kNYpFn7rarWzwEDHd9A48Ux18t5QEzHySnSkn), release 3 [u7An7nxhdYpuGL9r2vcsSGMDWbMGX4QRkkMYktaHTkv](https://explorer.testnet.near.org/transactions/u7An7nxhdYpuGL9r2vcsSGMDWbMGX4QRkkMYktaHTkv) and [bhdz1aR5f6HMSbTwCGE9PgxRMhpq8zV64YWcgb18bH4](https://explorer.testnet.near.org/transactions/bhdz1aR5f6HMSbTwCGE9PgxRMhpq8zV64YWcgb18bH4), the rollback [ED8gqjTUsZSsB31TbV2sHAz4wfX1LvUPYQnpSsfH1ixz](https://explorer.testnet.near.org/transactions/ED8gqjTUsZSsB31TbV2sHAz4wfX1LvUPYQnpSsfH1ixz), release 4 [5YMNMexGTbGeqQHQvrnNp2L6SEsMXVs3Q4dyfUnfHZjc](https://explorer.testnet.near.org/transactions/5YMNMexGTbGeqQHQvrnNp2L6SEsMXVs3Q4dyfUnfHZjc) and [F56bq5R6EKCnNHcY1MsEboJYB214kpGdkWu2shbyvNz1](https://explorer.testnet.near.org/transactions/F56bq5R6EKCnNHcY1MsEboJYB214kpGdkWu2shbyvNz1). The account-creation transaction for this sample was not retained.
+   Seals and promotions: release 1 [vJzgAg1JYR4FFhMEVXnQCxC9RmLBmzr7Gef5WTBpSb1](https://explorer.testnet.near.org/transactions/vJzgAg1JYR4FFhMEVXnQCxC9RmLBmzr7Gef5WTBpSb1) and [CQL9fMZRyu2wQ3kYGHfoiuc1Fwpk57aA95fwL7i1nft5](https://explorer.testnet.near.org/transactions/CQL9fMZRyu2wQ3kYGHfoiuc1Fwpk57aA95fwL7i1nft5), release 2 [FZbrU9eYKc4D1zCoQUq9UawjCsWj2cVH5DPLKFKeyEno](https://explorer.testnet.near.org/transactions/FZbrU9eYKc4D1zCoQUq9UawjCsWj2cVH5DPLKFKeyEno) and [2koqS96kNYpFn7rarWzwEDHd9A48Ux18t5QEzHySnSkn](https://explorer.testnet.near.org/transactions/2koqS96kNYpFn7rarWzwEDHd9A48Ux18t5QEzHySnSkn), release 3 [u7An7nxhdYpuGL9r2vcsSGMDWbMGX4QRkkMYktaHTkv](https://explorer.testnet.near.org/transactions/u7An7nxhdYpuGL9r2vcsSGMDWbMGX4QRkkMYktaHTkv) and [bhdz1aR5f6HMSbTwCGE9PgxRMhpq8zV64YWcgb18bH4](https://explorer.testnet.near.org/transactions/bhdz1aR5f6HMSbTwCGE9PgxRMhpq8zV64YWcgb18bH4), the rollback [ED8gqjTUsZSsB31TbV2sHAz4wfX1LvUPYQnpSsfH1ixz](https://explorer.testnet.near.org/transactions/ED8gqjTUsZSsB31TbV2sHAz4wfX1LvUPYQnpSsfH1ixz), release 4 [5YMNMexGTbGeqQHQvrnNp2L6SEsMXVs3Q4dyfUnfHZjc](https://explorer.testnet.near.org/transactions/5YMNMexGTbGeqQHQvrnNp2L6SEsMXVs3Q4dyfUnfHZjc) and [F56bq5R6EKCnNHcY1MsEboJYB214kpGdkWu2shbyvNz1](https://explorer.testnet.near.org/transactions/F56bq5R6EKCnNHcY1MsEboJYB214kpGdkWu2shbyvNz1), release 5 [Ga6YgGiUtyPJEWUKdpt5tqeCGn3wk4W8b6KowkBe17eB](https://explorer.testnet.near.org/transactions/Ga6YgGiUtyPJEWUKdpt5tqeCGn3wk4W8b6KowkBe17eB) and [9hThf6KFAUPvpiacbMEBY79RpK1woQ9NqvRdLS9KPAUL](https://explorer.testnet.near.org/transactions/9hThf6KFAUPvpiacbMEBY79RpK1woQ9NqvRdLS9KPAUL). The account-creation transaction for this sample was not retained.
 
 4. Read the sample status. No key.
 
@@ -114,7 +114,7 @@ No key. You need `cargo`, `curl`, `node`, and `shasum` on `PATH`. The same check
      -d '{"jsonrpc":"2.0","id":"1","method":"query","params":{"request_type":"call_function","account_id":"quay-65nqd3rn.testnet","method_name":"get_status","args_base64":"e30=","finality":"final"}}'
    ```
 
-   The result bytes decode to JSON with `"version":"2.0.0"`, `"production":"4"`, and `"previous":"2"`.
+   The result bytes decode to JSON with `"version":"2.0.0"`, `"production":"5"`, and `"previous":"4"`.
 
 5. Open the publish-only refusal.
 

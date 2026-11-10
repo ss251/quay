@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head><meta charset="utf-8"><link rel="stylesheet" href="assets/quay.css">
+<style>
+  body { width: 1200px; height: 630px; overflow: hidden; margin: 0; }
+  .og { position: relative; height: 630px; padding: 64px 72px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; background: var(--bg); }
+  .og::before { display: none; }
+  .og::after { content: ""; position: absolute; inset: 0; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 56px 56px; mask-image: radial-gradient(ellipse 70% 80% at 30% 20%, black 30%, transparent 80%); -webkit-mask-image: radial-gradient(ellipse 70% 80% at 30% 20%, black 30%, transparent 80%); }
+  .og > * { position: relative; }
+  .og .brand { font-size: 28px; gap: 14px; margin-bottom: 40px; }
+  .og .brand-mark { width: 36px; height: 36px; }
+  .og h1 { font-size: 60px; line-height: 1.04; letter-spacing: -0.045em; margin-bottom: 22px; }
+  .og p { font-size: 22px; line-height: 1.45; color: var(--text-2); max-width: 26ch; }
+  .og .card { box-shadow: 0 0 0 1px var(--line-strong), 0 2px 6px oklch(0.2 0.01 260 / 0.06); }
+  .og .rel-row { grid-template-columns: 1fr auto; padding: 18px 20px; font-size: 17px; }
+  .og .l2 { font-size: 15px; }
+  .og .rel-row.is-live { background: var(--live-tint); }
+  .og .chip { height: 26px; font-size: 14px; padding: 0 10px; }
+</style></head>
+<body><div class="og">
+  <div>
+    <div class="brand"><svg class="brand-mark" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--live)"/></svg>Quay</div>
+    <h1>Deploy to NEAR. Move production on purpose.</h1>
+    <p>Sealed releases with their own URLs, and a production pointer you promote or roll back.</p>
+  </div>
+  <div class="card"><div class="card-head"><span class="card-title" style="font-size:17px">quay-65nqd3rn.testnet</span><span class="net"><span class="dot dot-live"></span>Testnet</span></div>
+    <ol class="rows">
+      <li class="rel-row is-live"><div><div class="l1"><span class="id" style="font-size:17px">5</span><span class="chip chip-live">Production</span></div><div class="l2">harbour office, new look</div></div><span class="mono muted" style="font-size:15px">/</span></li>
+      <li class="rel-row"><div><div class="l1"><span class="id" style="font-size:17px">4</span><span class="chip chip-prev">Previous</span></div><div class="l2">harbour office</div></div><span class="mono muted" style="font-size:15px">/r/4/</span></li>
+      <li class="rel-row"><div><div class="l1"><span class="id" style="font-size:17px">3</span></div><div class="l2">latest preview</div></div><span class="mono muted" style="font-size:15px">/r/3/</span></li>
+      <li class="rel-row"><div><div class="l1"><span class="id" style="font-size:17px">2</span></div><div class="l2">tide log linked</div></div><span class="mono muted" style="font-size:15px">/r/2/</span></li>
+    </ol>
+  </div>
+</div></body></html>
