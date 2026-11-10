@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#f5f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a1016" media="(prefers-color-scheme: dark)">
+<title>harbour-board.testnet on Quay</title>
+<meta name="description" content="Read a Quay account's releases, data, functions and relay, then promote, roll back, or delete with a testnet wallet.">
+<link rel="preload" href="../assets/fonts/text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/mono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/quay.css">
+<script>const q=new URLSearchParams(location.search);if(q.get("theme"))document.documentElement.dataset.theme=q.get("theme");</script>
+<script type="module" src="../assets/quay.js"></script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="app-top">
+  <div class="row1 app-wrap" style="width:auto;padding:0 20px">
+    <a href="../index.html" aria-label="Quay home"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--accent)"/></svg></a>
+    <div class="crumb"><span class="slash" aria-hidden="true">/</span><a class="acct" href="#"><span>harbour-board.testnet</span><svg class="icon sm" aria-hidden="true"><use href="../assets/icons.svg#i-down"/></svg></a><span class="chip chip-outline hide-s net-chip"><span class="dot dot-live"></span>NEAR testnet</span></div>
+    <div class="nav-end"><a class="btn btn-sm btn-quiet hide-s" href="../docs/functions/index.html">Docs</a><button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme"><svg class="icon i-moon" aria-hidden="true"><use href="../assets/icons.svg#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="../assets/icons.svg#i-sun"/></svg></button><button class="wallet" type="button"><span>harbour-board.testnet</span><svg class="icon sm" aria-hidden="true"><use href="../assets/icons.svg#i-down"/></svg></button></div>
+  </div>
+  <nav class="tabs" style="padding:0 20px" aria-label="Account views"><a href="#" aria-current="page">Canvas</a><a href="#">Releases</a><a href="#">Data</a><a href="#">Functions</a><a href="#">History</a><a href="#">Storage</a></nav>
+</header>
+<main class="app-body" id="content">
+<div class="canvas">
+<div class="stage" id="stage" data-edges="workers>routes|h|web4_get; page>routes|h|web4_get; routes>data|v|reads posts; data>fn|h|on_add: moderate; relay>data|r|db_add, gas paid; fs>site|r|release 4 photo" style="width:1050px;height:700px">
+<svg class="edges" aria-hidden="true"></svg>
+<div class="group" style="left:250px;top:40px;width:500px;height:640px"><span class="group-label">harbour-board.testnet</span></div>
+<div class="node" data-node="workers" style="left:16px;top:110px;width:210px"><span class="node-name">Workers host</span><span class="node-sub">harbour-board.ss251.workers.dev</span><span class="node-note">Primary, answers from RPC</span><span class="provider"><span class="tool" data-tool="cloudflare">Cloudflare Workers</span></span></div>
+
+<div class="node" data-node="page" style="left:16px;top:280px;width:210px"><span class="node-name">testnet.page</span><span class="node-sub">harbour-board.testnet.page</span><span class="node-note">Public web4 gateway</span><span class="provider"><span class="tool" data-tool="web4">web4</span></span></div>
+
+<div class="node" data-node="routes" style="left:270px;top:80px;width:225px"><span class="node-name">Routes</span><span class="node-sub">/, /posts/:id, /api/posts</span><span class="node-note">Filled from posts on chain</span></div>
+
+<div class="node" data-node="site" style="left:510px;top:80px;width:225px"><span class="node-name">Site</span><span class="node-sub">5 releases, 104,367&nbsp;B stored</span><span class="track-wrap"><ol class="track" aria-label="Releases 1 to 5. Production is 5, previous is 4."><li class=""><i aria-hidden="true"></i><span>1</span></li><li class=""><i aria-hidden="true"></i><span>2</span></li><li class=""><i aria-hidden="true"></i><span>3</span></li><li class="is-prev"><i aria-hidden="true"></i><span>4</span></li><li class="is-prod"><i aria-hidden="true"></i><span>5</span></li></ol><span class="track-ptr" aria-hidden="true" style="--n:5;--i:4" data-edge="end"><span class="ptr ptr-down">production</span></span></span></div>
+
+<div class="node" data-node="members" style="left:270px;top:270px;width:225px"><span class="node-name">Members</span><span class="node-sub">7 accounts</span><span class="node-note">maren, priya, tobias and 4 more, made with no NEAR</span></div>
+
+<div class="node" data-node="data" style="left:510px;top:270px;width:225px"><span class="node-name">Data</span><span class="node-sub">posts: 14 docs, 4,692&nbsp;B</span><span class="node-note">Anyone writes, the site pays, moderated</span></div>
+
+<div class="node" data-node="pay" style="left:270px;top:440px;width:225px"><span class="node-name">Payments</span><span class="node-sub">pin: 0.1&nbsp;NEAR or 0.1 test USDC</span><span class="node-note">2 receipts</span></div>
+
+<div class="node" data-node="keys" style="left:510px;top:440px;width:225px"><span class="node-name">Keys</span><span class="node-sub">1 full-access key</span><span class="node-note">ed25519:7bBCkmgEv6iX…</span></div>
+
+<div class="node" data-node="cron" style="left:270px;top:580px;width:465px"><span class="node-name">Cron</span><span class="node-sub">digest, every 60 min</span><span class="node-note">Set, not armed. Arming needs about 1.1&nbsp;NEAR free</span></div>
+
+<button class="node" data-node="fn" type="button" aria-expanded="false" aria-controls="panel" style="left:830px;top:250px;width:210px"><span class="node-name">Functions</span><span class="node-sub">moderate, digest</span><span class="node-note">moderate last ran Nov 10, 20:32</span><span class="provider"><span class="tool" data-tool="outlayer"><img class="" src="../assets/brand/outlayer-wordmark.webp" alt="OutLayer" width="282" height="48"></span></span></button>
+
+<div class="node" data-node="relay" style="left:830px;top:440px;width:210px"><span class="node-name">Relay</span><span class="node-sub">relay.harbour-board.testnet</span><span class="node-note">0.356&nbsp;NEAR, gas only</span><span class="provider"><span class="tool" data-tool="outlayer"><img class="" src="../assets/brand/outlayer-wordmark.webp" alt="OutLayer" width="282" height="48"></span></span></div>
+
+<div class="node" data-node="fs" style="left:830px;top:60px;width:210px"><span class="node-name">Large files</span><span class="node-sub">1 file on FastFS, 493,183&nbsp;B</span><span class="node-note">sha256 16cca451…8ccf</span><span class="provider"><span class="tool" data-tool="fastnear"><img class="on-light" src="../assets/brand/fastnear-logo-black.webp" alt="FastNEAR" width="259" height="56"><img class="on-dark" src="../assets/brand/fastnear-logo-white.webp" alt="" width="259" height="56"><span>FastFS</span></span></span></div>
+
+</div>
+</div>
+<aside class="side-panel" id="panel" data-open aria-labelledby="panel-title">
+<div class="sp-head">
+<div class="sp-grab" aria-hidden="true"></div>
+<div class="sp-title"><h2 id="panel-title" tabindex="-1">Functions</h2><span class="provider"><span class="tool" data-tool="outlayer"><img class="" src="../assets/brand/outlayer-wordmark.webp" alt="OutLayer" width="282" height="48"></span></span><span class="grow"></span><button class="btn btn-sm btn-icon btn-quiet" type="button" id="close" aria-label="Close the Functions panel"><svg class="icon" aria-hidden="true"><use href="../assets/icons.svg#i-x"/></svg></button></div>
+<div class="sp-meta"><span>2 functions</span><span>Rust compiled to WASI</span><span>1 secret</span><a href="https://explorer.testnet.near.org/transactions/AyEpD8LfocJDMovR6LZDa8pcsHdNji86TiYpSCWARHBh">Deploy transaction<svg class="icon sm icon-end" aria-hidden="true"><use href="../assets/icons.svg#i-ext"/></svg></a></div>
+</div>
+<div class="sp-body">
+<section class="fn-card" aria-labelledby="fn-moderate">
+<div class="fn-top"><h3 id="fn-moderate" class="mono">moderate</h3><span class="chip chip-live"><span class="dot dot-live"></span>Runs on every new post</span></div>
+<dl class="facts-line"><dt>Trigger</dt><dd><code>on_add</code> on <code>posts</code></dd><dt>Secret</dt><dd><code>MOD_API_KEY</code>, stored on OutLayer, never shown</dd><dt>Outbound</dt><dd>HTTPS to fetch link previews</dd><dt>Per call</dt><dd>0.005&nbsp;NEAR attached, paid by the site; 30&nbsp;s limit</dd><dt>Last run</dt><dd>Nov 10, 20:32, <code>auth: ok</code>, preview attached</dd></dl>
+<div class="acts"><button class="btn btn-sm" type="button">View logs</button><a class="btn btn-sm btn-quiet" href="https://explorer.testnet.near.org/transactions/3cZfXHtLAbCVGmFJxkGLF75v56B4tAwvjWVqq24Zwkud">Secret transaction<svg class="icon sm icon-end" aria-hidden="true"><use href="../assets/icons.svg#i-ext"/></svg></a></div>
+</section>
+<section class="fn-card" aria-labelledby="fn-digest">
+<div class="fn-top"><h3 id="fn-digest" class="mono">digest</h3><span class="chip">Run by hand</span></div>
+<dl class="facts-line"><dt>Trigger</dt><dd><code>fn_call</code> by the owner; the cron job is set, not armed</dd><dt>Last run</dt><dd><a href="https://explorer.testnet.near.org/transactions/9vX1o2oDv4cKdE1Qf95LGW6xQoJ6J5KXBYjqRND3RWAD">9vX1o2oD…</a> with an <a href="https://testnet-api.outlayer.ai/attestations/by-tx/9vX1o2oDv4cKdE1Qf95LGW6xQoJ6J5KXBYjqRND3RWAD">OutLayer attestation</a></dd></dl>
+<div class="acts"><button class="btn btn-sm" type="button">Invoke</button><button class="btn btn-sm btn-quiet" type="button">View logs</button></div>
+</section>
+<section class="sp-section"><h3>Recent runs of moderate <a href="#">All 24</a></h3><ol class="rows"><li class="rel-row"><span class="id">24</span><div class="msg"><span class="l1"><span class="m">e2e-4eb351a1.harbour-board.testnet</span></span><span class="l2">auth ok, preview: Example Domain</span></div><span class="when">Nov 10, 20:32</span><div class="acts"></div></li><li class="rel-row"><span class="id">23</span><div class="msg"><span class="l1"><span class="m">priya.harbour-board.testnet</span></span><span class="l2">auth ok</span></div><span class="when">Nov 10, 20:21</span><div class="acts"></div></li><li class="rel-row"><span class="id">19</span><div class="msg"><span class="l1"><span class="m">tobias.harbour-board.testnet</span></span><span class="l2">auth ok</span></div><span class="when">Nov 10, 20:14</span><div class="acts"></div></li><li class="rel-row"><span class="id">17</span><div class="msg"><span class="l1"><span class="m">promo-bot.harbour-board.testnet</span><span class="chip chip-warn-plain">hidden</span></span><span class="l2">auth ok, blocked words</span></div><span class="when">Nov 10, 20:11</span><div class="acts"></div></li></ol></section>
+<p class="sp-note">OutLayer is one operator. A run took 5 to 17 seconds in our checks, and a post is saved before its check comes back.</p>
+</div>
+</aside>
+<div class="sheet-scrim" id="scrim" aria-hidden="true"></div>
+</main>
+<script type="module">
+import { drawAll } from "../assets/canvas.js";
+const panel = document.getElementById("panel"), stage = document.getElementById("stage");
+const fnNode = stage.querySelector('[data-node="fn"]');
+const setOpen = (open) => {
+  panel.toggleAttribute("data-open", open);
+  fnNode.setAttribute("aria-expanded", String(open));
+  document.body.toggleAttribute("data-panel", open);
+  requestAnimationFrame(drawAll);
+  if (open) panel.querySelector("h2").focus(); else fnNode.focus();
+};
+if (new URLSearchParams(location.search).get("panel") === "none") setOpen(false);
+else { document.body.setAttribute("data-panel", ""); fnNode.setAttribute("aria-expanded", "true"); }
+fnNode.addEventListener("click", () => setOpen(!panel.hasAttribute("data-open")));
+document.getElementById("close").addEventListener("click", () => setOpen(false));
+document.getElementById("scrim").addEventListener("click", () => setOpen(false));
+addEventListener("keydown", (e) => { if (e.key === "Escape" && panel.hasAttribute("data-open")) setOpen(false); });
+</script>
+</body>
+</html>

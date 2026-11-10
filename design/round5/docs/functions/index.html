@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Functions, Quay docs</title>
+<meta name="description" content="Run Rust functions on OutLayer for a Quay site: deploy, secrets, invoke, logs, and what you trust.">
+<meta name="theme-color" content="#f5f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a1016" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Functions, Quay docs">
+<meta property="og:description" content="Run Rust functions on OutLayer for a Quay site: deploy, secrets, invoke, logs, and what you trust.">
+<meta property="og:image" content="https://quay.ss251.workers.dev/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/mark.svg" type="image/svg+xml">
+<link rel="preload" href="../../assets/fonts/text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../../assets/fonts/mono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../../assets/quay.css">
+<script>try{const t=localStorage.getItem("quay-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+<script>const qt=new URLSearchParams(location.search).get("theme");if(qt)document.documentElement.dataset.theme=qt</script>
+<script type="module" src="../../assets/quay.js"></script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="site-nav"><div class="container">
+<a class="brand" href="../../index.html"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--accent)"/></svg>Quay</a>
+<a class="built-on hide-s" href="https://near.org/"><span class="tool" data-tool="near-built"><img class="on-light" src="../../assets/brand/built-on-near.svg" alt="Built on NEAR" width="3420" height="567"><img class="on-dark" src="../../assets/brand/built-on-near-rev.svg" alt="" width="3420" height="567"></span></a>
+<nav aria-label="Site"><a href="../../docs/functions/index.html" aria-current="page">Docs</a><a class="hide-s" href="../../architecture/index.html">Architecture</a><a class="hide-s" href="https://harbour-board.ss251.workers.dev/">Harbour Board</a></nav>
+<div class="nav-end"><span class="net hide-s"><span class="dot dot-live"></span>NEAR testnet</span>
+<button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme"><svg class="icon i-moon" aria-hidden="true"><use href="../../assets/icons.svg#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="../../assets/icons.svg#i-sun"/></svg></button>
+<a class="btn btn-sm" data-cta-account="href" href="../../dashboard/index.html">Open dashboard</a></div>
+</div></header>
+<main id="content" class="docs4">
+<div class="container docs-grid">
+<nav class="docs-side" aria-label="Layers"><p class="docs-side-h">Layers</p><ol><li><a href="#">Site</a></li><li><a href="#">Gateway</a></li><li><a href="#">Data</a></li><li><a href="#">Members and sign-in</a></li><li><a href="#">Relay</a></li><li><a href="#" aria-current="page">Functions</a></li><li><a href="#">Routes</a></li><li><a href="#">Large files</a></li><li><a href="#">Payments</a></li><li><a href="#">Cron</a></li><li><a href="#">quay up</a></li></ol></nav>
+<article class="prose">
+<p class="crumbs"><a href="#">Docs</a> <span aria-hidden="true">/</span> Layers</p>
+<h1>Functions</h1>
+<p class="status-line"><span class="chip chip-live"><span class="dot dot-live"></span>Live on testnet</span><span class="provider">Runs on <span class="tool" data-tool="outlayer"><img class="" src="../../assets/brand/outlayer-wordmark.webp" alt="OutLayer" width="282" height="48"></span></span></p>
+<p class="lede">A function is Rust compiled to WASI. OutLayer runs it in a TEE worker, and the contract keeps a registry of your functions and a record of every result. A function can hold a secret and make outbound HTTPS calls. There is no JavaScript runtime.</p>
+
+<h2 id="commands">Commands</h2>
+<div class="term"><div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="fn-cmds" aria-label="Copy the commands"><svg class="icon sm" aria-hidden="true"><use href="../../assets/icons.svg#i-copy"/></svg></button></div>
+<pre id="fn-cmds">quay functions deploy moderate
+quay secrets set MOD_API_KEY --fn moderate
+quay functions invoke digest '{}'
+quay functions logs moderate</pre></div>
+
+<h2 id="how">How Harbour Board uses it</h2>
+<ol class="steps-list">
+<li>A member adds a post. The <code>posts</code> collection has <code>on_add: moderate</code>, so the contract records a request in the <code>_fn</code> collection.</li>
+<li>OutLayer runs <code>moderate</code> with the post and the <code>MOD_API_KEY</code> secret. It checks blocked words and fetches a preview for any link.</li>
+<li>The result lands back on the contract. A post marked <code>hide: true</code> leaves <code>/</code> and <code>/api/posts</code>, and <code>/posts/9</code> answers 404.</li>
+</ol>
+<p>The post is saved before the check comes back. In our runs the check took 5 to 17 seconds.</p>
+<p>This is the result <code>moderate</code> wrote for run 24, read from the <code>_fn</code> collection:</p>
+<pre class="out" tabindex="0">{
+  "name": "moderate",
+  "caller": "e2e-4eb351a1.harbour-board.testnet",
+  "ok": true,
+  "output": {
+    "auth": "ok",
+    "hide": false,
+    "key_sha256_prefix": "f48adad6c4c4",
+    "preview": { "title": "Example Domain", "url": "https://example.com/" },
+    "reason": "ok"
+  }
+}</pre>
+
+<h2 id="proof">Proof on testnet</h2>
+<table class="proof-table"><tbody>
+<tr><th scope="row">The function deployed</th><td><a href="https://explorer.testnet.near.org/transactions/AyEpD8LfocJDMovR6LZDa8pcsHdNji86TiYpSCWARHBh">AyEpD8Lf…</a></td></tr>
+<tr><th scope="row">The secret stored</th><td><a href="https://explorer.testnet.near.org/transactions/3cZfXHtLAbCVGmFJxkGLF75v56B4tAwvjWVqq24Zwkud">3cZfXHtL…</a>, value never printed; only a sha256 prefix is kept</td></tr>
+<tr><th scope="row"><code>digest</code> run by hand</th><td><a href="https://explorer.testnet.near.org/transactions/9vX1o2oDv4cKdE1Qf95LGW6xQoJ6J5KXBYjqRND3RWAD">9vX1o2oD…</a> and its <a href="https://testnet-api.outlayer.ai/attestations/by-tx/9vX1o2oDv4cKdE1Qf95LGW6xQoJ6J5KXBYjqRND3RWAD">attestation</a></td></tr>
+<tr><th scope="row">A post hidden</th><td>Run 17, from <code>promo-bot</code>: <code>hide: true</code>, blocked words. <a href="https://harbour-board.ss251.workers.dev/posts/9">/posts/9</a> answers 404.</td></tr>
+</tbody></table>
+<p>Check it without a key: <code>view fn_list '{}'</code> and <code>view db_list '{"collection":"_fn","query":{"limit":3}}'</code>, with the view helper from the README.</p>
+
+<h2 id="trust">What you trust</h2>
+<p>OutLayer is one operator's TEE network. Secrets are decrypted inside its enclave, so you trust that enclave and that operator. There is no drop-in replacement. You can run the same logic on your own server with its own key, as <code>quay relay serve</code> does, or leave functions out. Without them, posts still land, previews stay empty and scheduled results stop.</p>
+
+<h2 id="limits">Limits</h2>
+<table class="limits4"><tbody>
+<tr><th scope="row">Language</th><td>Rust compiled to WASI. No JavaScript runtime.</td></tr>
+<tr><th scope="row">Time</th><td>30 seconds per call on the Board (<code>max_seconds</code>)</td></tr>
+<tr><th scope="row">Cost</th><td>0.005&nbsp;NEAR attached per call, paid by the site</td></tr>
+<tr><th scope="row">Schedule</th><td>Cron is set for <code>digest</code> and not armed. See Cron.</td></tr>
+</tbody></table>
+<nav class="pager" aria-label="Next and previous"><a href="#"><svg class="icon sm" aria-hidden="true"><use href="../../assets/icons.svg#i-left"/></svg>Relay</a><a href="#">Routes<svg class="icon sm icon-end" aria-hidden="true"><use href="../../assets/icons.svg#i-right"/></svg></a></nav>
+</article>
+</div>
+</main>
+<footer class="site-foot"><div class="container foot4">
+<a class="built-on" href="https://near.org/"><span class="tool" data-tool="near-built"><img class="on-light" src="../../assets/brand/built-on-near.svg" alt="Built on NEAR" width="3420" height="567"><img class="on-dark" src="../../assets/brand/built-on-near-rev.svg" alt="" width="3420" height="567"></span></a>
+<p>Quay is an independent hackathon project. It runs on NEAR testnet and is not made, run or endorsed by the NEAR Foundation or by any tool named on this page. Testnet only, with no mainnet path and no real funds. Cloudflare, the Cloudflare logo, and Cloudflare Workers are trademarks and/or registered trademarks of Cloudflare, Inc. in the United States and other jurisdictions.</p>
+<nav aria-label="Footer"><a href="../../docs/functions/index.html">Docs</a><a href="../../architecture/index.html">Architecture</a><a href="https://explorer.testnet.near.org/accounts/harbour-board.testnet">harbour-board.testnet on the explorer</a></nav>
+</div></footer>
+</body>
+</html>

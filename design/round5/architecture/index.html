@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Architecture, Quay</title>
+<meta name="description" content="Which parts of a Quay app are on a NEAR account, which run on a third party, and how to replace each.">
+<meta name="theme-color" content="#f5f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a1016" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Architecture, Quay">
+<meta property="og:description" content="Which parts of a Quay app are on a NEAR account, which run on a third party, and how to replace each.">
+<meta property="og:image" content="https://quay.ss251.workers.dev/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+<link rel="preload" href="../assets/fonts/text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/mono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/quay.css">
+<script>try{const t=localStorage.getItem("quay-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+<script>const qt=new URLSearchParams(location.search).get("theme");if(qt)document.documentElement.dataset.theme=qt</script>
+<script type="module" src="../assets/quay.js"></script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="site-nav"><div class="container">
+<a class="brand" href="../index.html"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--accent)"/></svg>Quay</a>
+<a class="built-on hide-s" href="https://near.org/"><span class="tool" data-tool="near-built"><img class="on-light" src="../assets/brand/built-on-near.svg" alt="Built on NEAR" width="3420" height="567"><img class="on-dark" src="../assets/brand/built-on-near-rev.svg" alt="" width="3420" height="567"></span></a>
+<nav aria-label="Site"><a href="../docs/functions/index.html">Docs</a><a class="hide-s" href="../architecture/index.html" aria-current="page">Architecture</a><a class="hide-s" href="https://harbour-board.ss251.workers.dev/">Harbour Board</a></nav>
+<div class="nav-end"><span class="net hide-s"><span class="dot dot-live"></span>NEAR testnet</span>
+<button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme"><svg class="icon i-moon" aria-hidden="true"><use href="../assets/icons.svg#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="../assets/icons.svg#i-sun"/></svg></button>
+<a class="btn btn-sm" data-cta-account="href" href="../dashboard/index.html">Open dashboard</a></div>
+</div></header>
+<main id="content">
+<section class="section page-top">
+<div class="container">
+<div class="section-head">
+<h1>Architecture</h1>
+<p class="lede">One NEAR account holds the app. Everything else is a service that reads it, writes to it or runs code for it. This page lists which is which, and what breaks when a service goes away.</p>
+</div>
+<figure class="mini-canvas arch">
+<ol class="sr"><li>A browser asks a gateway over https: testnet.page, a Workers host or quay gateway.</li><li>The gateway calls web4_get over RPC, by default FastNEAR's test.rpc.fastnear.com.</li><li>The RPC node reads your NEAR account, where the contract holds releases, routes, data, members, receipts, the function registry and cron jobs.</li><li>Large files come from FastFS by URL, and the release keeps their sha256.</li><li>The wallet connector signs NEP-413 sign-in messages.</li><li>The contract sends function requests to OutLayer and records the results.</li></ol>
+<div class="canvas" aria-hidden="true"><div class="stage" id="arch-stage" data-edges="browser>gw|h|https; gw>rpc|h|web4_get; rpc>acct|h|view and call; fs>gw|v|large file by URL; wc>acct|v|NEP-413 sign-in; acct>ol|v|function requests and results" style="width:1100px;height:580px">
+<svg class="edges" aria-hidden="true"></svg>
+<div class="node" data-node="browser" style="left:16px;top:236px;width:160px"><span class="node-name">A browser</span><span class="node-note">Reader or member</span></div>
+<div class="node" data-node="gw" style="left:236px;top:216px;width:210px"><span class="node-name">Gateway</span><span class="node-sub">testnet.page, a Workers host or <code>quay gateway</code></span><span class="provider"><span class="tool" data-tool="web4">web4</span><span class="tool" data-tool="cloudflare">Cloudflare Workers</span></span></div>
+<div class="node" data-node="rpc" style="left:526px;top:226px;width:180px"><span class="node-name">RPC</span><span class="node-sub">test.rpc.fastnear.com, with fallbacks</span><span class="provider"><span class="tool" data-tool="fastnear"><img class="on-light" src="../assets/brand/fastnear-logo-black.webp" alt="FastNEAR" width="259" height="56"><img class="on-dark" src="../assets/brand/fastnear-logo-white.webp" alt="" width="259" height="56"></span></span></div>
+<div class="node node-acct" data-node="acct" style="left:800px;top:196px;width:290px"><span class="node-name">Your NEAR account</span><span class="node-sub">The contract holds releases, routes, data, members, receipts, the function registry and cron jobs</span><span class="provider"><span class="tool" data-tool="near"><img class="on-light" src="../assets/brand/near-logo.svg" alt="NEAR" width="1440" height="351"><img class="on-dark" src="../assets/brand/near-logo-rev.svg" alt="" width="1440" height="351"></span></span></div>
+<div class="node" data-node="fs" style="left:236px;top:24px;width:210px"><span class="node-name">FastFS</span><span class="node-sub">Large files, stored for gas only</span><span class="provider"><span class="tool" data-tool="fastnear"><img class="on-light" src="../assets/brand/fastnear-logo-black.webp" alt="FastNEAR" width="259" height="56"><img class="on-dark" src="../assets/brand/fastnear-logo-white.webp" alt="" width="259" height="56"><span>FastFS</span></span></span></div>
+<div class="node" data-node="wc" style="left:800px;top:24px;width:290px"><span class="node-name">Wallet connector</span><span class="node-sub">@hot-labs/near-connect and the wallets it lists</span><span class="provider"><span class="tool" data-tool="connect">near-connect</span></span></div>
+<div class="node" data-node="ol" style="left:800px;top:430px;width:290px"><span class="node-name">OutLayer</span><span class="node-sub">Functions, their secrets, the serverless relayer</span><span class="provider"><span class="tool" data-tool="outlayer"><img class="" src="../assets/brand/outlayer-wordmark.webp" alt="OutLayer" width="282" height="48"></span></span></div>
+</div></div>
+<figcaption>A request goes from the browser through a gateway and an RPC node to your NEAR account. Only the account is on chain; every other box is a service with an operator, and the trust table below says how to replace each one.</figcaption>
+</figure>
+</div>
+</section>
+<section class="section">
+<div class="container split-sec top">
+<div><h2>What is on chain</h2><p class="lede">The contract stores these, and any RPC node can read them without a Quay service. Large files are the exception. The release stores an https URL and a sha256, and anyone can check the hash.</p></div>
+<ul class="onchain"><li><span>Releases and the production pointer</span><span class="chip chip-live">live</span></li><li><span>Docs, collections and their rules</span><span class="chip chip-live">live on the Board</span></li><li><span>Routes and templates, sealed in a release</span><span class="chip chip-live">live on the Board</span></li><li><span>Members</span><span class="chip chip-live">live on the Board</span></li><li><span>Products and receipts</span><span class="chip chip-live">live on the Board</span></li><li><span>Function registry and function results</span><span class="chip chip-live">live on the Board</span></li><li><span>Cron jobs</span><span class="chip">set, not armed</span></li></ul>
+</div>
+</section>
+<section class="section">
+<div class="container">
+<div class="section-head"><h2>Trust table</h2><p class="lede">Each row is something one operator runs, or that Quay cannot check for you. "Measured" means we saw it fail.</p></div>
+<div class="table-wrap" role="region" tabindex="0" aria-label="Trust table"><table class="trust"><thead><tr><th scope="col">Piece</th><th scope="col">What you depend on</th><th scope="col">How to replace it</th></tr></thead><tbody><tr><th scope="row">testnet.page</th><td>One operator serves every web4 site. Measured: from about 18:12 UTC on Nov 10 it answered every account with HTTP 400 and a deprecated-RPC error.</td><td><code>quay gateway</code> on your machine, the single-file build on Node, Deno or Bun, or the Workers build.</td></tr><tr><th scope="row">Workers mirror</th><td>The owner's Cloudflare account, running <code>gateway/worker</code> unchanged, one site per host.</td><td>Deploy the same worker to your own account with <code>npx wrangler deploy</code>.</td></tr><tr><th scope="row">OutLayer</th><td>One operator's TEE network. A run takes 5 to 17 seconds. Its governance keys are single keys, by its own NON_CUSTODIAL.md. Secrets are decrypted in its enclave.</td><td>No drop-in replacement. Run the logic on your own server, or leave functions out.</td></tr><tr><th scope="row">FastNEAR</th><td>The default RPC, FastFS for large files and function wasm, and FastData reads.</td><td>Pass <code>--rpc</code>; the gateway falls back to <code>testnet-rpc.intea.rs</code> and <code>near-testnet.drpc.org</code>. Store files on Pinata, Filebase or any https URL.</td></tr><tr><th scope="row">Relayer</th><td>Its own account and key; its balance is the spend limit. The OutLayer host needs a payment key in the page, so anyone who reads the page can spend it. Keep it at a few cents.</td><td>Run <code>quay relay serve</code> and fund it with <code>quay relay create</code>.</td></tr><tr><th scope="row">Wallet connector</th><td><code>@hot-labs/near-connect</code> from esm.sh, and the wallets it lists.</td><td>Pass your own connector, or sign with an explicit key in Node.</td></tr><tr><th scope="row">Your full-access key</th><td>It can replace the contract wasm, so a release is not owner-proof against it.</td><td>Keep it off CI. Use <code>quay keys create --ci</code> there.</td></tr></tbody></table></div>
+</div>
+</section>
+<section class="section">
+<div class="container split-sec top">
+<div><h2>Versioned with a release, and not</h2></div>
+<div class="prose"><p>A release seals files, routes and templates together, and <code>quay rollback</code> swaps all three.</p><p>Docs, collection rules, products, members, receipts, function code and secrets, relay settings and cron jobs are live state. A rollback does not touch them, and <code>quay up</code> says so before it runs.</p></div>
+</div>
+</section>
+</main>
+<footer class="site-foot"><div class="container foot4">
+<a class="built-on" href="https://near.org/"><span class="tool" data-tool="near-built"><img class="on-light" src="../assets/brand/built-on-near.svg" alt="Built on NEAR" width="3420" height="567"><img class="on-dark" src="../assets/brand/built-on-near-rev.svg" alt="" width="3420" height="567"></span></a>
+<p>Quay is an independent hackathon project. It runs on NEAR testnet and is not made, run or endorsed by the NEAR Foundation or by any tool named on this page. Testnet only, with no mainnet path and no real funds. Cloudflare, the Cloudflare logo, and Cloudflare Workers are trademarks and/or registered trademarks of Cloudflare, Inc. in the United States and other jurisdictions.</p>
+<nav aria-label="Footer"><a href="../docs/functions/index.html">Docs</a><a href="../architecture/index.html">Architecture</a><a href="https://explorer.testnet.near.org/accounts/harbour-board.testnet">harbour-board.testnet on the explorer</a></nav>
+</div></footer>
+<script type="module" src="../assets/canvas.js"></script>
+</body>
+</html>
