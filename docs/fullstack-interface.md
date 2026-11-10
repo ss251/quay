@@ -223,6 +223,8 @@ await quay.pay("pin", { ref: "posts/12" });             // section 9
 
 Writes go through, in order: a member session key through the relayer (section 6), or the signed-in wallet.
 
+`add` sends a client-made id (a letter, then 9 base36 characters) unless the caller passes one, so a retry after a timeout cannot add a second doc. The contract still assigns sequence ids (`"1"`, `"2"`, …) to writes that send no id, such as `quay db add` without `--id`.
+
 ## 6. Relay
 
 Two hosts serve the same protocol. (1) `quay relay serve` is a small Node process, the one off-chain piece, labelled as such. (2) The relayer as an OutLayer function (`quay relay deploy`): the relayer key is an OutLayer secret, the page calls `POST https://testnet-api.outlayer.ai/call/<site>/relay` with `{"input": {"op": "relay" | "join" | "health", ...}}` and a scoped payment key, and the function signs and sends the transaction over RPC. No server, at the cost of a public payment key (see section 3).
