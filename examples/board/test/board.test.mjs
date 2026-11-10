@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { parseProject } from "../../../cli/src/projectfile.mjs";
 import { validateRoutes } from "../../../cli/src/routes.mjs";
 import { collectSite } from "../../../cli/src/site.mjs";
-import { docOf, loadSeed } from "../seed.mjs";
+import { docOf, loadSeed, seedId } from "../seed.mjs";
 import { escapeHtml, includesOf, render } from "./render.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -331,4 +331,14 @@ test("site folder holds only files quay can seal", () => {
         : [relative(siteDir, join(dir, n))],
     );
   for (const path of walk(siteDir)) assert.ok(!/(^|\/)\./.test(path), path);
+});
+
+test("seed ids: stable per index, letter-prefixed, valid doc ids, unique", () => {
+  const ids = seed.posts.map((_, i) => seedId(i));
+  assert.equal(seedId(0), "seed-01");
+  assert.equal(new Set(ids).size, ids.length);
+  for (const id of ids) {
+    assert.match(id, /^[A-Za-z0-9_-]{1,64}$/);
+    assert.ok(!/^\d+$/.test(id));
+  }
 });

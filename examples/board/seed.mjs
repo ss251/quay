@@ -29,6 +29,12 @@ export function loadSeed() {
   return seed;
 }
 
+/**
+ * The doc id of the seed post at `index`: stable across runs and letter-prefixed
+ * (all-digit ids are automatic), so a retry after a timeout cannot post twice.
+ */
+export const seedId = (index) => `seed-${String(index + 1).padStart(2, "0")}`;
+
 /** The doc a post becomes: everything except who posts it. */
 export function docOf(post) {
   const { by: _by, ...data } = post;
@@ -70,7 +76,9 @@ async function retry(label, task, tries = 6) {
       if (
         attempt >= tries ||
         !(
-          ["member_key_missing", "relay_refused"].includes(error.code) ||
+          ["member_key_missing", "relay_refused", "relay_timeout"].includes(
+            error.code,
+          ) ||
           error.name === "TimeoutError" ||
           error.name === "AbortError"
         ) ||
@@ -97,8 +105,8 @@ export async function seed({
     log(
       `join ${Object.keys(data.members).length} members: ${Object.keys(data.members).join(", ")}`,
     );
-    for (const post of data.posts)
-      log(`post by ${post.by}.${site}: ${post.title}`);
+    for (const [index, post] of data.posts.entries())
+      log(`post ${seedId(index)} by ${post.by}.${site}: ${post.title}`);
     return { members: Object.keys(data.members), posts: data.posts.length };
   }
   if (!relay)
@@ -131,15 +139,18 @@ export async function seed({
   }
 
   const posted = [];
-  for (const post of data.posts) {
+  for (const [index, post] of data.posts.entries()) {
     if (existing.has(post.title)) {
       log(`skip   "${post.title}" is already on the board`);
       continue;
     }
     const quay = clients[post.by];
-    const id = await retry(post.title, () =>
-      quay.db.collection("posts").add(docOf(post)),
-    );
+    const id = await retry(post.title, async () => {
+      // A retry reuses the id: if an earlier attempt landed, it is not added again.
+      const seedDocId = seedId(index);
+      if (await reader.db.collection("posts").get(seedDocId)) return seedDocId;
+      return quay.db.collection("posts").add(docOf(post), { id: seedDocId });
+    });
     log(`posted ${id}  ${quay.auth.account}  ${post.title}`);
     posted.push(String(id));
     if (wait) {
