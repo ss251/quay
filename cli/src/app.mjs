@@ -7,7 +7,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 
 import {
   credentialsHome,
@@ -17,17 +17,23 @@ import {
 } from "./config.mjs";
 import { generateKey } from "./chain.mjs";
 import { refused, QuayError } from "./errors.mjs";
-import { confirm, explorerUrl, owner, stopped } from "./shared.mjs";
+import { readProject } from "./projectfile.mjs";
+import { db } from "./db.mjs";
+import { parseCount } from "./units.mjs";
+import { membersCmd } from "./members.mjs";
+import { productsCmd, receiptsCmd } from "./products.mjs";
+import { allReleases, deployRelease, reportDeploy } from "./release.mjs";
 import {
-  checkId,
-  checkMessage,
-  chunkFile,
-  collectSite,
-  MAX_STORED_BYTES,
-  nextReleaseId,
-  planRelease,
-  yoctoUnlocked,
-} from "./site.mjs";
+  confirm,
+  explorerUrl,
+  owner,
+  previewUrl,
+  stopped,
+  VERSIONED_NOTE,
+  waitForGateway,
+} from "./shared.mjs";
+import { up } from "./up.mjs";
+import { checkId, yoctoUnlocked } from "./site.mjs";
 import {
   emit,
   formatBytes,
@@ -42,12 +48,7 @@ import {
 
 const FALLBACK_METHODS = ["put_chunk", "seal"];
 
-export function previewUrl(gateway, id) {
-  const base = String(gateway).replace(/\/$/, "");
-  return id ? `${base}/r/${id}/` : `${base}/`;
-}
-
-export { explorerUrl };
+export { explorerUrl, previewUrl, waitForGateway };
 
 export function initLines({
   adopted,
@@ -66,46 +67,6 @@ export function initLines({
   lines.push(`gateway ${gateway}`);
   lines.push("next  quay deploy");
   return lines.join("\n");
-}
-
-export async function waitForGateway(ctx, url) {
-  const probe = ctx.probe ?? probeGateway;
-  const timeoutMs = ctx.gatewayTimeoutMs ?? 120_000;
-  const intervalMs = ctx.gatewayIntervalMs ?? 3_000;
-  const started = Date.now();
-  let announced = false;
-  let last = "no response";
-  for (;;) {
-    try {
-      const status = await probe(url);
-      if (typeof status === "number" && status >= 100 && status < 600) {
-        return status;
-      }
-      last = `HTTP ${status}`;
-    } catch (error) {
-      const cause = error?.cause;
-      last = cause?.code || cause?.message || error?.message || String(error);
-    }
-    if (Date.now() - started >= timeoutMs) {
-      throw new QuayError(
-        `the gateway at ${url} did not answer within 2 minutes (${last}). The certificate is issued on the first request. Open the URL again in a minute.`,
-        2,
-      );
-    }
-    if (!announced) {
-      writeErr(
-        ctx,
-        "waiting for the gateway certificate, usually under 2 minutes",
-      );
-      announced = true;
-    }
-    await new Promise((done) => setTimeout(done, intervalMs));
-  }
-}
-
-async function probeGateway(url) {
-  const response = await fetch(url, { redirect: "manual" });
-  return response.status;
 }
 
 export async function run(ctx, parsed) {
@@ -137,6 +98,11 @@ export async function run(ctx, parsed) {
     open: open,
     delete: deleteRelease,
     keys: keys,
+    db: db,
+    members: membersCmd,
+    products: productsCmd,
+    receipts: receiptsCmd,
+    up: up,
   };
   const handler = handlers[parsed.command];
   if (!handler) {
@@ -145,20 +111,6 @@ export async function run(ctx, parsed) {
   }
   await handler(ctx, parsed);
   return 0;
-}
-
-async function allReleases(chain) {
-  const releases = [];
-  let from = 0;
-  for (;;) {
-    const page = await chain.view("list_releases", {
-      from_index: from,
-      limit: 20,
-    });
-    releases.push(...(page?.releases ?? []));
-    if (page?.next == null) return releases;
-    from = page.next;
-  }
 }
 
 async function publishMethods(chain) {
@@ -173,140 +125,41 @@ async function publishMethods(chain) {
 }
 
 export async function deploy(ctx, parsed) {
-  const account = requireAccount(ctx.config);
+  requireAccount(ctx.config);
   if (!ctx.signer?.secret)
     throw new QuayError("no signing key for this account", 1);
-  const dir = resolve(parsed.rest[0] ?? ".");
-  const message = checkMessage(
-    parsed.flags.message ? String(parsed.flags.message) : "",
-  );
-  const spa = Boolean(ctx.spa);
-  const files = collectSite(dir);
-  const listed = await allReleases(ctx.chain);
-  if (listed.length >= 32)
-    throw new QuayError("the contract already has 32 releases", 1);
-  const id = parsed.flags.id
-    ? checkId(String(parsed.flags.id))
-    : nextReleaseId(listed);
-  if (listed.some((release) => release.id === id))
-    throw new QuayError(`release ${id} already exists`, 1);
-  const status = await ctx.chain.view("get_status", {});
-  const hashes = new Set();
-  for (const file of files) {
-    for (const chunk of chunkFile(file.bytes)) hashes.add(chunk.sha256);
-  }
-  const known = new Set();
-  for (const hash of hashes) {
-    if (await ctx.chain.hasChunk(hash)) known.add(hash);
-  }
-  const plan = planRelease(files, known);
-  const stored = BigInt(status?.stored_bytes ?? 0);
-  const max = BigInt(status?.max_bytes ?? MAX_STORED_BYTES);
-  if (stored + plan.newBytes > max) {
-    throw new QuayError(
-      `this release needs ${plan.newBytes} new bytes and the contract has ${max - stored} left`,
-      1,
-    );
-  }
-  const summary = {
-    id,
-    files: files.length,
-    new_bytes: Number(plan.newBytes),
-    reused_bytes: Number(plan.reusedBytes),
-    estimated_near: formatNear(plan.yocto),
-    url: previewUrl(ctx.config.gateway, id),
-  };
-  writeErr(
-    ctx,
-    [
-      `${summary.files} files, ${formatBytes(summary.new_bytes)} new, ${formatBytes(summary.reused_bytes)} reused`,
-      `storage estimate ${summary.estimated_near} NEAR (0.01 NEAR / 1000 bytes, plus trie overhead)`,
-    ].join("\n"),
-  );
-  const next = `quay promote ${id} to make this production`;
-  if (ctx.dryRun) {
+  const flags = parsed.flags;
+  const project = ctx.config.path ? readProject(ctx.config.path) : null;
+  const result = await deployRelease(ctx, {
+    dir: parsed.rest[0] ?? ".",
+    message: flags.message ? String(flags.message) : "",
+    spa: Boolean(ctx.spa),
+    id: flags.id,
+    routes: project?.routes ?? [],
+    externalOver:
+      flags["external-over"] !== undefined
+        ? parseCount(flags["external-over"], "--external-over", { min: 1 })
+        : (project?.files.external_over ?? null),
+    store: flags.store
+      ? String(flags.store)
+      : (project?.files.store ?? "nearfs"),
+    verify: !flags["no-verify"],
+    verifyTimeoutMs:
+      flags["verify-wait"] !== undefined
+        ? parseCount(flags["verify-wait"], "--verify-wait", { min: 0 }) * 1000
+        : undefined,
+  });
+  if (result.stopped) return;
+  if (result.dryRun) {
     emit(
       ctx,
-      { ...summary, dry_run: true, next },
-      `${summary.url}\ndry run\nnext  ${next}`,
+      { ...result.summary, dry_run: true, next: result.next },
+      `${result.summary.url}\ndry run\nnext  ${result.next}`,
     );
     return;
   }
-  const ok = await confirm(ctx, `Store release ${id} on ${account}?`);
-  if (!ok) {
-    stopped(ctx);
-    return;
-  }
-  const chunkHashes = [];
-  const uploaded = [];
-  let sealed;
-  try {
-    for (let index = 0; index < plan.uploads.length; index += 1) {
-      const upload = plan.uploads[index];
-      writeErr(
-        ctx,
-        `${index + 1}/${plan.uploads.length}  ${upload.path}  ${upload.data.length} bytes`,
-      );
-      const sent = await ctx.chain.putChunk(upload.sha256, upload.data);
-      chunkHashes.push(sent.hash);
-      uploaded.push(upload.sha256);
-    }
-    sealed = await ctx.chain.seal(
-      id,
-      plan.planned.map((file) => ({
-        path: file.path,
-        chunks: file.chunks,
-        content_type: file.contentType,
-      })),
-      message,
-      spa,
-    );
-  } catch (error) {
-    await dropAbandoned(ctx, uploaded);
-    throw error;
-  }
-  const transactionUrl = explorerUrl(sealed.hash);
-  emit(
-    ctx,
-    {
-      ...summary,
-      message,
-      spa,
-      transaction: sealed.hash,
-      transaction_url: transactionUrl,
-      chunk_transactions: chunkHashes,
-      next,
-    },
-    [
-      `${paint(ctx.color, "36", id)}  ${summary.url}`,
-      `reused ${formatBytes(summary.reused_bytes)}`,
-      `transaction ${transactionUrl}`,
-      `next  ${next}`,
-    ].join("\n"),
-  );
-  if (listed.length === 0) await waitForGateway(ctx, summary.url);
-}
-
-async function dropAbandoned(ctx, hashes) {
-  if (hashes.length === 0) return;
-  if (ctx.signer?.limited) {
-    writeErr(
-      ctx,
-      "Those new chunks stay stored. A publish-only key cannot drop them.",
-    );
-    return;
-  }
-  for (const sha256 of hashes) {
-    try {
-      await ctx.chain.dropChunk(sha256);
-      writeErr(ctx, `dropped unused chunk ${sha256.slice(0, 12)}`);
-    } catch (error) {
-      writeErr(
-        ctx,
-        `could not drop ${sha256.slice(0, 12)}: ${error.message ?? error}`,
-      );
-    }
-  }
+  reportDeploy(ctx, result);
+  if (result.listed.length === 0) await waitForGateway(ctx, result.summary.url);
 }
 
 export async function promote(ctx, parsed) {
@@ -347,8 +200,9 @@ export async function rollback(ctx) {
       url,
       transaction: sent.hash,
       transaction_url: transactionUrl,
+      versioned: VERSIONED_NOTE.split("\n"),
     },
-    `${id} is production\n${url}\ntransaction ${transactionUrl}`,
+    `${id} is production\n${url}\ntransaction ${transactionUrl}\n${VERSIONED_NOTE}`,
   );
 }
 
