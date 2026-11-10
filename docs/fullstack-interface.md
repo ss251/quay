@@ -251,4 +251,31 @@ Grant `pin` needs `ref` = `<collection>/<id>` of an existing doc and sets its `p
 
 `buy(memo)` from v2 is unchanged.
 
-## 10. Project file and `quay up` — *pending*
+## 10. Project file and `quay up`
+
+`quay.json` (written by `quay init`) gains optional sections. Unknown keys are an error, so a typo does not silently do nothing.
+
+```jsonc
+{
+  "account": "board-x1.testnet",
+  "network": "testnet",
+  "site": { "dir": "site", "spa": false },
+  "files": { "external_over": 65536, "store": "nearfs" },          // or "pinata" / "filebase" (API key from env)
+  "collections": {
+    "posts": { "write": "members", "payer": "site", "max_doc_bytes": 2000, "moderated": true, "max_docs_per_account": 50, "on_add": null }
+  },
+  "routes": [
+    { "pattern": "/posts/:id", "kind": "doc", "collection": "posts", "template": "templates/post.html" },
+    { "pattern": "/api/:collection", "kind": "json", "collection": "*" }
+  ],
+  "products": { "pin": { "name": "Pin a post for 24 hours", "price_yocto": "100000000000000000000000", "grant": "pin", "pin_seconds": 86400 } },
+  "members": { "open": true },
+  "functions": {},     // section 3, pending
+  "relay": {},         // section 6 host, pending
+  "cron": []           // section 8, pending
+}
+```
+
+`quay up [-m message]` applies, in order: functions (pending), collection rules, products, members setting, then deploys `site.dir` as a new release with `routes` (large files per `files`), then promotes it. `--dry-run` prints the plan and changes nothing. Each step prints its transaction link.
+
+What is versioned: files, routes and templates, together, per release. `quay rollback` restores all three. What is live state and is **not** versioned: documents, collection rules, products, members, function code and secrets, the relay and cron settings. `quay up` and `quay rollback` print this so nobody expects a data rollback.
