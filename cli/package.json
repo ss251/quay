@@ -1,0 +1,28 @@
+{
+  "name": "quay-near",
+  "version": "2.0.0",
+  "description": "Publish a site to NEAR testnet and move its production pointer.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "quay": "./bin/quay.js"
+  },
+  "exports": {
+    ".": "./src/lib.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "vendor"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "quay": "node ./bin/quay.js"
+  },
+  "dependencies": {
+    "near-api-js": "7.4.0"
+  }
+}

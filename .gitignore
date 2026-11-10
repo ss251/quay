@@ -1,6 +1,9 @@
 /target
 contract/target
 **/*.wasm
+!cli/vendor/quay.wasm
+node_modules/
+web/dist/
 .near-credentials
 *.key
 .env
