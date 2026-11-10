@@ -32,7 +32,7 @@ test "$got" = "$want"
 echo "   sha256 $got"
 
 echo "4. get_production"
-view=$(near view quay-bb.testnet get_production '{}' --network-id testnet)
+view=$(near contract call-function as-read-only quay-bb.testnet get_production json-args '{}' network-config testnet now)
 printf '%s\n' "$view"
 printf '%s\n' "$view" | grep -F '"2"' >/dev/null
 

@@ -7,6 +7,7 @@ Testnet contract and CLI that publish sealed site releases and move a production
 - Run one heavy cargo or wasm build at a time.
 - `near` and `cargo-near` live in `~/.cargo/bin`. Keys stay in `~/.near-credentials`. Never commit or print a key.
 - Network is testnet. Do not use mainnet, NEAR Intents, or real funds.
+- Official NEAR skills live in `.grok/skills/` and are gitignored. The docs MCP is `.grok/config.toml`.
 - A full-access key can replace the wasm. Releases are not owner-proof.
 - The public gateway serves paths on `<account>.testnet.page`. An extra host label fails TLS.
 

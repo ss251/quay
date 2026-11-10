@@ -14,11 +14,12 @@ Testnet only. Account `quay-bb.testnet`.
 - Chunks keyed by sha256, 200,000 bytes maximum. Sealing the same bytes again does not store them twice.
 - `promote` attaches exactly 1 yoctoNEAR. A function-call key cannot attach NEAR, so it cannot promote even if its method list were wrong.
 - The publish key may call only `put_chunk` and `seal`. Its public key is `ed25519:5ibCru26UTkfcfhxQe4EKk4b5Mhpwh78zjKNGaEXzgxT`. Added in [7vNr7FXmUMpbSuX2YATgYw3MrFSErrnfGqSqdFDwtxm6](https://explorer.testnet.near.org/transactions/7vNr7FXmUMpbSuX2YATgYw3MrFSErrnfGqSqdFDwtxm6).
+- `put_chunk`, `seal`, and `promote` accept a call only when the predecessor is `quay-bb.testnet`. One yoctoNEAR from another account cannot move production. `buy` stays public.
 - `web4_get` answers the public gateway. Production is `/` and `/index.html`. A release is `/r/<id>`, `/r/<id>/`, and `/r/<id>/index.html`.
 - NEP-297 events `release_sealed`, `promoted`, and `purchased` (`standard` `quay`, `version` `1.0.0`).
 - `buy` takes testnet NEAR into the site account and records the buyer. It does not move the production pointer.
 
-The contract wasm was deployed and initialized with `new` in [3PJ5vXuwsrMebY9bgSxuSVUnc5hYFqohHxMqiygESiUu](https://explorer.testnet.near.org/transactions/3PJ5vXuwsrMebY9bgSxuSVUnc5hYFqohHxMqiygESiUu). The wasm file is 177,295 bytes. Account storage rose by 177,368 bytes, which locks 1.77368 NEAR at the protocol rate of 0.01 NEAR per 1,000 bytes.
+The contract wasm was deployed and initialized with `new` in [3PJ5vXuwsrMebY9bgSxuSVUnc5hYFqohHxMqiygESiUu](https://explorer.testnet.near.org/transactions/3PJ5vXuwsrMebY9bgSxuSVUnc5hYFqohHxMqiygESiUu). That wasm was 177,295 bytes. Account storage rose by 177,368 bytes, which locks 1.77368 NEAR at the protocol rate of 0.01 NEAR per 1,000 bytes. A later code-only deploy kept the state: [FJEpxzffwhyFcHHTfxezs5PUobXqhPJUuZfMTMjvfZaD](https://explorer.testnet.near.org/transactions/FJEpxzffwhyFcHHTfxezs5PUobXqhPJUuZfMTMjvfZaD). `agent.quay-bb.testnet` then called `promote` with 1 yoctoNEAR and the contract panicked `only this account`: [GgWVBft3oR9jDUj8UWtrCFLLEh3XB9qa5z7ExgL7VoW3](https://explorer.testnet.near.org/transactions/GgWVBft3oR9jDUj8UWtrCFLLEh3XB9qa5z7ExgL7VoW3). Production stayed `"2"`.
 
 A full-access key can still deploy different wasm over this contract. Releases are immutable for the publish key. They are not owner-proof.
 
@@ -33,7 +34,7 @@ A full-access key can still deploy different wasm over this contract. Releases a
 | Release 1 | https://quay-bb.testnet.page/r/1 |
 | Release 2 | https://quay-bb.testnet.page/r/2 |
 
-`near view` uses near-cli-rs `network-config testnet`. Quay's chunk lookup uses `QUAY_RPC`. The default in `quay.json` is `https://rpc.testnet.fastnear.com`. `https://rpc.testnet.near.org` still answers and is severely rate-limited.
+Read-only `near` commands use `network-config testnet` and end in `now`. Quay's chunk lookup uses `QUAY_RPC`. The default in `quay.json` is `https://test.rpc.fastnear.com`. `https://rpc.testnet.near.org` still answers and is severely rate-limited.
 
 A host with an extra label, such as `https://r1.quay-bb.testnet.page/`, fails the TLS handshake. The certificate covers one label. Releases are paths.
 
@@ -71,7 +72,7 @@ You can run the same checks with `sh scripts/judge.sh`.
 4. Read the production pointer.
 
    ```sh
-   near view quay-bb.testnet get_production '{}' --network-id testnet
+   near contract call-function as-read-only quay-bb.testnet get_production json-args '{}' network-config testnet now
    ```
 
    See `"2"`. The page in step 2 says `production: release 2`.
@@ -91,7 +92,7 @@ Production was moved to release 2 in [5zZvwp45vB3Rq4BLFTpqxQyvWrhAwS8qv8UFtrDcZm
 `agent.quay-bb.testnet` called `buy` with 0.1 testnet NEAR in [CmH5fw2nXM8p3BQ1FwLzRbeMG1HRuKocFQMQ4P7qTDgD](https://explorer.testnet.near.org/transactions/CmH5fw2nXM8p3BQ1FwLzRbeMG1HRuKocFQMQ4P7qTDgD). The site balance moved from 8.990273 NEAR to 9.090273 NEAR. The event records buyer `agent.quay-bb.testnet` and `100000000000000000000000` yoctoNEAR.
 
 ```sh
-near view quay-bb.testnet get_sales '{}' --network-id testnet
+near contract call-function as-read-only quay-bb.testnet get_sales json-args '{}' network-config testnet now
 ```
 
 Release 1 is 1,762 bytes and raised account storage by 2,175 bytes. After releases 1, 2, and 3, `get_budget` reported `stored_bytes` 6461, the sum of those three payloads (1762 + 3758 + 941). Sealing the same 941 bytes again as release 4 left `stored_bytes` at 6461. `/r/3` and `/r/4` are the same bytes. Their digest is `releases/3.sha256`.
@@ -112,6 +113,18 @@ node cli/quay.mjs promote 2
 `publish` takes a file or a directory. A file is stored as `index.html`. `promote` always uses the full-access key and attaches 1 yoctoNEAR. `--full-access` publishes with that key instead of the publish key.
 
 `scripts/agent.mjs` is the agent path. `agent.quay-bb.testnet` sent 0.05 NEAR to the site in [5erHLtXCYfhoHerE5RBMVaX8p96qcbij2FUAJVY1rvdp](https://explorer.testnet.near.org/transactions/5erHLtXCYfhoHerE5RBMVaX8p96qcbij2FUAJVY1rvdp), then the publish key sealed https://quay-bb.testnet.page/r/3. The same key's direct `promote` was rejected before broadcast.
+
+## Built with NEAR's official tooling
+
+This pass used the official skills `near-smart-contracts`, `near-contract-audit`, `near-cli-rs`, `near-dapp`, `near-api-js`, and `near-kit` from `near/agent-skills`, installed in this worktree only. NEAR Docs MCP at `https://docs.near.org/mcp` (`search_near_docs`, `query_docs_filesystem_near_docs`) supplied the access-key, one-yoctoNEAR, storage-staking, and security-checklist pages. Commands were checked against near-cli-rs 0.31.1. The skill text stops at 0.30.x, so each command is the full form that binary accepts.
+
+Left as they are, on purpose:
+
+- `put_chunk` does not take a storage deposit. A function-call key cannot attach NEAR. The account is pre-funded, `stored_bytes` stops at 800,000, and another account cannot write.
+- `buy` keeps the attached NEAR. The payment is the sale, not a refundable storage deposit. The minimum is 0.01 NEAR.
+- There is no state-migration method. Replacing the wasm is what a full-access key can already do.
+- The sealed dashboard reads `get_production` with the public JSON-RPC `query` call. It does not embed a wallet or `near-api-js`. `near-dapp` sign-in is for an app the visitor writes to. This page is a read-only web4 document.
+- `get_budget` returns `u64`. The values stay under 2^53.
 
 ## Disclosure
 
