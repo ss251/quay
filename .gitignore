@@ -1,9 +1,11 @@
 /target
 contract/target
+contract/sandbox/target
 **/*.wasm
 !cli/vendor/quay.wasm
 node_modules/
 web/dist/
+examples/**/dist/
 .near-credentials
 *.key
 .env
