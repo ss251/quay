@@ -15,6 +15,7 @@ const BOOLEAN = new Set([
   "hidden",
   "no-verify",
   "trust-proxy",
+  "https",
 ]);
 
 const KNOWN = new Set([
@@ -50,6 +51,12 @@ const KNOWN = new Set([
   "origin",
   "per-account",
   "daily-tgas",
+  "fn",
+  "projects",
+  "usd",
+  "max-per-call",
+  "key-file",
+  "policy",
 ]);
 
 export const COMMANDS = [
@@ -287,11 +294,76 @@ export const COMMANDS = [
     ],
   },
   {
+    name: "functions",
+    summary:
+      "Build, deploy and call server functions on OutLayer (Rust, wasm32-wasip2).",
+    usage: "quay functions <deploy|list|invoke|logs|rm|key>",
+    options: [
+      [
+        "deploy <dir|name>",
+        "cargo build --release --target wasm32-wasip2, upload, register the OutLayer project <site>/<name>, fn_set when the contract has it.",
+      ],
+      [
+        "  --store <fastfs|release>",
+        "fastfs (default, gas only) or release (writes <site.dir>/fn/<name>.wasm, served after the next deploy, 0.01 NEAR per KB).",
+      ],
+      [
+        "  --name <name>",
+        "Function name for a folder. Default: the folder name.",
+      ],
+      ["list", "Functions on OutLayer, in quay.json, and on the contract."],
+      [
+        "invoke <fn> [json]",
+        "Run it: fn_call on the contract when it has functions, else HTTPS with a saved payment key.",
+      ],
+      ["  --https", "Always call over HTTPS with a payment key."],
+      ["logs <fn>", "Contract results (_fn) and payment-key usage."],
+      [
+        "rm <fn>",
+        "Remove the contract entry, OutLayer project and secrets. Asks first.",
+      ],
+      [
+        "key [--projects a,b] [--usd 0.05]",
+        "Make a payment key scoped to these functions, fund it with test USDC, save it owner-only. The key is not printed.",
+      ],
+      ["  --max-per-call <usd>", "Spend cap per call. Default 0.01."],
+      ["--dry-run", "Print the plan and send nothing."],
+      ["--yes", "Skip a confirmation."],
+    ],
+    notes: [
+      "Functions run in OutLayer TEE workers: about 0.001 NEAR per contract run, 4 to 8 s over HTTPS.",
+      "Build with QUAY_CARGO to wrap cargo (for example a build lock).",
+      "Anyone who reads a payment key can spend it: scope it to named functions and keep the balance small.",
+    ],
+  },
+  {
+    name: "secrets",
+    summary:
+      "Set function secrets. Values are read from stdin or a hidden prompt and encrypted here.",
+    usage: "quay secrets <set|list|rm>",
+    options: [
+      [
+        "set <NAME> [NAME...] [--fn <fn>]",
+        "Store values for a function. One value per name from stdin (one per line), or a hidden prompt. Never on the command line.",
+      ],
+      [
+        "  --replace",
+        "Drop names the function held before. OutLayer keeps one encrypted profile per function.",
+      ],
+      ["list", "Names only. Values cannot be read back."],
+      ["rm --fn <fn>", "Remove every secret of a function. Asks first."],
+    ],
+    notes: [
+      "Only ciphertext leaves this machine. The keystore key request carries placeholder values with the real names.",
+      "Secrets open only for the site contract (contract calls) or the site's payment key (HTTPS calls).",
+    ],
+  },
+  {
     name: "relay",
     summary:
       "Run or fund the relayer that pays gas for member writes (serve, status, create).",
     usage:
-      "quay relay serve [--port 8788] [--relayer <account>] | quay relay status | quay relay create [--near 0.5]",
+      "quay relay serve [--port 8788] [--relayer <account>] | quay relay status | quay relay create [--near 0.5] | quay relay deploy [--key-file <path>]",
     options: [
       ["--port <n>", "serve: port to listen on. The default is 8788."],
       ["--host <addr>", "serve: interface. The default is 127.0.0.1."],
@@ -309,6 +381,18 @@ export const COMMANDS = [
       [
         "--near <NEAR>",
         "create: NEAR moved from the site account to the relayer. Default 0.5.",
+      ],
+      [
+        "deploy",
+        "Run the relayer as an OutLayer function instead: RELAY_KEY becomes an encrypted secret, no server.",
+      ],
+      [
+        "--key-file <path>",
+        "deploy: the relayer key file. Default ~/.near-credentials/testnet/<relayer>.json. Never printed.",
+      ],
+      [
+        "--policy <json>",
+        'deploy: policy overrides, such as {"methods":["db_add"],"per_account_per_hour":10}.',
       ],
       ["--dry-run", "create: print the plan, create nothing."],
       ["--yes", "create: skip the confirmation."],

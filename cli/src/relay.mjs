@@ -2,7 +2,8 @@
 // `serve` is the one off-chain piece of a Quay site: a small Node process.
 // The host is vendored from client/src by `node client/build.mjs`, so the packed CLI carries it.
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Account, JsonRpcProvider, KeyPair } from "near-api-js";
 
 import { requireAccount, readKeyFile } from "./config.mjs";
@@ -97,7 +98,9 @@ async function serve(ctx, parsed) {
   if (perAccount) policy.perAccountPerHour = perAccount;
   if (dailyTgas) policy.dailyTgas = dailyTgas;
   const extra =
-    typeof flags.origin === "string" ? flags.origin.split(",").filter(Boolean) : [];
+    typeof flags.origin === "string"
+      ? flags.origin.split(",").filter(Boolean)
+      : [];
   const relay = createRelayServer({
     site,
     relayer,
@@ -269,15 +272,120 @@ async function create(ctx, parsed) {
   );
 }
 
+/** The relay function's source: functions/relay in a Quay checkout. */
+export const RELAY_FUNCTION_DIR = fileURLToPath(
+  new URL("../../functions/relay", import.meta.url),
+);
+
+function relayPolicy(relayConfig, flags) {
+  const policy = {};
+  if (Array.isArray(relayConfig?.methods)) policy.methods = relayConfig.methods;
+  if (typeof flags?.policy === "string") {
+    let extra;
+    try {
+      extra = JSON.parse(flags.policy);
+    } catch {
+      throw usage("quay: --policy must be JSON");
+    }
+    if (!extra || typeof extra !== "object" || Array.isArray(extra))
+      throw usage("quay: --policy must be a JSON object");
+    Object.assign(policy, extra);
+  }
+  return policy;
+}
+
+/**
+ * Deploy the relayer as an OutLayer function (section 6, host 2): build
+ * functions/relay, upload, register <site>/relay, and store RELAY_KEY (read
+ * from the relayer's key file, never printed), RELAY_ACCOUNT and RELAY_POLICY
+ * as its encrypted secrets. Called by `quay up` with quay.json → relay.
+ */
+export async function deployRelay(ctx, relayConfig = {}, flags = {}) {
+  const site = requireAccount(ctx.config);
+  owner(ctx);
+  const relayer =
+    typeof relayConfig.account === "string"
+      ? relayConfig.account
+      : relayerFor(site, flags);
+  const keyPath =
+    typeof flags["key-file"] === "string"
+      ? resolve(ctx.cwd, flags["key-file"])
+      : join(ctx.credentialsDir, `${relayer}.json`);
+  if (!existsSync(keyPath))
+    throw new QuayError(
+      `no key for ${relayer} at ${keyPath}. Run quay relay create, or pass --key-file.`,
+      1,
+    );
+  const file = readKeyFile(keyPath);
+  ctx.secrets?.push(file.private_key);
+  const policy = relayPolicy(relayConfig, flags);
+  const { deployOne, normalizeSpec } = await import("./functions.mjs");
+  const { outlayerFor, recordNames } = await import("./secrets.mjs");
+  const spec = normalizeSpec("relay", {
+    dir: relayConfig.dir ?? RELAY_FUNCTION_DIR,
+    call: "anyone",
+    payer: "caller",
+    secrets: ["RELAY_KEY", "RELAY_ACCOUNT", "RELAY_POLICY"],
+  });
+  const deployed = await deployOne(ctx, "relay", spec, { secretsCheck: false });
+  const values = {
+    RELAY_KEY: file.private_key,
+    RELAY_ACCOUNT: relayer,
+    RELAY_POLICY: JSON.stringify(policy),
+  };
+  const stored = await outlayerFor(ctx).storeSecrets("relay", values, { site });
+  recordNames(ctx, "relay", Object.keys(values), stored.hash);
+  return {
+    ...deployed,
+    relayer,
+    policy,
+    secrets_transaction: stored.hash,
+    url: `https://testnet-api.outlayer.ai/call/${site}/relay`,
+  };
+}
+
+async function deployCmd(ctx, parsed) {
+  if (ctx.dryRun) {
+    emit(
+      ctx,
+      { dry_run: true, relayer: relayerFor(ctx.config.account, parsed.flags) },
+      "dry run: build functions/relay, upload, register <site>/relay, store RELAY_KEY encrypted",
+    );
+    return;
+  }
+  const r = await deployRelay(ctx, {}, parsed.flags);
+  emit(
+    ctx,
+    r,
+    [
+      `relay function ${r.project} for relayer ${r.relayer}`,
+      `wasm ${r.wasm_url}`,
+      r.project_transaction
+        ? `project ${explorerUrl(r.project_transaction)}`
+        : null,
+      `secrets ${explorerUrl(r.secrets_transaction)} (RELAY_KEY encrypted on this machine)`,
+      `POST ${r.url} with {"input":{"op":"relay","signed_delegate":"<base64>"}} and a payment key (quay functions key --projects relay)`,
+      "No server. Anyone holding the payment key can submit delegates; the policy and the relayer balance are the limits.",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  );
+}
+
 export async function relayCmd(ctx, parsed) {
   const sub = parsed.rest[0];
   if (!sub || parsed.flags.help) {
     writeOut(ctx, helpText("relay"));
-    if (!sub) throw new QuayError("quay relay needs serve, status, or create", 1);
+    if (!sub)
+      throw new QuayError(
+        "quay relay needs serve, status, or create (deploy runs it on OutLayer)",
+        1,
+      );
     return;
   }
   if (sub === "serve") return serve(ctx, parsed);
   if (sub === "status") return status(ctx, parsed);
   if (sub === "create") return create(ctx, parsed);
+  if (sub === "deploy") return deployCmd(ctx, parsed);
   throw new QuayError(`unknown relay command ${sub}`, 1);
 }

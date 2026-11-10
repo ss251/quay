@@ -1189,6 +1189,23 @@ test("quay up applies the token, sets cron jobs when the contract has them, and 
       gateway: "https://board.testnet.page",
       path: config,
     },
+    // functions.mjs builds and uploads: stub the build and OutLayer.
+    buildFunction: async () => ({ path: "f.wasm", bytes: new Uint8Array(8) }),
+    outlayer: {
+      projectId: (name) => `board.testnet/${name}`,
+      upload: async () => ({
+        sha256: "0".repeat(64),
+        url: "https://fs/x.wasm",
+        size: 8,
+        hash: "up",
+      }),
+      deployProject: async (name) => ({
+        project: `board.testnet/${name}`,
+        created: true,
+        hash: "pj",
+      }),
+      secretsRow: async () => null,
+    },
   });
   await run(ctx, parseArgs(["up"]));
   const methods = chain.calls.map((call) => call.method);
@@ -1206,7 +1223,7 @@ test("quay up applies the token, sets cron jobs when the contract has them, and 
     text,
     /relay node {2}manual: nothing to deploy. Run: quay relay serve/,
   );
-  assert.match(text, /functions digest {2}not applied/);
+  assert.match(text, /functions digest {2}deploy/);
   assert.match(text, /cron_arm/);
 });
 

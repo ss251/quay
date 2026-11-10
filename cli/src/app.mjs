@@ -21,6 +21,8 @@ import { readProject } from "./projectfile.mjs";
 import { gateway, localCommand, publicGatewayHealth } from "./gateway.mjs";
 import { cronCmd } from "./cron.mjs";
 import { db } from "./db.mjs";
+import { functionsCmd } from "./functions.mjs";
+import { secretsCmd } from "./secrets.mjs";
 import { parseCount } from "./units.mjs";
 import { membersCmd } from "./members.mjs";
 import { productsCmd, receiptsCmd } from "./products.mjs";
@@ -109,6 +111,8 @@ export async function run(ctx, parsed) {
     relay: relayCmd,
     up: up,
     cron: cronCmd,
+    functions: functionsCmd,
+    secrets: secretsCmd,
   };
   const handler = handlers[parsed.command];
   if (!handler) {
