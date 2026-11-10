@@ -200,8 +200,17 @@ fn reports_inner_failures() {
     assert!(f[0].contains("DelegateActionExpired"));
 }
 
-/// A fake RPC node: block, access key, account, and send_tx (recording the tx).
-fn fake_rpc(sent: Rc<RefCell<Vec<Value>>>, fail_inner: bool) -> Rpc {
+#[derive(Clone, Copy, PartialEq)]
+enum Node {
+    Ok,
+    /// The first send_tx is refused with InvalidNonce (another relay took the nonce).
+    NonceRace,
+    /// send_tx times out at the node.
+    Timeout,
+}
+
+/// A fake RPC node: block, access key, account, and send_tx (recording the params).
+fn fake_rpc(sent: Rc<RefCell<Vec<Value>>>, node: Node) -> Rpc {
     Rpc::with_transport(move |req| {
         let method = req["method"].as_str().unwrap();
         let p = &req["params"];
@@ -211,13 +220,20 @@ fn fake_rpc(sent: Rc<RefCell<Vec<Value>>>, fail_inner: bool) -> Rpc {
             ("query", Some("view_account")) => json!({ "amount": "500000000000000000000000" }),
             ("send_tx", _) => {
                 sent.borrow_mut().push(p.clone());
-                let status = if fail_inner {
-                    json!({ "Failure": { "ActionError": { "kind": "MethodNotFound" } } })
+                if node == Node::Timeout {
+                    return Ok(json!({ "error": { "name": "HANDLER_ERROR", "cause": { "name": "TIMEOUT_ERROR" } } }));
+                }
+                if node == Node::NonceRace && sent.borrow().len() == 1 {
+                    return Ok(json!({ "error": { "name": "HANDLER_ERROR", "cause": { "name": "INVALID_TRANSACTION" },
+                        "data": { "TxExecutionError": { "InvalidTxError": { "InvalidNonce": { "tx_nonce": 77, "ak_nonce": 77 } } } } } }));
+                }
+                if p["wait_until"] == "INCLUDED" {
+                    json!({ "final_execution_status": "INCLUDED" })
                 } else {
-                    json!({ "SuccessValue": "" })
-                };
-                json!({ "status": { "SuccessValue": "" }, "transaction_outcome": { "outcome": { "status": {} } },
-                        "receipts_outcome": [ { "outcome": { "status": status } } ] })
+                    json!({ "final_execution_status": "EXECUTED_OPTIMISTIC", "status": { "SuccessValue": "" },
+                            "transaction_outcome": { "outcome": { "status": {} } },
+                            "receipts_outcome": [ { "outcome": { "status": { "SuccessValue": "" } } } ] })
+                }
             }
             other => panic!("unexpected rpc {other:?}"),
         };
@@ -238,11 +254,14 @@ fn config() -> Config {
 fn relays_end_to_end_against_a_fake_node() {
     let v = vector();
     let sent = Rc::new(RefCell::new(Vec::new()));
-    let rpc = fake_rpc(sent.clone(), false);
+    let rpc = fake_rpc(sent.clone(), Node::Ok);
     let store = MemoryStore::default();
     let bytes = delegate_bytes("alice.board.testnet", "board.testnet", &[call("db_add", 100, 0)], 1100, 4);
     let out = handle(&json!({ "op": "relay", "signed_delegate": b64(&bytes) }), &config(), &rpc, &store, 0);
     assert!(out.get("error").is_none(), "{out}");
+    // it returns once the transaction is in a block, without waiting for triggers
+    assert_eq!(sent.borrow()[0]["wait_until"], "INCLUDED");
+    assert_eq!(out["status"], "included");
     let tx = b64_decode(sent.borrow()[0]["signed_tx_base64"].as_str().unwrap()).unwrap();
     // nonce = access key nonce + 1, block hash from the final block
     let expect = encode_transaction("relay.board.testnet", &config().public_key, 77, "alice.board.testnet", &[5; 32], &[Action::Delegate(&bytes)]);
@@ -254,17 +273,55 @@ fn relays_end_to_end_against_a_fake_node() {
     let old = handle(&json!({ "op": "relay", "signed_delegate": v["signed_delegate_base64"] }), &config(), &rpc, &store, 0);
     assert_eq!(old["code"], "expired");
     assert_eq!(sent.borrow().len(), 1);
+}
 
-    let failing = fake_rpc(Rc::new(RefCell::new(Vec::new())), true);
-    let out = handle(&json!({ "op": "relay", "signed_delegate": b64(&bytes) }), &config(), &failing, &store, 0);
-    assert_eq!(out["code"], "inner_failure");
-    assert!(out["hash"].is_string());
+#[test]
+fn a_node_timeout_returns_the_hash_as_pending_not_an_error() {
+    let sent = Rc::new(RefCell::new(Vec::new()));
+    let rpc = fake_rpc(sent.clone(), Node::Timeout);
+    let bytes = delegate_bytes("alice.board.testnet", "board.testnet", &[call("db_add", 100, 0)], 1100, 4);
+    let out = handle(&json!({ "op": "relay", "signed_delegate": b64(&bytes) }), &config(), &rpc, &MemoryStore::default(), 0);
+    assert!(out.get("error").is_none(), "{out}");
+    assert_eq!(out["status"], "pending");
+    let expect = encode_transaction("relay.board.testnet", &config().public_key, 77, "alice.board.testnet", &[5; 32], &[Action::Delegate(&bytes)]);
+    assert_eq!(out["hash"].as_str().unwrap(), b58(&sha256(&expect)));
+    assert_eq!(sent.borrow().len(), 1, "never sends twice on a timeout");
+}
+
+#[test]
+fn a_nonce_race_is_retried_once_with_the_next_nonce() {
+    let sent = Rc::new(RefCell::new(Vec::new()));
+    let rpc = fake_rpc(sent.clone(), Node::NonceRace);
+    let bytes = delegate_bytes("alice.board.testnet", "board.testnet", &[call("db_add", 100, 0)], 1100, 4);
+    let out = handle(&json!({ "op": "relay", "signed_delegate": b64(&bytes) }), &config(), &rpc, &MemoryStore::default(), 0);
+    assert_eq!(out["status"], "included", "{out}");
+    assert_eq!(sent.borrow().len(), 2);
+    let second = b64_decode(sent.borrow()[1]["signed_tx_base64"].as_str().unwrap()).unwrap();
+    let expect = encode_transaction("relay.board.testnet", &config().public_key, 78, "alice.board.testnet", &[5; 32], &[Action::Delegate(&bytes)]);
+    assert_eq!(&second[..expect.len()], &expect[..]);
+}
+
+#[test]
+fn send_results_are_classified() {
+    let h = "HASH";
+    assert_eq!(send_result(Ok(json!({ "final_execution_status": "INCLUDED" })), h), json!({ "hash": h, "status": "included" }));
+    assert_eq!(send_result(Err("request failed: connection reset".into()), h)["status"], "pending");
+    assert_eq!(send_result(Err("rpc send_tx: TIMEOUT_ERROR".into()), h)["status"], "pending");
+    let bad = send_result(Err("rpc send_tx: INVALID_TRANSACTION {\"Expired\":null}".into()), h);
+    assert_eq!(bad["code"], "rejected");
+    let inner = send_result(Ok(json!({ "receipts_outcome": [ { "outcome": { "status": { "Failure": { "x": 1 } } } } ] })), h);
+    assert_eq!(inner["code"], "inner_failure");
+    let busy = send_result(Err("rpc send_tx: INVALID_TRANSACTION {\"InvalidTxError\":{\"NotEnoughBalance\":{}}}".into()), h);
+    assert_eq!(busy["code"], "relayer_busy");
+    assert!(busy.get("hash").is_none(), "nothing was sent");
+    let done = send_result(Ok(json!({ "status": { "SuccessValue": "" }, "receipts_outcome": [] })), h);
+    assert_eq!(done["status"], "executed");
 }
 
 #[test]
 fn joins_and_reports_health() {
     let sent = Rc::new(RefCell::new(Vec::new()));
-    let rpc = fake_rpc(sent.clone(), false);
+    let rpc = fake_rpc(sent.clone(), Node::Ok);
     let store = MemoryStore::default();
     let pk = format_public_key(&signin::public_key_of(&seed(4)));
     let out = handle(&json!({ "op": "join", "name": "alice", "public_key": pk }), &config(), &rpc, &store, 0);
@@ -273,6 +330,7 @@ fn joins_and_reports_health() {
     let h = handle(&json!({ "op": "health" }), &config(), &rpc, &store, 0);
     assert_eq!(h["relayer"], "relay.board.testnet");
     assert_eq!(h["balance"], "500000000000000000000000");
+    assert_eq!(h["relays_in_flight"], 1, "0.5 NEAR holds one 300 Tgas relay");
     assert_eq!(h["policy"]["deposit"], "0");
     assert!(!h.to_string().contains("ed25519:"), "health must not show keys");
     assert_eq!(handle(&json!({}), &config(), &rpc, &store, 0)["code"], "malformed");

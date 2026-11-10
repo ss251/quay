@@ -400,20 +400,75 @@ pub fn head(rpc: &Rpc, cfg: &Config) -> Result<Head, String> {
     Ok(Head { nonce: nonce + 1, block_hash, height })
 }
 
-/// Send a signed transaction and wait until it executed. Returns `{hash}` or `{error, hash}`.
-pub fn send(rpc: &Rpc, signed: &[u8], hash: &str) -> Value {
-    let res = rpc.call("send_tx", json!({ "signed_tx_base64": b64(signed), "wait_until": "EXECUTED_OPTIMISTIC" }));
+/// How long `send` waits on the RPC node.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Wait {
+    /// Return once the transaction is in a block (about one block). Inner receipts,
+    /// such as an `on_add` trigger that waits for another OutLayer run, are not
+    /// waited for: the caller reads the outcome from the chain itself.
+    Included,
+    /// Wait until every receipt ran (no yield involved, for example `join`).
+    Executed,
+}
+
+/// Classify an RPC answer to `send_tx`. The hash is computed locally, so a timeout
+/// or a dropped connection is not a failure: the transaction may be in, and the
+/// caller must look it up instead of sending again.
+pub fn send_result(res: Result<Value, String>, hash: &str) -> Value {
     match res {
-        Err(e) => json!({ "error": quay_fn::clip(&e, 400), "code": "send_failed", "hash": hash }),
         Ok(outcome) => {
             let bad = failures(&outcome);
-            if bad.is_empty() {
-                json!({ "hash": hash })
-            } else {
-                json!({ "error": format!("relayed call failed: {}", bad.join("; ")), "code": "inner_failure", "hash": hash })
+            if !bad.is_empty() {
+                return json!({ "error": format!("relayed call failed: {}", bad.join("; ")), "code": "inner_failure", "hash": hash });
             }
+            let executed = outcome.get("receipts_outcome").is_some();
+            json!({ "hash": hash, "status": if executed { "executed" } else { "included" } })
+        }
+        // The relayer holds the delegate's prepaid gas (about 0.001 NEAR per Tgas) until every
+        // receipt, an on_add trigger included, has run. Nothing was sent: the same delegate can
+        // be sent again once earlier relays have been refunded.
+        Err(e) if e.contains("NotEnoughBalance") => json!({
+            "error": "the relayer's free balance is held by relays still running; send the same delegate again in a few seconds",
+            "code": "relayer_busy",
+        }),
+        Err(e) if e.starts_with("rpc send_tx:") && !e.contains("TIMEOUT") => {
+            json!({ "error": quay_fn::clip(&e, 400), "code": "rejected", "hash": hash })
+        }
+        Err(_) => json!({ "hash": hash, "status": "pending" }),
+    }
+}
+
+/// Submit a signed transaction. Returns `{hash, status}` or `{error, code, hash}`.
+pub fn send(rpc: &Rpc, signed: &[u8], hash: &str, wait: Wait) -> Value {
+    let wait_until = match wait {
+        Wait::Included => "INCLUDED",
+        Wait::Executed => "EXECUTED_OPTIMISTIC",
+    };
+    send_result(rpc.call("send_tx", json!({ "signed_tx_base64": b64(signed), "wait_until": wait_until })), hash)
+}
+
+/// Sign `actions` for `receiver` with a fresh nonce and send. One retry with a new
+/// nonce when another relay took ours (`InvalidNonce`).
+pub fn sign_and_send(rpc: &Rpc, cfg: &Config, first: &Head, receiver: &str, actions: &[Action], wait: Wait) -> Value {
+    let mut nonce = first.nonce;
+    let mut block_hash = first.block_hash;
+    for attempt in 0..2 {
+        let tx = encode_transaction(&cfg.account, &cfg.public_key, nonce, receiver, &block_hash, actions);
+        let (signed, hash) = sign_transaction(&cfg.seed, &tx);
+        let out = send(rpc, &signed, &hash, wait);
+        let raced = out["code"] == "rejected" && out["error"].as_str().is_some_and(|e| e.contains("InvalidNonce"));
+        if !raced || attempt == 1 {
+            return out;
+        }
+        match head(rpc, cfg) {
+            Ok(h) => {
+                nonce = h.nonce.max(nonce + 1);
+                block_hash = h.block_hash;
+            }
+            Err(_) => return out,
         }
     }
+    unreachable!()
 }
 
 fn refusal_json(r: Refusal) -> Value {
@@ -429,10 +484,17 @@ pub fn handle(input: &Value, cfg: &Config, rpc: &Rpc, store: &dyn Store, now_ms:
                 .ok()
                 .and_then(|a| a.get("amount").cloned())
                 .unwrap_or(Value::Null);
+            // Each relay holds its prepaid gas (~0.001 NEAR per Tgas) until it finishes.
+            let held_per_relay = u128::from(cfg.policy.max_gas / TGAS) * 1_000_000_000_000_000_000_000;
+            let capacity = balance
+                .as_str()
+                .and_then(|b| b.parse::<u128>().ok())
+                .map(|b| (b / held_per_relay.max(1)) as u64);
             json!({
                 "site": cfg.policy.site,
                 "relayer": cfg.account,
                 "balance": balance,
+                "relays_in_flight": capacity,
                 "policy": cfg.policy.to_json(),
                 "host": "outlayer",
             })
@@ -456,19 +518,12 @@ pub fn handle(input: &Value, cfg: &Config, rpc: &Rpc, store: &dyn Store, now_ms:
                 Ok(c) => c,
                 Err(r) => return refusal_json(r),
             };
-            let tx = encode_transaction(
-                &cfg.account,
-                &cfg.public_key,
-                head.nonce,
-                &d.sender,
-                &head.block_hash,
-                &[Action::Delegate(&bytes)],
-            );
-            let (signed, hash) = sign_transaction(&cfg.seed, &tx);
             // Charge before sending: a relay that times out still spent gas.
             let _ = store.add(&charge.hour_key, 1);
             let _ = store.add(&charge.day_key, charge.tgas);
-            let mut out = send(rpc, &signed, &hash);
+            // Return once included: waiting for execution would also wait for any
+            // on_add trigger, which is another OutLayer run, and outlast the HTTPS window.
+            let mut out = sign_and_send(rpc, cfg, &head, &d.sender, &[Action::Delegate(&bytes)], Wait::Included);
             out["sender"] = json!(d.sender);
             out
         }
@@ -499,17 +554,9 @@ pub fn handle(input: &Value, cfg: &Config, rpc: &Rpc, store: &dyn Store, now_ms:
                 gas: JOIN_GAS,
                 deposit: 0,
             };
-            let tx = encode_transaction(
-                &cfg.account,
-                &cfg.public_key,
-                head.nonce,
-                &cfg.policy.site,
-                &head.block_hash,
-                &[Action::FunctionCall(&call)],
-            );
-            let (signed, hash) = sign_transaction(&cfg.seed, &tx);
             let _ = store.add(&day_key, 1);
-            let mut out = send(rpc, &signed, &hash);
+            let site = cfg.policy.site.clone();
+            let mut out = sign_and_send(rpc, cfg, &head, &site, &[Action::FunctionCall(&call)], Wait::Executed);
             if out.get("error").is_none() {
                 out["account"] = json!(format!("{name}.{}", cfg.policy.site));
             }
