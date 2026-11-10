@@ -126,7 +126,7 @@ export function connect(options) {
     try {
       json = await res.json();
     } catch {}
-    if (!res.ok) throw new QuayError(json?.error ?? `relay ${path} failed with HTTP ${res.status}`, "relay_refused");
+    if (!res.ok) throw new QuayError(json?.error ? (json.reason ? `${json.error}: ${json.reason}` : json.error) : `relay ${path} failed with HTTP ${res.status}`, "relay_refused");
     return json;
   }
 

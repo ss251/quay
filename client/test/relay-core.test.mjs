@@ -58,8 +58,8 @@ const rejects = [
   ["deposit of 1 NEAR", (k) => check(k, { actions: [act({ deposit: 10n ** 24n })] }), "deposit_not_allowed"],
   ["deposit of 1 yocto", (k) => check(k, { actions: [act({ deposit: 1n })] }), "deposit_not_allowed"],
   ["deposit in a later action", (k) => check(k, { actions: [act(), act({ deposit: 1n })] }), "deposit_not_allowed"],
-  ["gas over the limit", (k) => check(k, { actions: [act({ gas: 101n * T })] }), "gas_too_high"],
-  ["gas summed over actions", (k) => check(k, { actions: [act({ gas: 60n * T }), act({ gas: 60n * T })] }), "gas_too_high"],
+  ["gas over the limit", (k) => check(k, { actions: [act({ gas: 301n * T })] }), "gas_too_high"],
+  ["gas summed over actions", (k) => check(k, { actions: [act({ gas: 160n * T }), act({ gas: 160n * T })] }), "gas_too_high"],
   ["sender not a member", (k) => check(k, { senderId: "bob.testnet" }), "sender_not_member"],
   ["other receiver", (k) => check(k, { receiverId: "evil.testnet" }), "receiver_not_allowed"],
   ["self receiver when uploads are off", (k) => check(k, { receiverId: MEMBER, actions: [act({ methodName: "fs_store" })] }), "receiver_not_allowed"],
@@ -88,7 +88,7 @@ test("boundary: expiry exactly 200 blocks ahead is fine, 1 block ahead is fine",
 
 test("boundary: gas exactly at the limit is fine", async () => {
   const k = await memberKey();
-  assert.equal((await check(k, { maxBlockHeight: 1100n, actions: [act({ gas: 100n * T })] })).ok, true);
+  assert.equal((await check(k, { maxBlockHeight: 1100n, actions: [act({ gas: 300n * T })] })).ok, true);
 });
 
 test("uploads: self receiver with fs_store passes only when allowed", async () => {
@@ -144,8 +144,8 @@ test("daily gas budget in Tgas, resets on the next UTC day", async () => {
 });
 
 test("defaults match the frozen spec", () => {
-  assert.deepEqual(DEFAULT_POLICY.methods, ["db_add", "db_update", "db_remove"]);
-  assert.equal(DEFAULT_POLICY.maxGas, 100n * T);
+  assert.deepEqual(DEFAULT_POLICY.methods, ["db_add", "db_update", "db_remove", "fn_call"]);
+  assert.equal(DEFAULT_POLICY.maxGas, 300n * T);
   assert.equal(DEFAULT_POLICY.maxBlockHeightAhead, 200n);
   assert.equal(DEFAULT_POLICY.perAccountPerHour, 30);
   assert.equal(DEFAULT_POLICY.dailyTgas, 30000);

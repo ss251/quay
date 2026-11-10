@@ -1,9 +1,11 @@
 // Relayer core (Node). Hosts (a Node server or OutLayer) call checkDelegate, then relay.
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 import { decodeSignedDelegate, base64Decode, verifySignedDelegate, hex, sha256 } from "./encoding.mjs";
 
 export const DEFAULT_POLICY = Object.freeze({
-  methods: ["db_add", "db_update", "db_remove"],
-  maxGas: 100_000_000_000_000n, // 100 Tgas
+  methods: ["db_add", "db_update", "db_remove", "fn_call"],
+  maxGas: 300_000_000_000_000n, // 300 Tgas, enough for a db_add with a trigger
   maxBlockHeightAhead: 200n,
   perAccountPerHour: 30,
   dailyTgas: 30_000,
@@ -107,6 +109,12 @@ export async function checkDelegate(input, policy, now) {
   };
 }
 
+/** borsh is near-api-js's own dependency: resolve it from there so no extra install is needed. */
+function borshUrl() {
+  const fromNear = createRequire(createRequire(import.meta.url).resolve("near-api-js"));
+  return pathToFileURL(fromNear.resolve("borsh")).href;
+}
+
 export class RelayError extends Error {
   constructor(message, { code = "relay_failed", outcome } = {}) {
     super(message);
@@ -132,7 +140,8 @@ export function failures(outcome) {
  * because a delegate can succeed outwardly while its inner receipt fails.
  */
 export async function relay(input, { account }) {
-  const [{ SCHEMA }, { deserialize }] = await Promise.all([import("near-api-js"), import("borsh")]);
+  const { SCHEMA } = await import("near-api-js");
+  const { deserialize } = await import(borshUrl());
   const bytes = typeof input === "string" ? base64Decode(input) : input;
   const signedDelegate = deserialize(SCHEMA.SignedDelegate, bytes);
   const outcome = await account.relayMetaTransaction(signedDelegate);
