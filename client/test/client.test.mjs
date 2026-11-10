@@ -294,3 +294,95 @@ test("an unknown mode is refused", async () => {
 test("connect requires a site", () => {
   assert.throws(() => connect({}), /site/);
 });
+
+// ---------- OutLayer adapter ----------
+function outlayerStub(handler) {
+  const calls = [];
+  const fetch = async (url, init = {}) => {
+    const body = init.body ? JSON.parse(init.body) : null;
+    if (body?.jsonrpc) return rpcFetchFallback(url, init);
+    calls.push({ url, headers: init.headers, body });
+    const r = await handler(body.input);
+    const json = { call_id: "c1", status: "completed", output: r.output ?? r, ...r.envelope };
+    return { ok: (r.http ?? 200) < 400, status: r.http ?? 200, json: async () => (r.http >= 400 ? r.body : json) };
+  };
+  let rpcFetchFallback = () => { throw new Error("no rpc stub"); };
+  fetch.calls = calls;
+  fetch.setRpc = (f) => { rpcFetchFallback = f; };
+  return fetch;
+}
+const OL = { outlayer: { owner: "owner.testnet", project: "relay", paymentKey: "pk_test", api: "https://testnet-api.outlayer.ai/" } };
+
+test("outlayer: join and relay become op calls with the payment key and secrets_ref", async () => {
+  const rpc = relayStub();
+  const ol = outlayerStub((input) => (input.op === "join" ? { account: `alice.${SITE}`, hash: "J" } : { hash: "R1" }));
+  ol.setRpc((url, init) => rpc.fetch(url, init));
+  const quay = connect({ site: SITE, fetch: ol, storage: mem(), relay: OL });
+  await quay.auth.signIn({ mode: "member", name: "alice" });
+  assert.equal(quay.auth.account, `alice.${SITE}`);
+  const join = ol.calls[0];
+  assert.equal(join.url, "https://testnet-api.outlayer.ai/call/owner.testnet/relay");
+  assert.equal(join.headers["x-payment-key"], "pk_test");
+  assert.equal(join.body.input.op, "join");
+  assert.equal(join.body.input.name, "alice");
+  assert.match(join.body.input.public_key, /^ed25519:/);
+  assert.deepEqual(join.body.secrets_ref, { profile: "default", account_id: "owner.testnet" });
+  await quay.db.collection("posts").add({ a: 1 }, { id: "x" });
+  const relayed = ol.calls[1].body.input;
+  assert.equal(relayed.op, "relay");
+  const verdict = await checkDelegate(relayed.signed_delegate, { site: SITE, store: memoryStore() }, { ms: Date.now(), height: 5000 });
+  assert.equal(verdict.ok, true, verdict.reason);
+});
+
+test("outlayer: function errors map like the Node host", async () => {
+  const rpc = relayStub();
+  const ol = outlayerStub((input) => (input.op === "join" ? { account: `alice.${SITE}`, hash: "J" } : { error: "account_rate_limit", reason: "30 relays this hour" }));
+  ol.setRpc((url, init) => rpc.fetch(url, init));
+  const quay = connect({ site: SITE, fetch: ol, storage: mem(), relay: OL });
+  await quay.auth.signIn({ mode: "member", name: "alice" });
+  await assert.rejects(quay.db.collection("posts").remove("1"), (e) => e.code === "relay_refused" && /account_rate_limit: 30 relays/.test(e.message));
+});
+
+test("outlayer: http errors, failed calls and string outputs", async () => {
+  const mk = (handler) => connect({ site: SITE, fetch: outlayerStub(handler), storage: mem(), relay: OL });
+  await assert.rejects(mk(() => ({ http: 402, body: { error: "payment_required", reason: "balance is empty" } })).auth.signIn({ mode: "member", name: "al" }), /payment_required: balance is empty/);
+  await assert.rejects(mk(() => ({ output: null, envelope: { status: "failed", output: null, error: "timeout" } })).auth.signIn({ mode: "member", name: "al" }), /failed: timeout/);
+  const q = mk(() => ({ output: JSON.stringify({ error: "name_taken", reason: "al is taken" }) }));
+  await assert.rejects(q.auth.signIn({ mode: "member", name: "al" }), /name_taken: al is taken/);
+  assert.throws(() => connect({ site: SITE, relay: {} }), /outlayer/);
+  await assert.rejects(connect({ site: SITE, fetch: outlayerStub(() => ({})), storage: mem(), relay: { outlayer: { owner: "o" } } }).auth.signIn({ mode: "member" }), /paymentKey/);
+});
+
+// ---------- token checkout ----------
+test("token pay: ft_transfer_call on the token contract with 1 yocto and 100 Tgas", async () => {
+  const w = stubWallet();
+  const fetch = fakeFetch({ rpc: readRpc({
+    get_token: () => "usdt.token.testnet",
+    get_product: (a) => (a.id === "pin" ? { price_yocto: "1", price_token: "100000" } : null),
+  }) });
+  const quay = connect({ site: SITE, fetch, storage: mem(), wallet: w.module });
+  await quay.auth.signIn({ mode: "wallet" });
+  await quay.pay("pin", { ref: "posts/12", token: true });
+  const tx = w.log.sent[0];
+  assert.equal(tx.receiverId, "usdt.token.testnet");
+  const p = tx.actions[0].params;
+  assert.equal(p.methodName, "ft_transfer_call");
+  assert.equal(p.deposit, "1");
+  assert.equal(p.gas, "100000000000000");
+  assert.deepEqual(p.args, { receiver_id: SITE, amount: "100000", msg: '{"product":"pin","ref":"posts/12"}' });
+});
+
+test("token pay errors: member, no token, no price, unknown product", async () => {
+  const r = relayStub();
+  const member = connect({ site: SITE, fetch: r.fetch, storage: mem(), relay: "https://relay.example" });
+  await member.auth.signIn({ mode: "member", name: "alice" });
+  await assert.rejects(member.pay("pin", { token: true }), (e) => e.code === "deposit_needs_wallet");
+  const w = stubWallet();
+  const stub = (token, product) => connect({ site: SITE, fetch: fakeFetch({ rpc: readRpc({ get_token: () => token, get_product: () => product }) }), storage: mem(), wallet: w.module });
+  for (const [token, product, code] of [[null, { price_token: "5" }, "no_token"], ["t.testnet", null, "unknown_product"], ["t.testnet", { price_token: "0" }, "no_token_price"], ["t.testnet", { price_yocto: "1" }, "no_token_price"]]) {
+    const q = stub(token, product);
+    await q.auth.signIn({ mode: "wallet" });
+    await assert.rejects(q.pay("pin", { token: true }), (e) => e.code === code, code);
+  }
+  assert.equal(w.log.sent.length, 0);
+});

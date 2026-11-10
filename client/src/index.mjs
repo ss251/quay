@@ -73,7 +73,7 @@ function failureOf(outcome) {
 
 /**
  * connect({ site, rpc?, relay?, relayer?, fetch?, storage?, key?, wallet?, now?, gas? })
- *  - relay: base URL of the relayer (serves /relay and /join)
+ *  - relay: base URL of the relayer (serves /relay and /join), or { outlayer: { owner, project: "relay", paymentKey, api } }
  *  - key: { accountId, secretKey } explicit key, Node scripts and tests (near-api-js must be installed)
  *  - wallet: a near-connect module `{ NearConnector }` to use instead of loading it from esm.sh
  */
@@ -84,7 +84,10 @@ export function connect(options) {
   const rpc = createRpc({ url: options.rpc, fetch: doFetch });
   const storage = options.storage ?? defaultStorage();
   const sessionKey = `quay:${site}:session`;
-  const relayBase = options.relay ? String(options.relay).replace(/\/+$/, "") : null;
+  const outlayer = options.relay && typeof options.relay === "object" ? options.relay.outlayer : null;
+  if (options.relay && typeof options.relay === "object" && !outlayer)
+    throw new QuayError("relay must be a URL or { outlayer: { owner, project, paymentKey, api } }", "bad_config");
+  const relayBase = typeof options.relay === "string" ? options.relay.replace(/\/+$/, "") : null;
   const relayerId = options.relayer ?? `relay.${site}`;
   const defaultGas = BigInt(options.gas ?? DEFAULT_GAS);
   const now = options.now ?? (() => Date.now());
@@ -115,7 +118,37 @@ export function connect(options) {
   const view = (method, args) => rpc.view(site, method, args);
 
   // ----- writes -----
+  const failMessage = (json, fallback) => (json?.error ? (json.reason ? `${json.error}: ${json.reason}` : json.error) : fallback);
+
+  // OutLayer hosts the relayer as a function: /join, /relay and /health become op calls.
+  async function postOutlayer(path, body) {
+    const { owner, project = "relay", paymentKey, api = "https://testnet-api.outlayer.ai" } = outlayer;
+    if (!owner || !paymentKey) throw new QuayError("relay.outlayer needs { owner, paymentKey }", "bad_config");
+    const op = path.replace(/^\//, "");
+    const res = await doFetch(`${String(api).replace(/\/+$/, "")}/call/${owner}/${project}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-payment-key": paymentKey },
+      body: JSON.stringify({ input: { op, ...body }, secrets_ref: { profile: "default", account_id: owner } }),
+    });
+    let env = null;
+    try {
+      env = await res.json();
+    } catch {}
+    if (!res.ok) throw new QuayError(failMessage(env, `outlayer ${op} failed with HTTP ${res.status}`), "relay_refused");
+    let out = env?.output;
+    if (typeof out === "string") {
+      try {
+        out = JSON.parse(out);
+      } catch {}
+    }
+    if (out && typeof out === "object" && out.error) throw new QuayError(failMessage(out), "relay_refused");
+    if (out == null || typeof out !== "object")
+      throw new QuayError(`outlayer ${op} ${env?.status === "failed" ? "failed" : "returned no output"}${env?.error ? `: ${env.error}` : ""}`, "relay_refused");
+    return out;
+  }
+
   async function postRelay(path, body) {
+    if (outlayer) return postOutlayer(path, body);
     if (!relayBase) throw new QuayError("no relay configured: pass connect({ site, relay: <relayer URL> })", "no_relay");
     const res = await doFetch(`${relayBase}${path}`, {
       method: "POST",
@@ -126,7 +159,7 @@ export function connect(options) {
     try {
       json = await res.json();
     } catch {}
-    if (!res.ok) throw new QuayError(json?.error ? (json.reason ? `${json.error}: ${json.reason}` : json.error) : `relay ${path} failed with HTTP ${res.status}`, "relay_refused");
+    if (!res.ok) throw new QuayError(failMessage(json, `relay ${path} failed with HTTP ${res.status}`), "relay_refused");
     return json;
   }
 
@@ -150,30 +183,30 @@ export function connect(options) {
     return { hash: out.hash, outcome: null, relayed: true };
   }
 
-  async function walletWrite(method, args, gas, deposit) {
+  async function walletWrite(method, args, gas, deposit, receiver = site) {
     const wallet = state.wallet ?? (await state.connector?.wallet());
     if (!wallet) throw new QuayError("sign in with a wallet first", "not_signed_in");
     const outcome = await wallet.signAndSendTransaction({
       signerId: state.account,
-      receiverId: site,
+      receiverId: receiver,
       actions: [{ type: "FunctionCall", params: { methodName: method, args, gas: String(gas), deposit: String(deposit) } }],
     });
     return { hash: outcome?.transaction?.hash, outcome };
   }
 
-  async function keyWrite(method, args, gas, deposit) {
+  async function keyWrite(method, args, gas, deposit, receiver = site) {
     const { Account, JsonRpcProvider } = await import("near-api-js");
     const k = options.key;
     const account = new Account(k.accountId, new JsonRpcProvider({ url: rpc.url }), k.secretKey);
-    const outcome = await account.callFunctionRaw({ contractId: site, methodName: method, args, gas, deposit });
+    const outcome = await account.callFunctionRaw({ contractId: receiver, methodName: method, args, gas, deposit });
     return { hash: outcome?.transaction?.hash, outcome };
   }
 
   /** Send a write. Returns { hash, outcome, relayed }. */
-  async function write(method, args, { deposit = 0n, gas = defaultGas } = {}) {
+  async function write(method, args, { deposit = 0n, gas = defaultGas, receiver = site } = {}) {
     const dep = toYocto(deposit);
     let result;
-    if (options.key) result = await keyWrite(method, args, gas, dep);
+    if (options.key) result = await keyWrite(method, args, gas, dep, receiver);
     else if (state.mode === "member") {
       if (dep !== 0n)
         throw new QuayError(
@@ -181,7 +214,7 @@ export function connect(options) {
           "deposit_needs_wallet",
         );
       result = await relayWrite(method, args, gas);
-    } else if (state.mode === "wallet") result = await walletWrite(method, args, gas, dep);
+    } else if (state.mode === "wallet") result = await walletWrite(method, args, gas, dep, receiver);
     else throw new QuayError("sign in first: quay.auth.signIn()", "not_signed_in");
     const bad = failureOf(result.outcome);
     if (bad) throw new QuayError(`${method} failed: ${bad}`, "call_failed");
@@ -347,8 +380,23 @@ export function connect(options) {
     },
   };
 
-  /** Buy a product. Needs a wallet or an explicit key because it attaches a deposit. */
-  async function pay(product, { ref, deposit } = {}) {
+  /**
+   * Buy a product. Needs a wallet or an explicit key because it attaches a deposit.
+   * { token: true } pays `price_token` in the site's NEP-141 token with ft_transfer_call.
+   */
+  async function pay(product, { ref, deposit, token = false } = {}) {
+    if (token) {
+      if (state.mode === "member")
+        throw new QuayError("token payments need a wallet: members have no NEAR for the 1 yocto deposit. Sign in with a wallet.", "deposit_needs_wallet");
+      const [tokenId, p] = await Promise.all([view("get_token", {}), view("get_product", { id: product })]);
+      if (!tokenId) throw new QuayError("this site has no payment token configured", "no_token");
+      if (!p) throw new QuayError(`unknown product ${product}`, "unknown_product");
+      if (!p.price_token || BigInt(p.price_token) === 0n) throw new QuayError(`${product} has no token price`, "no_token_price");
+      const msg = { product };
+      if (ref != null) msg.ref = ref;
+      await write("ft_transfer_call", { receiver_id: site, amount: String(p.price_token), msg: JSON.stringify(msg) }, { deposit: 1n, gas: 100_000_000_000_000n, receiver: tokenId });
+      return;
+    }
     let amount = deposit;
     if (amount == null) {
       const p = await view("get_product", { id: product });
