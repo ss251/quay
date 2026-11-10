@@ -120,3 +120,16 @@ Also seen: near-connect stores `selected-wallet` in localStorage, so after one w
 ### Screenshots (real data, `docs/screenshots/`)
 
 `board-home-desktop.png`, `board-home-phone.png`, `board-post-desktop.png`, `board-post-phone.png` (the test post with its preview), `board-new-1-join-desktop.png`, `board-new-2-done-desktop.png`, `board-new-2-done-phone.png`, `board-new-wallet-picker-desktop.png`, `board-wallet-intear-connect.png`, `board-wallet-meteor-blocked.png`. Phone shots use a 360 px emulated viewport (headless Chrome's window will not go below 500 px). No horizontal overflow at 360 px on `/`, `/posts/<id>` or `/new/`.
+
+### Wallet NEP-413 sign-in through the "NEAR CLI" connector: passed (third attempt)
+
+The near-connect manifest (`hot-dao/near-selector` `repository/manifest.json`) lists `near-cli`, a sandboxed executor (`near/near-cli-connect` `dist/near-cli.js`, read as data) that needs no socket. It asks for an account ID, a signing method, and then shows a `near message sign-nep413 ... sign-with-keychain network-config testnet` command and a box for the JSON output. Run in a new isolated headless Chrome on the live `/new/` page (cleared profile, so the picker showed):
+
+1. "Sign in with a wallet" -> NEAR CLI -> account `walletchk-he8kli.harbour-board.testnet` -> Keychain -> Continue. The page showed the command with `utf8 'Sign in to harbour-board.testnet\nSite: harbour-board.testnet\nIssued: 2026-11-10T20:52:36.144Z'`, `nonce 'Y/N82jNJ...'`, `recipient 'harbour-board.testnet'`.
+2. I ran that command with `near` 0.31.1 (near-cli-rs), changing only `sign-with-keychain` to `sign-with-legacy-keychain` (the key is in `~/.near-credentials`). It printed `{accountId, publicKey, signature}`; I pasted the JSON into the box and pressed Submit. No key was printed or shown.
+3. The board then said "Signed in as walletchk-he8kli.harbour-board.testnet with a wallet." (`board-new-wallet-signed-in-desktop.png`; the sign step is `board-wallet-nearcli-sign-desktop.png`).
+4. The proof the page holds lives inside the client closure, so I rebuilt it from what crossed the page: the executor's `signMessage` postMessage result (accountId, publicKey, base64 signature), and the message, nonce and recipient from the command. `verifySignIn(proof, { site: "harbour-board.testnet" })` in Node (`client/src/verify.mjs`, 36 s after issue):
+   `{"ok":true,"accountId":"walletchk-he8kli.harbour-board.testnet","publicKey":"ed25519:82z8mfwm...","issuedAt":1794343956144}`.
+   The same proof with one byte appended to the message gave `bad signature`, and a different `site` gave `wrong recipient`.
+
+Limits of this claim: the signing ran in my terminal (the NEAR CLI connector is a copy-and-paste flow, so that is how it works), and the proof was reassembled from the wallet response, not read out of the page's closure. The board's page logic accepted it and switched to wallet mode. Posting with the wallet was not tried.
