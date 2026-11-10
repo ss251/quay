@@ -174,11 +174,7 @@ const pages = {
     };
     button.addEventListener("click", () => pin({}, "NEAR"));
     tokenButton?.addEventListener("click", () =>
-      pin(
-        event.target,
-        { token: true },
-        "test USDC (usdc.fakes.testnet, not Circle USDC)",
-      ),
+      pin({ token: true }, "test USDC (usdc.fakes.testnet, not Circle USDC)"),
     );
   },
 
