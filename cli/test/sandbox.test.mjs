@@ -236,6 +236,8 @@ test(
           big,
           "--external-over",
           "65536",
+          "--store",
+          "nearfs",
           "--no-verify",
           "--json",
         )
@@ -252,6 +254,41 @@ test(
     assert.equal(moved.external.cid, large.external[0].cid);
     assert.equal(moved.external.size, "300000");
     assert.match(moved.external.cid, /^bafybei/);
+
+    // The fastfs store: the upload goes to outlayer.testnet (absent in the
+    // sandbox, so the receipt fails like it does by design), and the file is
+    // sealed by URL.
+    const ff = writeTree(tempDir("quay-sbx-ff-"), {
+      "index.html": "<p>ff</p>",
+      "templates/post.html": "<article>{{doc.data.title}}</article>",
+    });
+    writeFileSync(join(ff, "clip.bin"), Buffer.alloc(100_000, 3));
+    const viaUrl = JSON.parse(
+      (
+        await cli(
+          "deploy",
+          ff,
+          "--external-over",
+          "65536",
+          "--store",
+          "fastfs",
+          "--no-verify",
+          "--json",
+        )
+      ).out,
+    );
+    const urlRelease = await provider.callFunction({
+      contractId: SITE,
+      method: "get_release",
+      args: { id: viaUrl.id },
+    });
+    const clip = urlRelease.files.find((file) => file.path === "clip.bin");
+    assert.match(
+      clip.external.url,
+      /^https:\/\/test\.fastfs\.io\/quay-it\.testnet\/outlayer\.testnet\/[0-9a-f]{64}\.bin$/,
+    );
+    assert.equal(clip.external.cid, undefined);
+    assert.equal(clip.external.size, "100000");
 
     await cli("db", "rm", "posts", "first");
     await cli("db", "collection", "drop", "posts");

@@ -38,6 +38,7 @@ import {
   waitForGateway,
 } from "./shared.mjs";
 import { relayCmd } from "./relay.mjs";
+import { DEFAULT_STORE } from "./stores/index.mjs";
 import { up } from "./up.mjs";
 import { checkId, yoctoUnlocked } from "./site.mjs";
 import {
@@ -153,7 +154,7 @@ export async function deploy(ctx, parsed) {
         : (project?.files.external_over ?? null),
     store: flags.store
       ? String(flags.store)
-      : (project?.files.store ?? "nearfs"),
+      : (project?.files.store ?? DEFAULT_STORE),
     verify: !flags["no-verify"],
     verifyTimeoutMs:
       flags["verify-wait"] !== undefined
@@ -588,9 +589,24 @@ async function finishInit(ctx, account, key, hash, adopted, version = "2.0.0") {
     rpc: ctx.config.rpc,
     gateway: gatewayFor(account),
   };
+  // Keep sections an existing quay.json already has; add the default store.
+  let existing = {};
+  try {
+    existing = JSON.parse(readFileSync(join(ctx.cwd, "quay.json"), "utf8"));
+  } catch {
+    existing = {};
+  }
   writeFileSync(
     join(ctx.cwd, "quay.json"),
-    `${JSON.stringify(config, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        ...existing,
+        ...config,
+        files: existing.files ?? { store: DEFAULT_STORE },
+      },
+      null,
+      2,
+    )}\n`,
   );
   let funded = "unknown";
   try {

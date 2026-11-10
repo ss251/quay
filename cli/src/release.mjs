@@ -14,8 +14,18 @@ import {
   planRelease,
   sha256,
 } from "./site.mjs";
-import { alreadyStored, makeStore, verifyExternal } from "./stores/index.mjs";
+import {
+  alreadyStored,
+  DEFAULT_STORE,
+  makeStore,
+  verifyExternal,
+} from "./stores/index.mjs";
 import { emit, formatBytes, formatNear, paint, writeErr } from "./text.mjs";
+
+/** The contract takes exactly one of cid or url. */
+export function refOf(item) {
+  return item.url ? { url: item.url } : { cid: item.cid };
+}
 
 export async function allReleases(chain) {
   const releases = [];
@@ -86,7 +96,7 @@ export async function deployRelease(ctx, options) {
   );
   if (routes.length > 0) await warnMissingCollections(ctx, routes);
   const store =
-    external.length > 0 ? makeStore(options.store ?? "nearfs", ctx) : null;
+    external.length > 0 ? makeStore(options.store ?? DEFAULT_STORE, ctx) : null;
   const externals = [];
   for (const file of external) {
     const digest = sha256(file.bytes);
@@ -95,6 +105,9 @@ export async function deployRelease(ctx, options) {
       sha256: digest,
       size: file.bytes.length,
       cid: store.cidOf ? await store.cidOf(file.bytes) : null,
+      url: store.urlOf
+        ? store.urlOf({ path: file.path, sha256: digest })
+        : null,
     });
   }
   const status = await ctx.chain.view("get_status", {});
@@ -130,7 +143,7 @@ export async function deployRelease(ctx, options) {
       path: item.file.path,
       size: item.size,
       sha256: item.sha256,
-      cid: item.cid,
+      ...refOf(item),
     }));
   }
   const lines = [
@@ -163,7 +176,7 @@ export async function deployRelease(ctx, options) {
   const externalTransactions = [];
   for (const item of externals) {
     const outcome = await storeExternal(ctx, store, item, options);
-    sealedExternals.push({ ...item, cid: outcome.cid });
+    sealedExternals.push({ ...item, cid: outcome.cid, url: outcome.url });
     externalTransactions.push(...outcome.transactions);
   }
   const chunkHashes = [];
@@ -193,7 +206,7 @@ export async function deployRelease(ctx, options) {
           chunks: [],
           content_type: file.contentType,
           external: {
-            cid: placed.cid,
+            ...refOf(placed),
             size: String(placed.size),
             sha256: placed.sha256,
           },
@@ -241,24 +254,32 @@ async function storeExternal(ctx, store, item, options) {
     contentType: item.file.contentType,
     sha256: item.sha256,
   };
+  const known = item.url ?? item.cid;
   if (
-    item.cid &&
-    (await alreadyStored(store, item.cid, item.sha256, verifyOptions))
+    known &&
+    (await alreadyStored(store, known, item.sha256, verifyOptions))
   ) {
     progress(
       `${file.path}  already served by ${store.name}, not uploading again`,
     );
-    return { cid: item.cid, transactions: [] };
+    return { cid: item.cid, url: item.url, transactions: [] };
   }
   const uploaded = await store.upload(file, { progress });
   if (options.verify === false) {
     writeErr(
       ctx,
-      `warning: ${file.path} was not read back (--no-verify). If ${store.name} never serves ${uploaded.cid}, the site will have a broken file.`,
+      `warning: ${file.path} was not read back (--no-verify). If ${store.name} never serves ${uploaded.url ?? uploaded.cid}, the site will have a broken file.`,
     );
   } else {
-    progress(`${file.path}  reading ${uploaded.cid} back to check its hash`);
-    await verifyExternal(store, uploaded.cid, item.sha256, verifyOptions);
+    progress(
+      `${file.path}  reading ${uploaded.url ?? uploaded.cid} back to check its hash`,
+    );
+    await verifyExternal(
+      store,
+      uploaded.url ?? uploaded.cid,
+      item.sha256,
+      verifyOptions,
+    );
   }
   return uploaded;
 }
@@ -329,7 +350,7 @@ export function reportDeploy(ctx, result) {
       path: item.file.path,
       size: item.size,
       sha256: item.sha256,
-      cid: item.cid,
+      ...refOf(item),
     }));
     payload.external_transactions = result.externalTransactions;
   }
@@ -339,7 +360,7 @@ export function reportDeploy(ctx, result) {
   ];
   if (result.sealedExternals.length > 0)
     plain.push(
-      `stored off chain ${result.sealedExternals.map((item) => `${item.file.path} ${item.cid}`).join(", ")}`,
+      `stored off chain ${result.sealedExternals.map((item) => `${item.file.path} ${item.url ?? item.cid}`).join(", ")}`,
     );
   plain.push(`transaction ${transactionUrl}`, `next  ${next}`);
   emit(ctx, payload, plain.join("\n"));

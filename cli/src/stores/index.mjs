@@ -2,12 +2,15 @@ import { createHash } from "node:crypto";
 
 import { QuayError } from "../errors.mjs";
 import { filebaseStore } from "./filebase.mjs";
+import { fastfsStore } from "./fastfs.mjs";
 import { nearfsStore } from "./nearfs.mjs";
 import { pinataStore } from "./pinata.mjs";
 
-export const STORES = ["nearfs", "pinata", "filebase"];
+export const STORES = ["fastfs", "nearfs", "pinata", "filebase"];
+export const DEFAULT_STORE = "fastfs";
 
 const FACTORIES = {
+  fastfs: fastfsStore,
   nearfs: nearfsStore,
   pinata: pinataStore,
   filebase: filebaseStore,

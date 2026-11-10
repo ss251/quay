@@ -4,7 +4,7 @@ import { buildJob } from "./cron.mjs";
 import { checkCollection } from "./db.mjs";
 import { QuayError } from "./errors.mjs";
 import { buildProduct, checkProductId } from "./products.mjs";
-import { STORES } from "./stores/index.mjs";
+import { DEFAULT_STORE, STORES } from "./stores/index.mjs";
 
 const TOP = new Set([
   "account",
@@ -70,7 +70,7 @@ export function parseProject(raw) {
   strictKeys(raw, TOP, "");
   const project = {
     site: null,
-    files: { external_over: null, store: "nearfs" },
+    files: { external_over: null, store: DEFAULT_STORE },
     collections: {},
     routes: [],
     products: {},

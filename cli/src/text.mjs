@@ -87,7 +87,7 @@ export const COMMANDS = [
       ["--ci", "Sign with the publish-only key."],
       [
         "--store <name>",
-        "Where files over files.external_over go: nearfs (default, no signup, gas only), pinata (needs PINATA_JWT), or filebase (needs FILEBASE_KEY, FILEBASE_SECRET, FILEBASE_BUCKET). pinata and filebase need an account and are not tested against the live services.",
+        "Where files over files.external_over go. fastfs (default): FastNEAR FastFS, no signup, gas only, files up to 1,400,000 bytes, exercised live for a 406 KB wasm. nearfs: no signup, gas only, but the testnet gateway has not served new uploads, so deploys fail the read-back. pinata (needs PINATA_JWT) and filebase (needs FILEBASE_KEY, FILEBASE_SECRET, FILEBASE_BUCKET) need an account and were not exercised live.",
       ],
       [
         "--external-over <bytes>",
@@ -414,7 +414,10 @@ export const COMMANDS = [
         "Print the plan, create nothing. Validates the folder, routes and templates.",
       ],
       ["--yes", "Skip the confirmation."],
-      ["--store <name>", "Override files.store: nearfs, pinata, or filebase."],
+      [
+        "--store <name>",
+        "Override files.store: fastfs, nearfs, pinata, or filebase.",
+      ],
       ["--external-over <bytes>", "Override files.external_over."],
       ["--no-verify", "Do not read large files back before sealing."],
       ["--id <id>", "Release id. The default is the next number."],

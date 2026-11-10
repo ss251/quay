@@ -39,7 +39,7 @@ test("every new command has help with --json and its usage", () => {
     assert.match(helpText(name), /--json/);
   }
   assert.match(helpText("deploy"), /--store/);
-  assert.match(helpText("deploy"), /not tested against the live services/);
+  assert.match(helpText("deploy"), /were not exercised live/);
 });
 
 test("db collection set creates, then keeps unspecified rules", async () => {
@@ -908,7 +908,7 @@ test("a file over files.external_over is stored in nearfs and sealed as external
   const io = streams();
   await deploy(nearfsCtx(io, chain, big), {
     rest: [dir],
-    flags: { "external-over": "65536" },
+    flags: { "external-over": "65536", store: "nearfs" },
   });
   const batches = chain.calls.filter((call) => call.method === "batch");
   assert.equal(batches.length, 2);
@@ -931,7 +931,7 @@ test("deploy does not seal when the store does not serve the file", async () => 
   await assert.rejects(
     deploy(nearfsCtx(streams(), chain, big, { serve: false }), {
       rest: [dir],
-      flags: { "external-over": "65536" },
+      flags: { "external-over": "65536", store: "nearfs" },
     }),
     /did not serve bafybei.*Nothing was sealed/,
   );
@@ -946,7 +946,7 @@ test("deploy does not seal when the store does not serve the file", async () => 
   await assert.rejects(
     deploy(nearfsCtx(streams(), fakeChain(), big, { mismatch: true }), {
       rest: [dir],
-      flags: { "external-over": "65536" },
+      flags: { "external-over": "65536", store: "nearfs" },
     }),
     /different bytes/,
   );
@@ -958,7 +958,7 @@ test("--no-verify seals without reading back and warns", async () => {
   const io = streams();
   await deploy(nearfsCtx(io, chain, big, { serve: false }), {
     rest: [dir],
-    flags: { "external-over": "65536", "no-verify": true },
+    flags: { "external-over": "65536", store: "nearfs", "no-verify": true },
   });
   assert.ok(chain.calls.some((call) => call.method === "seal"));
   assert.match(io.err(), /warning: big\.bin was not read back/);
@@ -982,7 +982,7 @@ test("a deploy dry run reports large files and sends nothing", async () => {
   const io = streams();
   await deploy(nearfsCtx(io, chain, big, {}), {
     rest: [dir],
-    flags: { "external-over": "65536" },
+    flags: { "external-over": "65536", store: "nearfs" },
   }).catch(() => {});
   const dry = streams();
   const ctx = nearfsCtx(dry, chain, big);
@@ -990,7 +990,7 @@ test("a deploy dry run reports large files and sends nothing", async () => {
   ctx.json = true;
   await deploy(ctx, {
     rest: [dir],
-    flags: { "external-over": "65536", message: "x" },
+    flags: { "external-over": "65536", store: "nearfs", message: "x" },
   });
   const body = JSON.parse(dry.text());
   assert.equal(body.dry_run, true);
@@ -1397,4 +1397,89 @@ test("init stops before deploying when the account cannot pay for the wasm", asy
     },
   });
   await assertCanAffordWasm(rich, wasm);
+});
+
+test("fastfs uploads __fastdata_fastfs to outlayer.testnet and seals an external url", async () => {
+  const { dir, big } = largeSite();
+  const chain = fakeChain();
+  const batches = [];
+  chain.sendBatch = async (calls, options) => {
+    batches.push({ calls, options });
+    return { hash: "ff-tx" };
+  };
+  const served = false;
+  const io = streams();
+  const ctx = baseCtx(io, {
+    chain,
+    fetch: async (url) => {
+      assert.match(
+        url,
+        /^https:\/\/test\.fastfs\.io\/board\.testnet\/outlayer\.testnet\/[0-9a-f]{64}\.bin$/,
+      );
+      return batches.length
+        ? { ok: true, arrayBuffer: async () => big }
+        : { ok: false, status: 404 };
+    },
+    sleep: async () => {},
+    verifyTimeoutMs: 0,
+  });
+  void served;
+  await deploy(ctx, { rest: [dir], flags: { "external-over": "65536" } });
+  assert.equal(batches.length, 1);
+  assert.equal(batches[0].options.receiverId, "outlayer.testnet");
+  assert.equal(batches[0].calls[0].method, "__fastdata_fastfs");
+  assert.equal(batches[0].calls[0].gas, 1n);
+  const seal = chain.calls.find((call) => call.method === "seal");
+  const file = seal.files.find((entry) => entry.path === "big.bin");
+  assert.deepEqual(Object.keys(file.external).sort(), [
+    "sha256",
+    "size",
+    "url",
+  ]);
+  assert.equal(
+    file.external.url,
+    `https://test.fastfs.io/board.testnet/outlayer.testnet/${sha(big)}.bin`,
+  );
+  assert.equal(file.external.size, "300000");
+  assert.equal(file.external.sha256, sha(big));
+});
+
+test("fastfs does not seal when the url is never served, and refuses oversized files", async () => {
+  const { dir } = largeSite();
+  const chain = fakeChain();
+  chain.sendBatch = async () => ({ hash: "t" });
+  await assert.rejects(
+    deploy(
+      baseCtx(streams(), {
+        chain,
+        fetch: async () => ({ ok: false, status: 404 }),
+        sleep: async () => {},
+        verifyTimeoutMs: 0,
+      }),
+      {
+        rest: [dir],
+        flags: { "external-over": "65536" },
+      },
+    ),
+    /did not serve https:\/\/test\.fastfs\.io.*Nothing was sealed/,
+  );
+  assert.equal(
+    chain.calls.some((call) => call.method === "seal"),
+    false,
+  );
+  const { fastfsStore, MAX_BYTES, fastfsPath } = await import(
+    "../src/stores/fastfs.mjs"
+  );
+  assert.equal(fastfsPath("media/a.JPG", "ab"), "ab.jpg");
+  assert.equal(fastfsPath("noext", "ab"), "ab.bin");
+  const store = fastfsStore({ config: { account: "board.testnet" }, chain });
+  await assert.rejects(
+    store.upload({
+      path: "x.bin",
+      bytes: new Uint8Array(MAX_BYTES + 1),
+      sha256: "a",
+      contentType: "x",
+    }),
+    /1\.5 MiB/,
+  );
 });
