@@ -55,29 +55,15 @@ pub struct Budget {
     pub chunk_bytes: u64,
 }
 
-#[derive(Clone, near_sdk::serde::Serialize, near_sdk::serde::Deserialize)]
-#[serde(crate = "near_sdk::serde", rename_all = "camelCase", default)]
+#[near(serializers = [json])]
+#[serde(rename_all = "camelCase")]
 pub struct Web4Request {
     #[serde(default)]
-    pub account_id: Option<String>,
-    #[serde(default)]
     pub path: String,
-    #[serde(default)]
-    pub query: near_sdk::serde_json::Map<String, near_sdk::serde_json::Value>,
 }
 
-impl Default for Web4Request {
-    fn default() -> Self {
-        Self {
-            account_id: None,
-            path: String::new(),
-            query: near_sdk::serde_json::Map::new(),
-        }
-    }
-}
-
-#[derive(near_sdk::serde::Serialize, near_sdk::serde::Deserialize)]
-#[serde(crate = "near_sdk::serde", rename_all = "camelCase")]
+#[near(serializers = [json])]
+#[serde(rename_all = "camelCase")]
 pub struct Web4Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_type: Option<String>,
@@ -505,9 +491,7 @@ mod tests {
         let release = contract.get_release("1".to_string()).expect("sealed");
         assert_eq!(release.sha256, sha256_hex(html));
         let response = contract.web4_get(Web4Request {
-            account_id: None,
             path: "/r/1".to_string(),
-            query: Default::default(),
         });
         assert_eq!(response.status, Some(200));
         assert_eq!(response.body.expect("body").0, html);
@@ -536,9 +520,7 @@ mod tests {
         assert_eq!(contract.get_production().as_deref(), Some("2"));
 
         let production = contract.web4_get(Web4Request {
-            account_id: None,
             path: "/".to_string(),
-            query: Default::default(),
         });
         assert_eq!(
             production.body.expect("body").0,
@@ -550,17 +532,13 @@ mod tests {
         );
 
         let first = contract.web4_get(Web4Request {
-            account_id: None,
             path: "/r/1".to_string(),
-            query: Default::default(),
         });
         assert_eq!(first.body.expect("body").0, b"<p>release 1</p>");
 
         contract.promote("1".to_string());
         let rolled = contract.web4_get(Web4Request {
-            account_id: None,
             path: "/".to_string(),
-            query: Default::default(),
         });
         assert_eq!(rolled.body.expect("body").0, b"<p>release 1</p>");
         assert_eq!(contract.get_production().as_deref(), Some("1"));
