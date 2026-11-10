@@ -1,0 +1,92 @@
+{
+  "members": {
+    "maren": "harbour office",
+    "dunstan": "fish market",
+    "priya": "lifeboat crew",
+    "tobias": "ferry deck",
+    "halvard": "sailing club",
+    "wren": "berth 4"
+  },
+  "posts": [
+    {
+      "by": "maren",
+      "topic": "tides",
+      "title": "Tide notes for the week",
+      "body": "Springs run from Thursday to Sunday. Low water at the harbour mouth falls a little after seven on Thursday morning, so deep-keel boats should leave the inner basin before half past five or wait for the afternoon.\nNeaps return the following Wednesday. These are my own notes rounded to the nearest quarter hour. Check the board outside the office and the official tables before you plan around them.",
+      "link": "https://www.metoffice.gov.uk/"
+    },
+    {
+      "by": "wren",
+      "topic": "berths",
+      "title": "Lost oar at berth 4",
+      "body": "Found one ash oar, about two metres, green tape round the loom, lying loose on the berth 4 pontoon after Saturday's blow. It is not mine. It is in the office hatch now. Tell Maren what boat it goes with and it is yours."
+    },
+    {
+      "by": "dunstan",
+      "topic": "market",
+      "title": "Fish market hours over the holidays",
+      "body": "The market opens at six on Tuesday, Thursday and Saturday and closes when the boxes are empty. We shut on the two public holidays. If you want crab or whole fish for a table of more than six, leave a note at the stall the day before and we will hold it back."
+    },
+    {
+      "by": "maren",
+      "topic": "notice",
+      "title": "Dredging in the inner basin",
+      "body": "A dredger works the inner basin for about two weeks from the first Monday of next month. Pontoons 6 to 9 will be closed to moorings while it works and the berth holders there have been written to.\nThe fairway stays open but keep clear of the dredger and its pipe, and keep wash down. Questions to the harbour office, not to the crew on the barge."
+    },
+    {
+      "by": "priya",
+      "topic": "events",
+      "title": "Volunteers wanted for the lifeboat open day",
+      "body": "The station opens its doors on the second Saturday of the month. We need people for the car park, the tea tent, the raffle table and for walking children round the boat house.\nNo experience needed. You get a tabard, a mug of tea and a view of the launch. Reply here or find me at the station on Tuesday evenings.",
+      "link": "https://rnli.org/"
+    },
+    {
+      "by": "tobias",
+      "topic": "ferry",
+      "title": "Ferry timetable changes from Monday",
+      "body": "The first sailing now leaves twenty minutes earlier so the school run connects with the bus. The 15:10 is withdrawn on weekdays and replaced by a 15:30. Weekend times do not change. Bikes still travel free on the lower deck."
+    },
+    {
+      "by": "halvard",
+      "topic": "sale",
+      "title": "Jumble sale: sailing club kit",
+      "body": "The club is clearing the loft. There are buoyancy aids in children's sizes, a pile of old sails for covers and cushions, three pairs of wellingtons, odd blocks and cleats, and a lot of rope.\nSaturday morning outside the clubhouse, from nine. Cash box on the table, and anything left goes to the skip at noon."
+    },
+    {
+      "by": "wren",
+      "topic": "berths",
+      "title": "Slipway gate sticks when it rains",
+      "body": "The gate to the public slipway drops on its hinge and will not latch in wet weather. Lift it and push it closed. Someone will bring a plane to it, but until then please do not leave it open, because the trailers on the hard roll on a slope."
+    },
+    {
+      "by": "dunstan",
+      "topic": "market",
+      "title": "Ice machine out of order",
+      "body": "The ice machine behind the market is broken and the engineer comes on Wednesday. Until then I can sell you ice from the cold room by the bag, and the fuel dock has a few. Bring a cool box and do not leave bagged fish in the sun."
+    },
+    {
+      "by": "priya",
+      "topic": "events",
+      "title": "Thank you from the lifeboat crew",
+      "body": "Thank you to everyone who held the lane clear during Thursday's exercise, and to the pub for the sandwiches. The drill went well because the quay was empty when we needed it. We will give notice before the next one."
+    },
+    {
+      "by": "halvard",
+      "topic": "events",
+      "title": "Junior sailing starts again on Saturday",
+      "body": "Saturday sessions start again at ten for ages eight to twelve. Children need a buoyancy aid that fits, shoes that can get wet and a towel. The club has spare boats and spare aids. Parents are welcome to sit in the clubhouse. Please sign your child in at the slip."
+    },
+    {
+      "by": "maren",
+      "topic": "notice",
+      "title": "Lamp out on the west breakwater",
+      "body": "The green lamp on the west breakwater has failed and the authority has been told. Until it is mended, treat the end of the breakwater as unlit and keep well off at night. Fishing boats coming in late, please call the office on channel 12 if you need a hand."
+    },
+    {
+      "by": "tobias",
+      "topic": "notice",
+      "title": "Bike racks have moved to the north quay",
+      "body": "The racks by the ferry steps are being taken out so the queue has more room. New racks are on the north quay by the old net store, thirty seconds away. Please do not lock bikes to the railings or the ferry steps."
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "account": "harbour-board.testnet",
+  "network": "testnet",
+  "site": { "dir": "site", "spa": false },
+  "files": { "external_over": 32768, "store": "nearfs" },
+  "collections": {
+    "posts": {
+      "write": "members",
+      "payer": "site",
+      "max_doc_bytes": 2000,
+      "moderated": true,
+      "max_docs_per_account": 50,
+      "on_add": "moderate"
+    }
+  },
+  "routes": [
+    {
+      "pattern": "/",
+      "kind": "list",
+      "collection": "posts",
+      "template": "templates/home.html",
+      "limit": 10,
+      "order": "desc",
+      "pinned_first": true
+    },
+    {
+      "pattern": "/posts/:id",
+      "kind": "doc",
+      "collection": "posts",
+      "template": "templates/post.html"
+    },
+    { "pattern": "/api/posts", "kind": "json", "collection": "posts" },
+    { "pattern": "/api/posts/:id", "kind": "json", "collection": "posts" }
+  ],
+  "products": {
+    "pin": {
+      "name": "Pin a post for 24 hours",
+      "price_yocto": "100000000000000000000000",
+      "price_token": "100000",
+      "grant": "pin",
+      "pin_seconds": 86400
+    }
+  },
+  "members": { "open": true },
+  "functions": {
+    "moderate": {
+      "dir": "../../functions/moderate",
+      "call": "owner",
+      "payer": "site"
+    },
+    "digest": {
+      "dir": "../../functions/digest",
+      "call": "owner",
+      "payer": "site"
+    }
+  },
+  "relay": {
+    "host": "outlayer",
+    "fallback": "node",
+    "account": "relay.harbour-board.testnet",
+    "methods": ["db_add"]
+  },
+  "cron": [
+    { "name": "digest", "every_minutes": 60, "fn": "digest", "input": {} }
+  ]
+}
