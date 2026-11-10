@@ -7,7 +7,6 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { createInterface } from "node:readline";
 import { dirname, join, resolve } from "node:path";
 
 import {
@@ -18,6 +17,7 @@ import {
 } from "./config.mjs";
 import { generateKey } from "./chain.mjs";
 import { refused, QuayError } from "./errors.mjs";
+import { confirm, explorerUrl, owner, stopped } from "./shared.mjs";
 import {
   checkId,
   checkMessage,
@@ -47,9 +47,7 @@ export function previewUrl(gateway, id) {
   return id ? `${base}/r/${id}/` : `${base}/`;
 }
 
-export function explorerUrl(hash) {
-  return `https://explorer.testnet.near.org/transactions/${hash}`;
-}
+export { explorerUrl };
 
 export function initLines({
   adopted,
@@ -147,30 +145,6 @@ export async function run(ctx, parsed) {
   }
   await handler(ctx, parsed);
   return 0;
-}
-
-function owner(ctx) {
-  if (ctx.signer?.limited) throw refused("a publish-only key cannot do that");
-  if (!ctx.signer?.secret)
-    throw new QuayError("no signing key for this account", 1);
-}
-
-async function confirm(ctx, question) {
-  if (ctx.dryRun) return false;
-  if (ctx.yes || !ctx.isTTY) return true;
-  writeErr(ctx, `${question} [y/N]`);
-  const lines = createInterface({ input: ctx.stdin, output: ctx.stderr });
-  const answer = await new Promise((done) => {
-    lines.once("line", (line) => {
-      lines.close();
-      done(line);
-    });
-  });
-  return /^y(es)?$/i.test(String(answer).trim());
-}
-
-function stopped(ctx) {
-  emit(ctx, { stopped: true }, "stopped before spending");
 }
 
 async function allReleases(chain) {

@@ -23,6 +23,9 @@
     "quay": "node ./bin/quay.js"
   },
   "dependencies": {
+    "@ipld/dag-pb": "4.2.0",
+    "ipfs-unixfs": "11.2.5",
+    "multiformats": "13.4.2",
     "near-api-js": "7.4.0"
   }
 }
