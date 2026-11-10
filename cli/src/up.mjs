@@ -433,11 +433,15 @@ export async function up(ctx, parsed) {
   const cronSet = late.some(
     (step) => step.step === "cron" && step.action !== NOT_APPLIED,
   );
-  if (cronSet && !ctx.json)
+  if (cronSet && !ctx.json) {
+    const status = await ctx.chain.view("cron_status", {}).catch(() => null);
     writeOut(
       ctx,
-      "cron jobs are set but not running. cron_arm funds the schedule (about 1 NEAR liquid) and stays a separate, explicit call.",
+      status?.armed
+        ? "cron jobs are set and the schedule is armed. quay cron status shows the last tick."
+        : "cron jobs are set but not running. cron_arm funds the schedule (about 1 NEAR liquid) and stays a separate, explicit call.",
     );
+  }
   if (ctx.json) {
     writeOut(
       ctx,

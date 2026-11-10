@@ -223,10 +223,12 @@ async function arm(ctx) {
       "the schedule is already running. quay cron status shows it.",
       1,
     );
+  const jobs = await ctx.chain.view("cron_list", {}).catch(() => []);
+  const life = `about ${chainHours(jobs ?? [])} hours`;
   if (!ctx.dryRun) {
     const ok = await confirm(
       ctx,
-      `Arm the schedule? It sends 1 PGas (about 1 NEAR liquid while it runs, unused gas refunded) and lasts about 14 hours.`,
+      `Arm the schedule? It sends 1 PGas (about 1 NEAR liquid while it runs, unused gas refunded) and lasts ${life} with these jobs.`,
     );
     if (!ok) return stopped(ctx);
   }
@@ -264,6 +266,20 @@ async function arm(ctx) {
       transaction: sent.hash,
       transaction_url: explorerUrl(sent.hash),
     },
-    `armed. It runs for about 14 hours, then quay cron arm again.\ntransaction ${explorerUrl(sent.hash)}`,
+    `armed. With these jobs it runs for ${life}, then quay cron arm again.\ntransaction ${explorerUrl(sent.hash)}`,
   );
+}
+
+// How long 1 PGas keeps the chain alive. A hop is about 2 minutes and 2.25
+// Tgas; each job run takes 95 Tgas from the chain (80 for OutLayer, 15 for
+// the result), used or not, since unused gas is refunded to the signer.
+export function chainHours(jobs) {
+  const perHour =
+    30 * 2.25 +
+    jobs.reduce(
+      (sum, job) =>
+        sum + 95 * (60 / Math.max(5, Number(job.every_minutes) || 60)),
+      0,
+    );
+  return Math.max(1, Math.round(1000 / perHour));
 }

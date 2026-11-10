@@ -1228,6 +1228,53 @@ test("quay up applies the token, sets cron jobs when the contract has them, and 
   assert.match(text, /cron_arm/);
 });
 
+test("quay up says the schedule is armed when cron_status reports it", async () => {
+  const { root, config } = projectRoot({
+    functions: { digest: { dir: "f" } },
+    cron: [{ name: "digest", every_minutes: 60, fn: "digest", input: {} }],
+  });
+  const chain = fakeChain();
+  chain.view = (
+    (view) => async (method, args) =>
+      method === "cron_list"
+        ? []
+        : method === "cron_status"
+          ? { armed: true, hops: "3" }
+          : view(method, args)
+  )(chain.view);
+  const io = streams();
+  await run(
+    baseCtx(io, {
+      chain,
+      cwd: root,
+      config: {
+        account: "board.testnet",
+        gateway: "https://board.testnet.page",
+        path: config,
+      },
+      buildFunction: async () => ({ path: "f.wasm", bytes: new Uint8Array(8) }),
+      outlayer: {
+        projectId: (name) => `board.testnet/${name}`,
+        upload: async () => ({
+          sha256: "0".repeat(64),
+          url: "https://fs/x.wasm",
+          size: 8,
+          hash: "up",
+        }),
+        deployProject: async (name) => ({
+          project: `board.testnet/${name}`,
+          created: true,
+          hash: "pj",
+        }),
+        secretsRow: async () => null,
+      },
+    }),
+    parseArgs(["up"]),
+  );
+  assert.match(io.text(), /the schedule is armed/);
+  assert.doesNotMatch(io.text(), /set but not running/);
+});
+
 test("quay up says cron is not applied when the contract has no cron", async () => {
   const { root, config } = projectRoot({
     cron: [{ name: "digest", every_minutes: 60, fn: "digest" }],

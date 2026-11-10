@@ -456,7 +456,7 @@ export const COMMANDS = [
       ["status", "Show whether the schedule is armed, hops, and last tick."],
       [
         "arm",
-        "Start the schedule: sends 1 PGas, about 1 NEAR liquid while it runs (unused gas is refunded) and about 14 hours of life, then arm again. Asks first, refuses under 1.1 NEAR liquid.",
+        "Start the schedule: sends 1 PGas, about 1 NEAR liquid while it runs (unused gas is refunded). That lasts about 15 hours with no jobs and about 6 with one hourly job, since each run takes 95 Tgas; then arm again. Asks first, refuses under 1.1 NEAR liquid.",
       ],
       ["kick", "Run due jobs now by resuming the pending step. Anyone can."],
       ["--dry-run", "Print the call and send nothing."],
