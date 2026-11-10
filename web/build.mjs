@@ -14,13 +14,36 @@ const root = dirname(fileURLToPath(import.meta.url));
 const dist = join(root, "dist");
 const SITE = "https://quay-esc0v902.testnet.page/";
 
-// {{i:name}} or {{i:name sm}} expands to an inline reference into the icon sprite.
+// {{i:name}} or {{i:name sm}} expands to a reference into the sprite that
+// `inlineSprite` puts in the page, so icons never need a second request.
 function expand(html, prefix) {
   return html
     .replaceAll("{{P}}", prefix)
     .replace(/\{\{i:([a-z-]+)( sm)?\}\}/g, (_, name, sm) => {
-      return `<svg class="icon${sm ? " sm" : ""}" aria-hidden="true"><use href="${prefix}assets/icons.svg#i-${name}"/></svg>`;
-    });
+      return `<svg class="icon${sm ? " sm" : ""}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+    })
+    .replace(/href="[^"]*assets\/icons\.svg#/g, 'href="#');
+}
+
+const SYMBOLS = new Map(
+  [
+    ...readFileSync(join(root, "assets", "icons.svg"), "utf8").matchAll(
+      /<symbol id="(i-[a-z-]+)"[\s\S]*?<\/symbol>/g,
+    ),
+  ].map((match) => [match[1], match[0]]),
+);
+
+// A hidden sprite after <body> with the symbols the page uses. The dashboard
+// draws icons from script, so it gets every symbol.
+function inlineSprite(html, all) {
+  const used = all
+    ? [...SYMBOLS.keys()]
+    : [...new Set([...html.matchAll(/href="#(i-[a-z-]+)"/g)].map((m) => m[1]))];
+  const missing = used.filter((id) => !SYMBOLS.has(id));
+  if (missing.length) throw new Error(`no icon ${missing.join(", ")}`);
+  if (!used.length) return html;
+  const sprite = `<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">${used.map((id) => SYMBOLS.get(id)).join("")}</svg>`;
+  return html.replace("<body>\n", `<body>\n${sprite}\n`);
 }
 
 // Drop indentation and blank lines outside <pre>; the bytes are stored on chain.
@@ -72,11 +95,11 @@ function siteNav(prefix, current) {
 <a class="brand" href="${prefix}index.html">${mark()}Quay</a>
 <nav aria-label="Site">${link("docs/index.html", "Docs")}${link("dashboard/index.html", "Dashboard", "hide-s")}<a class="hide-s" href="https://quay-65nqd3rn.testnet.page/">Sample</a></nav>
 <div class="nav-end"><span class="net hide-s"><span class="dot dot-live"></span>Testnet</span>
-<button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme">{{i:moon}}<svg class="icon i-sun" aria-hidden="true"><use href="${prefix}assets/icons.svg#i-sun"/></svg></button>
+<button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme">{{i:moon}}<svg class="icon i-sun" aria-hidden="true"><use href="#i-sun"/></svg></button>
 <a class="btn btn-sm btn-primary" href="${prefix}dashboard/index.html">Open dashboard</a></div>
 </div></header>`.replace(
     "{{i:moon}}",
-    `<svg class="icon i-moon" aria-hidden="true"><use href="${prefix}assets/icons.svg#i-moon"/></svg>`,
+    `<svg class="icon i-moon" aria-hidden="true"><use href="#i-moon"/></svg>`,
   );
 }
 
@@ -130,7 +153,7 @@ ${app ? body : `${siteNav(prefix, href)}\n<main id="content">\n${body}\n</main>\
 </body>
 </html>
 `;
-  return tidy(expand(html, prefix));
+  return tidy(inlineSprite(expand(html, prefix), app));
 }
 
 function escapeHtml(text) {
@@ -182,7 +205,11 @@ const pages = {
 
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
-cpSync(join(root, "assets"), join(dist, "assets"), { recursive: true });
+// Pages carry their icons inline, so the sprite file is not published.
+cpSync(join(root, "assets"), join(dist, "assets"), {
+  recursive: true,
+  filter: (path) => !path.endsWith("icons.svg"),
+});
 // esbuild is a dev dependency used only to shrink files; without it the build falls back to plain tidying.
 let esbuild = null;
 try {

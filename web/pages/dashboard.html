@@ -23,6 +23,7 @@
 </header>
 
 <main class="app-main" id="content">
+  <div class="notice notice-warn" id="gw-banner" role="status" hidden>{{i:alert}}<span class="grow" id="gw-text"></span><button class="btn btn-sm" type="button" id="gw-copy" data-copy="" aria-label="Copy the quay gateway command">{{i:copy sm}}Copy command</button></div>
   <section id="view-empty" hidden>
     <form class="card lookup" id="lookup" novalidate>
       <div><h1>Open a Quay account</h1><p class="muted" style="font-size:14px;margin-top:4px">Anyone can read releases and history. Sign in with a testnet wallet to change production.</p></div>
@@ -51,7 +52,7 @@
     <div class="page-head">
       <div>
         <h1><span id="acct-title"></span> <span class="chip chip-outline" id="contract-chip"></span></h1>
-        <a class="host" id="host-link" href="#">{{i:globe sm}}<span id="host-text"></span>{{i:ext sm}}</a>
+        <a class="host" id="host-link" href="#">{{i:globe sm}}<span id="host-text"></span>{{i:ext sm}}</a> <span class="chip" id="gw-chip" hidden></span>
       </div>
       <div class="tools">
         <button class="btn btn-sm" type="button" id="copy-host" aria-label="Copy host">{{i:copy sm}}Copy host</button>

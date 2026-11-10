@@ -1,9 +1,19 @@
 // Quay dashboard. Reads a Quay contract over public RPC; changes go through a
 // testnet wallet via near-connect. The page never holds a key.
-const RPC = "https://test.rpc.fastnear.com";
+// Tried in order; a network error, timeout, 429, 5xx, or a non-handler RPC
+// error moves on. rpc.testnet.near.org is deprecated and not listed.
+const RPCS = [
+  "https://test.rpc.fastnear.com",
+  "https://testnet-rpc.intea.rs",
+  "https://near-testnet.drpc.org",
+];
+// Any testnet.page host reflects the shared gateway. This file is on the
+// product site, so its answer is a fair probe from any origin.
+const GATEWAY_PROBE = "https://quay-esc0v902.testnet.page/assets/mark.svg";
 const GAS = "30000000000000";
 const EXPLORER = "https://explorer.testnet.near.org/transactions/";
-const SPRITE = new URL("icons.svg", import.meta.url).href;
+// The built page carries the icon sprite inline.
+const SPRITE = "";
 const TABS = ["overview", "releases", "history", "storage"];
 
 const $ = (id) => document.getElementById(id);
@@ -104,25 +114,44 @@ function accountFrom(raw) {
 }
 
 // ---------- RPC ----------
+let rpcFirst = 0;
 async function rpc(params) {
-  const response = await fetch(RPC, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "quay",
-      method: "query",
-      params: { finality: "final", ...params },
-    }),
+  const payload = JSON.stringify({
+    jsonrpc: "2.0",
+    id: "quay",
+    method: "query",
+    params: { finality: "final", ...params },
   });
-  if (!response.ok)
-    throw new Error(
-      `The RPC answered ${response.status}. Try again in a moment.`,
-    );
-  const body = await response.json();
-  if (body.error)
-    throw new Error(body.error.data || body.error.message || "RPC error");
-  return body.result;
+  let last = "";
+  for (let i = 0; i < RPCS.length; i += 1) {
+    const index = (rpcFirst + i) % RPCS.length;
+    let body;
+    try {
+      const response = await fetch(RPCS[index], {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: payload,
+        signal: AbortSignal.timeout(8000),
+      });
+      body = await response.json().catch(() => null);
+      if (body?.error?.name === "HANDLER_ERROR")
+        throw Object.assign(
+          new Error(body.error.data || body.error.message || "RPC error"),
+          { final: true },
+        );
+      if (!response.ok || !body || body.error || !("result" in body)) {
+        last = `${new URL(RPCS[index]).host} answered ${response.status}`;
+        continue;
+      }
+    } catch (error) {
+      if (error.final) throw error;
+      last = `${new URL(RPCS[index]).host}: ${error.name === "TimeoutError" ? "no answer in 8 s" : "network error"}`;
+      continue;
+    }
+    rpcFirst = index;
+    return body.result;
+  }
+  throw new Error(`No RPC answered (${last}). Try again in a moment.`);
 }
 async function callView(account, method, args) {
   const result = await rpc({
@@ -149,6 +178,90 @@ async function listAll(account, method, field) {
     from = page.next;
   }
 }
+
+// ---------- public gateway health ----------
+// The preview frame and production links go through testnet.page. The probe
+// is one small request: same origin when this page is on testnet.page, so the
+// status and body are readable; otherwise an image that loads or fails.
+let gateway = null;
+let probing = null;
+function probeGateway() {
+  const started = performance.now();
+  const ms = () => Math.round(performance.now() - started);
+  if (location.hostname.endsWith(".testnet.page")) {
+    const url = new URL("mark.svg", import.meta.url);
+    url.searchParams.set("probe", Date.now());
+    return fetch(url, { cache: "no-store", signal: AbortSignal.timeout(5000) })
+      .then(async (res) => {
+        if (res.ok) return { ok: true, ms: ms() };
+        const text = await res.text().catch(() => "");
+        return {
+          ok: false,
+          ms: ms(),
+          reason: /deprecated/i.test(text)
+            ? `HTTP ${res.status}: it still calls the deprecated rpc.testnet.near.org`
+            : `HTTP ${res.status}`,
+        };
+      })
+      .catch(() => ({ ok: false, ms: ms(), reason: "no answer in 5 s" }));
+  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    const done = (ok, reason) => {
+      clearTimeout(timer);
+      img.onload = img.onerror = null;
+      resolve({ ok, ms: ms(), reason });
+    };
+    const timer = setTimeout(() => done(false, "no answer in 5 s"), 5000);
+    img.onload = () => done(true);
+    img.onerror = () => done(false, "a test request to it failed");
+    img.src = `${GATEWAY_PROBE}?probe=${Date.now()}`;
+  });
+}
+function checkGateway(force) {
+  if (probing) return probing;
+  if (!force && gateway && Date.now() - gateway.at < 60_000) return gateway;
+  probing = probeGateway().then((result) => {
+    gateway = { ...result, at: Date.now() };
+    probing = null;
+    renderGateway();
+    return gateway;
+  });
+  return probing;
+}
+function renderGateway() {
+  const chip = $("gw-chip");
+  const banner = $("gw-banner");
+  chip.hidden = !gateway;
+  banner.hidden = !gateway || gateway.ok;
+  if (!gateway) return;
+  chip.className = gateway.ok ? "chip chip-live" : "chip chip-warn";
+  chip.title = gateway.ok
+    ? "testnet.page answered"
+    : `testnet.page: ${gateway.reason}`;
+  chip.replaceChildren(
+    h("span", { class: gateway.ok ? "dot dot-live" : "dot" }),
+    gateway.ok ? `Gateway up · ${gateway.ms} ms` : "Gateway down",
+  );
+  const command = `quay gateway --account ${viewed || "<name>.testnet"}`;
+  $("gw-copy").dataset.copy = command;
+  $("gw-text").replaceChildren(
+    `The public testnet.page gateway is down (${gateway.reason}). The preview and production links may not load; this page still reads the chain directly. To see the site, run `,
+    h("code", { text: command }),
+    " and open ",
+    h("a", { href: "http://127.0.0.1:8787/", text: "127.0.0.1:8787" }),
+    ".",
+  );
+}
+// A failed image, script, stylesheet, or frame re-checks the gateway.
+addEventListener(
+  "error",
+  (event) => {
+    const tag = event.target?.tagName;
+    if (["IMG", "SCRIPT", "LINK", "IFRAME"].includes(tag)) checkGateway(true);
+  },
+  true,
+);
 
 // ---------- rendering ----------
 function isOwner() {
@@ -424,6 +537,7 @@ function render() {
   $("host-link").href = preview(account);
   $("visit-prod").href = preview(account);
   $("copy-host").dataset.copy = `https://${host(account)}/`;
+  renderGateway();
 
   // production card
   const frame = $("prod-preview");
@@ -595,6 +709,7 @@ function applyTab() {
 async function load(account, quiet) {
   viewed = account;
   $("crumb-name").textContent = account;
+  checkGateway();
   if (!quiet) show("loading");
   try {
     const current = await callView(account, "get_status", {});
