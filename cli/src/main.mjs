@@ -68,6 +68,10 @@ export async function main(argv, io = {}) {
       ciSecret,
       secrets,
       generateKey: io.generateKey ?? generateKey,
+      probe: io.probe,
+      fetch: io.fetch,
+      env: io.env,
+      sleep: io.sleep,
       readWasm: () => readWasm(io.wasmPath ?? defaultWasm()),
       emptyCode: emptyCodeHash,
     };
