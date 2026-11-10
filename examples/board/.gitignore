@@ -4,3 +4,4 @@ site/assets/config.json
 # member keys made by seed.mjs; never commit
 .seed-sessions.json
 board.json
+site/assets/img/harbour.png

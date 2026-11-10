@@ -18,6 +18,8 @@ if (!existsSync(bundle) || process.argv.includes("--rebuild")) {
     throw new Error("could not build client/dist/quay.js");
 }
 copyFileSync(bundle, join(here, "site", "assets", "quay.js"));
+// The hero photo is large, so quay deploy stores it off chain (files.external_over).
+copyFileSync(join(here, "art", "harbour.png"), join(here, "site", "assets", "img", "harbour.png"));
 
 const project = JSON.parse(readFileSync(join(here, "quay.json"), "utf8"));
 const local = existsSync(join(here, "board.json"))

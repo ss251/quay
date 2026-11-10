@@ -67,3 +67,9 @@ site 4.181 (about 0.23 liquid), relayer 0.376, buyer 0.157, pool 0.514 free and 
 | 0.6 NEAR moved to the site for gas headroom (from a throwaway account) | https://explorer.testnet.near.org/transactions/GPZqz41xt69zqdP5U99G5cMpbHPdCJR9vrJtvm69xTcu |
 | release 3: the digest line says it ran by hand until the schedule is armed | https://explorer.testnet.near.org/transactions/9fijEJAWMPHGbSQxuqpjwoBe9jjUMqaECVUXRGqCsyTT |
 | production 3 | https://explorer.testnet.near.org/transactions/6ghSuc2NFGqWjPtXfXk7DDydavZTZtvifPf2rrRuKQ4T |
+| replaced the code with the wasm that accepts `https` URL externals (295,899 bytes; state kept, production stayed 3) | https://explorer.testnet.near.org/transactions/D69FwTdwk1PXeEdVV56uz2ni7kVfBndzXgp3Ci8NsGyS |
+| hero photo (493,183 bytes) uploaded to FastFS, gas only; served about 5 minutes later with a matching sha256 | https://test.fastfs.io/harbour-board.testnet/outlayer.testnet/16cca45160bd57f293b580dc754cf8313cdc41cbcb7d982c4696bbf5c9f38ccf.png |
+| release 4: hero sealed as an external `url` file, client with the relay fix | https://explorer.testnet.near.org/transactions/44t7hUBpfqKGR5FYgsMU7ak5FuAjv2jB6M1vvH1RpVm3 |
+| production 4 | https://explorer.testnet.near.org/transactions/9kjjYt6NYbrs6xPnsxQZbmx4BtAjzPgbMNwYgqjeR3pv |
+| mistake: `quay functions rm relay` (meant to drop a stray contract entry) also deleted the relay's OutLayer secrets and project | https://explorer.testnet.near.org/transactions/4RRb9RbC9wN6krLyLaDRa2P5rDvtSCCRZkSD8Y6EGzXk / https://explorer.testnet.near.org/transactions/3d3XPTPrxYqSZuGRg9aSq8NjDcQW9U5Nf2L16QyDKoZL |
+| fixed minutes later: `quay relay deploy` re-created the project and re-stored RELAY_KEY; health answered with the existing payment key | https://explorer.testnet.near.org/transactions/9rnqpKHJYq2JB9Yc9pDNFJH1xRUWbZKX8gcLwwuWwVwT / https://explorer.testnet.near.org/transactions/AJe1CeRKu6s1ZSQgw7iaEhm3RKh7xhwyJbCrgZUorVYh |

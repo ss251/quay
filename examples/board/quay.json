@@ -7,7 +7,7 @@
   },
   "files": {
     "external_over": 32768,
-    "store": "nearfs"
+    "store": "fastfs"
   },
   "collections": {
     "posts": {
@@ -65,7 +65,9 @@
       "dir": "../../functions/moderate",
       "call": "owner",
       "payer": "site",
-      "secrets": ["MOD_API_KEY"]
+      "secrets": [
+        "MOD_API_KEY"
+      ]
     },
     "digest": {
       "dir": "../../functions/digest",
@@ -92,5 +94,7 @@
         "pin_seconds": 86400
       }
     }
-  }
+  },
+  "rpc": "https://test.rpc.fastnear.com",
+  "gateway": "https://harbour-board.testnet.page"
 }
