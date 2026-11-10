@@ -211,7 +211,8 @@ impl FromJson for ExternalIn {
     fn from_json(value: Value) -> Option<Self> {
         let mut o = Obj::new(value)?;
         Some(ExternalIn {
-            cid: o.req("cid")?,
+            cid: o.opt("cid")?,
+            url: o.opt("url")?,
             size: o.req("size")?,
             sha256: o.req("sha256")?,
         })
@@ -356,6 +357,8 @@ mod tests {
             json!({ "path": "a", "content_type": "t", "chunks": ["x"], "external": { "cid": "c", "size": "5", "sha256": "s" } }),
             json!({ "path": "a", "content_type": "t", "chunks": null }),
             json!({ "path": "a", "content_type": "t", "external": { "cid": "c", "size": 5, "sha256": "s" } }),
+            json!({ "path": "a", "content_type": "t", "external": { "url": "https://x.io/a", "size": "5", "sha256": "s" } }),
+            json!({ "path": "a", "content_type": "t", "external": { "url": null, "cid": null, "size": "5", "sha256": "s" } }),
         ] {
             same::<FileIn>(v);
         }

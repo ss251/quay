@@ -77,11 +77,14 @@ pub struct FileIn {
     pub external: Option<ExternalIn>,
 }
 
-/// JSON form of an off-chain file reference.
+/// JSON form of an off-chain file reference: exactly one of `cid` or `url`.
 #[near(serializers = [json])]
 #[derive(Clone, Debug)]
 pub struct ExternalIn {
-    pub cid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
     pub size: U64,
     pub sha256: String,
 }
@@ -92,8 +95,26 @@ pub struct ExternalIn {
 #[derive(Clone)]
 pub struct ExternalFile {
     pub path: String,
-    pub cid: String,
+    /// A CID (alphanumeric only) or an `https://` URL. A CID can never
+    /// contain `:`, so the two cannot be confused, and the borsh layout is
+    /// the one sealed before URLs existed.
+    pub source: String,
     pub size: u64,
+}
+
+impl ExternalFile {
+    pub fn is_url(&self) -> bool {
+        self.source.starts_with("https://")
+    }
+
+    /// The `bodyUrl` the gateway fetches.
+    pub fn body_url(&self) -> String {
+        if self.is_url() {
+            self.source.clone()
+        } else {
+            ["ipfs://", &self.source].concat()
+        }
+    }
 }
 
 #[near(serializers = [json])]
@@ -242,7 +263,8 @@ impl Release {
                         .iter()
                         .find(|ext| ext.path == file.path)
                         .map(|ext| ExternalIn {
-                            cid: ext.cid.clone(),
+                            cid: (!ext.is_url()).then(|| ext.source.clone()),
+                            url: ext.is_url().then(|| ext.source.clone()),
                             size: U64(ext.size),
                             sha256: file.sha256.clone(),
                         }),

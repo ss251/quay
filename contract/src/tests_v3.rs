@@ -946,7 +946,7 @@ fn seal_validates_routes_and_templates() {
                     path: "t.html".into(),
                     chunks: vec![],
                     content_type: "text/html".into(),
-                    external: Some(ExternalIn { cid: "bafyabc".into(), size: U64(10), sha256: "ab".repeat(32) }),
+                    external: Some(ExternalIn { cid: Some("bafyabc".into()), url: None, size: U64(10), sha256: "ab".repeat(32) }),
                 },
             ],
             String::new(),
@@ -1010,7 +1010,7 @@ fn external_files_serve_a_body_url_and_do_not_count_as_stored_bytes() {
                 path: "media/harbour.jpg".into(),
                 chunks: vec![],
                 content_type: "image/jpeg".into(),
-                external: Some(ExternalIn { cid: "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".into(), size: U64(512_000), sha256: sha }),
+                external: Some(ExternalIn { cid: Some("bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".into()), url: None, size: U64(512_000), sha256: sha }),
             },
         ],
         String::new(),
@@ -1035,11 +1035,40 @@ fn external_files_serve_a_body_url_and_do_not_count_as_stored_bytes() {
     site(1);
     c.promote("1".into());
     assert_eq!(get(&c, "/media/harbour.jpg").cache_control.as_deref(), Some(CACHE_FRESH));
+    assert!(json["files"][1].get("external").unwrap().get("url").is_none());
+
+    // The same with an HTTPS URL (FastFS). 256 bytes is the longest allowed.
+    let url = format!("https://test.fastfs.io/{}", "a".repeat(256 - 23));
+    assert_eq!(url.len(), 256);
+    site(0);
+    c.seal(
+        "2".into(),
+        vec![
+            FileIn { path: "index.html".into(), chunks: vec![sha_hex(html)], content_type: "text/html".into(), external: None },
+            FileIn {
+                path: "media/tour.mp4".into(),
+                chunks: vec![],
+                content_type: "video/mp4".into(),
+                external: Some(ExternalIn { cid: None, url: Some(url.clone()), size: U64(9_000_000), sha256: "cd".repeat(32) }),
+            },
+        ],
+        String::new(),
+        false,
+        None,
+    );
+    let res = get(&c, "/r/2/media/tour.mp4");
+    assert_eq!(res.status, Some(200));
+    assert_eq!(res.body_url.as_deref(), Some(url.as_str()));
+    assert_eq!(res.content_type.as_deref(), Some("video/mp4"));
+    let json = serde_json::to_value(c.get_release("2".into()).unwrap()).unwrap();
+    assert_eq!(json["files"][1]["external"], json!({ "url": url, "size": "9000000", "sha256": "cd".repeat(32) }));
+    assert_eq!(c.get_budget().stored_bytes.0, before);
 }
 
 #[test]
 fn external_file_validation() {
-    let ext = |cid: &str, size: u64, sha: &str| ExternalIn { cid: cid.into(), size: U64(size), sha256: sha.into() };
+    let ext = |cid: &str, size: u64, sha: &str| ExternalIn { cid: Some(cid.into()), url: None, size: U64(size), sha256: sha.into() };
+    let ext_url = |url: &str, size: u64, sha: &str| ExternalIn { cid: None, url: Some(url.into()), size: U64(size), sha256: sha.into() };
     let good_sha = "ab".repeat(32);
     let cases: Vec<(&str, Vec<String>, ExternalIn, &str)> = vec![
         ("a.jpg", vec![], ext("", 1, &good_sha), "bad cid"),
@@ -1049,6 +1078,16 @@ fn external_file_validation() {
         ("a.jpg", vec![], ext("bafy", 1, "abc"), "bad sha256"),
         ("a.jpg", vec![good_sha.clone()], ext("bafy", 1, &good_sha), "no chunks"),
         ("index.html", vec![], ext("bafy", 1, &good_sha), "index.html must be stored on chain"),
+        ("a.mp4", vec![], ext_url("http://test.fastfs.io/a.mp4", 1, &good_sha), "bad url"),
+        ("a.mp4", vec![], ext_url("https://", 1, &good_sha), "bad url"),
+        ("a.mp4", vec![], ext_url("https://a b.mp4", 1, &good_sha), "bad url"),
+        ("a.mp4", vec![], ext_url("https://a\tb.mp4", 1, &good_sha), "bad url"),
+        ("a.mp4", vec![], ext_url("https://a\"onload=x", 1, &good_sha), "bad url"),
+        ("a.mp4", vec![], ext_url("https://a/<script>", 1, &good_sha), "bad url"),
+        ("a.mp4", vec![], ext_url("https://a/é.mp4", 1, &good_sha), "bad url"),
+        ("a.mp4", vec![], ext_url(&format!("https://{}", "a".repeat(249)), 1, &good_sha), "bad url"),
+        ("a.mp4", vec![], ExternalIn { cid: Some("bafy".into()), url: Some("https://x.io/a".into()), size: U64(1), sha256: good_sha.clone() }, "exactly one of cid or url"),
+        ("a.mp4", vec![], ExternalIn { cid: None, url: None, size: U64(1), sha256: good_sha.clone() }, "exactly one of cid or url"),
     ];
     for (path, chunks, external, needle) in cases {
         let mut c = fresh();

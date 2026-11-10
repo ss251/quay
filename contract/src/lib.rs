@@ -42,6 +42,7 @@ use types::*;
 const CACHE_IMMUTABLE: &str = "public, max-age=31536000, immutable";
 pub(crate) const CACHE_FRESH: &str = "public, max-age=0, must-revalidate";
 const MAX_CID_BYTES: usize = 128;
+const MAX_URL_BYTES: usize = 256;
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
@@ -183,19 +184,36 @@ impl Contract {
                 if path == INDEX_PATH {
                     env::panic_str("index.html must be stored on chain");
                 }
-                let cid = external.cid;
-                if cid.is_empty()
-                    || cid.len() > MAX_CID_BYTES
-                    || !cid.bytes().all(|byte| byte.is_ascii_alphanumeric())
-                {
-                    env::panic_str("bad cid");
-                }
+                let source = match (external.cid, external.url) {
+                    (Some(cid), None) => {
+                        if cid.is_empty()
+                            || cid.len() > MAX_CID_BYTES
+                            || !cid.bytes().all(|byte| byte.is_ascii_alphanumeric())
+                        {
+                            env::panic_str("bad cid");
+                        }
+                        cid
+                    }
+                    (None, Some(url)) => {
+                        if !url.starts_with("https://")
+                            || url.len() <= "https://".len()
+                            || url.len() > MAX_URL_BYTES
+                            || url
+                                .bytes()
+                                .any(|byte| byte <= 0x20 || byte >= 0x7f || matches!(byte, b'"' | b'<' | b'>'))
+                        {
+                            env::panic_str("bad url");
+                        }
+                        url
+                    }
+                    _ => env::panic_str("external needs exactly one of cid or url"),
+                };
                 if external.size.0 == 0 {
                     env::panic_str("external size must be above 0");
                 }
                 externals.push(ExternalFile {
                     path: path.clone(),
-                    cid,
+                    source,
                     size: external.size.0,
                 });
                 stored.push(StoredFile {
@@ -714,7 +732,7 @@ impl Contract {
                     content_type: Some(file.content_type.clone()),
                     status: Some(status),
                     body: None,
-                    body_url: Some(format!("ipfs://{}", ext.cid)),
+                    body_url: Some(ext.body_url()),
                     preload_urls: None,
                     cache_control: Some(cache.to_string()),
                 },
