@@ -1,0 +1,6 @@
+{
+  "account": "quay-bb.testnet",
+  "network": "testnet",
+  "rpc": "https://rpc.testnet.near.org",
+  "gateway": "https://quay-bb.testnet.page"
+}

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quay</title>
+  <meta name="quay-release" content="2">
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(#16352d, #16352d) 0 0 / 100% 58% no-repeat,
+        #10241f;
+      color: #f3ecdf;
+      font: 18px/1.45 "Iowan Old Style", Palatino, Palatino Linotype, Georgia, serif;
+    }
+    main { width: min(46rem, calc(100% - 2rem)); margin: 0 auto; padding: 7vh 0 3rem; }
+    header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+    .mark { font-weight: 600; letter-spacing: 0.16em; font-size: 0.86rem; }
+    .net { font: 0.82rem/1.3 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; color: #c9d5cf; }
+    h1 { margin: 1.6rem 0 0.4rem; font-size: clamp(2.6rem, 7vw, 4.4rem); font-weight: 600; letter-spacing: -0.04em; }
+    .lead { max-width: 36rem; margin: 0; color: #e4efe9; }
+    .lamp {
+      margin: 1.5rem 0 0;
+      padding: 0.9rem 1rem;
+      background: #f3ecdf;
+      color: #1b1914;
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: baseline;
+    }
+    .lamp strong { font-size: 1.35rem; font-weight: 600; }
+    .lamp span, .facts div, footer { font: 0.82rem/1.35 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+    .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; margin-top: 0.8rem; }
+    .facts div { padding: 0.85rem 0.8rem; background: #1b3931; min-height: 6.2rem; }
+    .facts b { display: block; margin-bottom: 0.35rem; font-family: "Iowan Old Style", Palatino, Georgia, serif; font-size: 1.05rem; font-weight: 600; }
+    a { color: inherit; }
+    footer { margin-top: 1.4rem; color: #c9d5cf; }
+    @media (max-width: 700px) {
+      .facts { grid-template-columns: 1fr; }
+      .lamp { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="mark">QUAY</div>
+      <div class="net">quay-bb.testnet</div>
+    </header>
+    <h1>A name for what is in production.</h1>
+    <p class="lead">Each release is sealed. The production pointer moves in one call. A publish key can write a release and cannot promote it.</p>
+    <p class="lamp"><strong>production: release 2</strong><span>pointer <span id="pointer">2</span></span></p>
+    <section class="facts">
+      <div><b>Sealed</b> /r/1 still serves release 1 after this page is promoted.</div>
+      <div><b>One call</b> promote writes the pointer. It does not copy the site.</div>
+      <div><b>Scoped key</b> put_chunk and seal are allowed. promote is rejected.</div>
+    </section>
+    <footer>
+      <a href="/r/1">/r/1</a> · <a href="/r/2">/r/2</a> · <a href="/">/</a>
+    </footer>
+  </main>
+  <script>
+    const args = btoa(JSON.stringify({}));
+    fetch("https://rpc.testnet.near.org", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "quay",
+        method: "query",
+        params: {
+          request_type: "call_function",
+          finality: "final",
+          account_id: "quay-bb.testnet",
+          method_name: "get_production",
+          args_base64: args
+        }
+      })
+    }).then((res) => res.json()).then((body) => {
+      const raw = body && body.result && body.result.result;
+      if (!raw) return;
+      const text = new TextDecoder().decode(Uint8Array.from(raw));
+      const value = JSON.parse(text);
+      if (value) document.getElementById("pointer").textContent = value;
+    }).catch(() => {});
+  </script>
+</body>
+</html>

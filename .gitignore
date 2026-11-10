@@ -1,0 +1,7 @@
+/target
+contract/target
+**/*.wasm
+.near-credentials
+*.key
+.env
+.DS_Store
