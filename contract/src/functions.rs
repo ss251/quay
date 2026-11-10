@@ -227,7 +227,7 @@ impl Contract {
                 None => self.return_spent(deposit.0),
             }
         }
-        let output_text = output.as_ref().map(|value| value.to_string());
+        let output_text = output.as_ref().map(crate::json_text);
         self.store_result(&name, &request, &caller, ok, output_text.as_deref(), error.as_deref());
         if let (Some(target), true) = (&trigger, ok) {
             self.apply_trigger(target, output.as_ref(), output_text.as_deref());
@@ -291,7 +291,7 @@ impl Contract {
         env::promise_batch_action_function_call_weight(
             request_index,
             "request_execution",
-            args.to_string().as_bytes(),
+            crate::json_text(&args).as_bytes(),
             NearToken::from_yoctonear(run.deposit),
             gas,
             weight,
@@ -300,7 +300,7 @@ impl Contract {
         env::promise_batch_action_function_call_weight(
             result_index,
             "fn_on_result",
-            callback.to_string().as_bytes(),
+            crate::json_text(&callback).as_bytes(),
             NearToken::from_yoctonear(0),
             RESULT_GAS,
             GasWeight(0),
@@ -319,13 +319,12 @@ impl Contract {
             env::log_str(&format!("on_add {func} skipped: {reason}"));
             return;
         }
-        let input = serde_json::json!({
+        let input = crate::json_text(&serde_json::json!({
             "collection": collection,
             "id": id,
             "owner": owner,
             "data": serde_json::from_str::<Value>(data).unwrap_or(Value::Null),
-        })
-        .to_string();
+        }));
         let _ = self.launch(Run {
             name: func.to_string(),
             input,
@@ -410,7 +409,7 @@ impl Contract {
         {
             return;
         }
-        let (seq, cost) = self.insert_doc(FN_RESULTS, request.to_string(), caller.clone(), data.to_string(), PaidBy::Pool);
+        let (seq, cost) = self.insert_doc(FN_RESULTS, request.to_string(), caller.clone(), crate::json_text(&data), PaidBy::Pool);
         let taken = self.draw_pool_upto(cost);
         let cid = self.db.collections.get(FN_RESULTS).map(|coll| coll.cid).unwrap_or_default();
         self.set_deposit(cid, seq, taken);

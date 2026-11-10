@@ -874,6 +874,12 @@ fn assert_no_deposit() {
     );
 }
 
+/// JSON text of a value. `Value`'s `Display` would link a second serializer;
+/// this shares the one that writes call results.
+pub(crate) fn json_text(value: &near_sdk::serde_json::Value) -> String {
+    near_sdk::serde_json::to_string(value).unwrap_or_default()
+}
+
 pub(crate) fn emit(event: &str, data: &near_sdk::serde_json::Value) {
     let line = near_sdk::serde_json::json!({
         "standard": STANDARD,
@@ -881,7 +887,7 @@ pub(crate) fn emit(event: &str, data: &near_sdk::serde_json::Value) {
         "event": event,
         "data": [data],
     });
-    env::log_str(&format!("EVENT_JSON:{line}"));
+    env::log_str(&["EVENT_JSON:", &json_text(&line)].concat());
 }
 
 pub(crate) fn text_response(status: u32, message: &str) -> Web4Response {

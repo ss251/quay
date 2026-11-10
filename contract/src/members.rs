@@ -55,7 +55,7 @@ impl Contract {
         env::promise_batch_action_create_account(create);
         env::promise_batch_action_add_key_with_full_access(create, &public_key, 0);
         let callback = env::promise_batch_then(create, &site);
-        let args = near_sdk::serde_json::json!({ "account": account }).to_string();
+        let args = crate::json_text(&near_sdk::serde_json::json!({ "account": account }));
         env::promise_batch_action_function_call_weight(
             callback,
             "on_join",

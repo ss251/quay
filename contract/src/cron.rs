@@ -261,7 +261,7 @@ impl Contract {
 
 impl Contract {
     fn yield_next(&mut self) {
-        let args = serde_json::json!({ "chain": self.cron.chain }).to_string();
+        let args = crate::json_text(&serde_json::json!({ "chain": self.cron.chain }));
         let (_, id) = env::promise_yield_create_id("cron_tick", args.as_bytes(), Gas::from_tgas(0), GasWeight(1));
         self.cron.pending = Some(id);
     }

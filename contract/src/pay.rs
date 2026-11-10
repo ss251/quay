@@ -268,15 +268,14 @@ impl Contract {
         let now = env::block_timestamp();
         let before = self.storage_mark();
         self.ensure_system(RECEIPTS);
-        let data = serde_json::json!({
+        let data = crate::json_text(&serde_json::json!({
             "buyer": buyer,
             "product": product,
             "ref": reference,
             "amount": U128(amount),
             "token": token,
             "at": U64(now),
-        })
-        .to_string();
+        }));
         let seq = self
             .db
             .collections
