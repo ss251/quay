@@ -2,9 +2,9 @@
 
 Status: **frozen for implementation** on 2026-11-10 unless a section says *pending*. Streams build against this file. A change here is announced to every stream.
 
-Contract version string `3.0.0`, standard `quay`, state version `3`. v3 keeps every v2 method and view with the same JSON. New features live in new storage maps next to the v2 data, so v2 types (`Release`, `StoredFile`) keep their borsh layout. `migrate(ids)` accepts v1, v2 or v3 state and returns v3.
+Contract version string `3.0.1` (3.0.0 until 2026-11-10; 3.0.1 only gives cron jobs more gas), standard `quay`, state version `3`. v3 keeps every v2 method and view with the same JSON. New features live in new storage maps next to the v2 data, so v2 types (`Release`, `StoredFile`) keep their borsh layout. `migrate(ids)` accepts v1, v2 or v3 state and returns v3.
 
-JSON rules from v2 still hold: snake_case args, `U64`/`U128` as decimal strings, timestamps in nanoseconds, NEP-297 events with `"standard":"quay","version":"3.0.0"`.
+JSON rules from v2 still hold: snake_case args, `U64`/`U128` as decimal strings, timestamps in nanoseconds, NEP-297 events with `"standard":"quay","version":"3.0.1"`.
 
 Roles:
 

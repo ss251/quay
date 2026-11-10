@@ -211,7 +211,7 @@ console.log("   " + process.argv[2] + " contract " + v.version);
 done
 
 echo "9. Harbour Board, the full-stack sample on harbour-board.testnet"
-# Contract 3.0.0 with data, routes, members, functions, payments and a large file.
+# Contract 3.x with data, routes, members, functions, payments and a large file.
 # Pages come from its Workers mirror, then testnet.page, then a local gateway.
 board=harbour-board.testnet
 
@@ -231,8 +231,8 @@ check() {
 }
 
 contract=$(view get_version '{}')
-check "$contract" 'd.version==="3.0.0"' "board contract is 3.0.0"
-echo "   contract 3.0.0"
+check "$contract" 'd.version.startsWith("3.")' "board contract is 3.x"
+echo "   contract $(echo "$contract" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).version))')"
 
 echo "   data and routes"
 check "$(view list_collections '{}')" 'd.some(c=>c.name==="posts"&&c.on_add==="moderate"&&c.payer==="site"&&c.moderated)' "posts collection with on_add moderate"

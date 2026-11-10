@@ -1217,7 +1217,7 @@ mod tests {
         let rest = contract.list_releases(1, 20);
         assert_eq!(rest.releases[0].id, "2");
         assert_eq!(rest.next, None);
-        assert_eq!(contract.get_version().version, "3.0.0");
+        assert_eq!(contract.get_version().version, "3.0.1");
         assert_eq!(
             contract.publish_methods(),
             vec!["put_chunk".to_string(), "seal".to_string()]
@@ -1480,7 +1480,7 @@ mod tests {
         }
         let migrated = Contract::migrate(vec![]);
         assert_eq!(migrated.get_production().as_deref(), Some("1"));
-        assert_eq!(migrated.get_version().version, "3.0.0");
+        assert_eq!(migrated.get_version().version, "3.0.1");
         let detail = migrated.get_release("1".to_string()).expect("migrated");
         assert_eq!(detail.bytes.0, html.len() as u64);
         assert_eq!(detail.timestamp.0, 0);

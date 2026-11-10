@@ -18,7 +18,9 @@ pub const MAX_JOBS: usize = 8;
 pub const MIN_EVERY_MINUTES: u32 = 5;
 const MAX_EVERY_MINUTES: u32 = 40_320;
 /// Gas a job's `request_execution` gets; its result callback adds `RESULT_GAS`.
-pub const JOB_REQUEST_GAS: Gas = Gas::from_tgas(45);
+/// OutLayer keeps about 50 Tgas for its own callback: 50 failed and 60 ran on
+/// testnet, so 80 leaves room for secrets. Every run takes this from the chain.
+pub const JOB_REQUEST_GAS: Gas = Gas::from_tgas(80);
 /// Yield again only when at least this much would remain.
 pub const CONTINUE_GAS: Gas = Gas::from_tgas(20);
 /// Gas kept for the tick's own work after jobs are launched.

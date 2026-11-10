@@ -200,7 +200,7 @@ async fn methods_and_refusals() -> TestResult {
     let gas = NearGas::from_tgas(80);
 
     let version: Value = view(&world, "get_version", json!({})).await?;
-    assert_eq!(version["version"], "3.0.0");
+    assert_eq!(version["version"], "3.0.1");
     assert_eq!(version["standard"], "quay");
     let methods: Vec<String> = view(&world, "publish_methods", json!({})).await?;
     assert_eq!(methods, vec!["put_chunk", "seal"]);
@@ -256,7 +256,7 @@ async fn methods_and_refusals() -> TestResult {
     expect_panic(again, "release already sealed");
 
     let status: Status = view(&world, "get_status", json!({})).await?;
-    assert_eq!(status.version, "3.0.0");
+    assert_eq!(status.version, "3.0.1");
     assert_eq!(status.release_count, 1);
     assert!(status.stored_bytes.parse::<u64>().unwrap() > 0);
     let before = status.stored_bytes;

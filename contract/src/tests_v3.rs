@@ -208,7 +208,7 @@ fn set_collection_is_owner_only_and_needs_one_yocto() {
     let view = c.get_collection("posts".into()).unwrap();
     assert_eq!(view.rules.on_add.as_deref(), Some("moderate"));
     assert_eq!(view.next_seq.0, 1);
-    assert!(get_logs().iter().any(|l| l.contains("collection_set") && l.contains("\"3.0.0\"")));
+    assert!(get_logs().iter().any(|l| l.contains("collection_set") && l.contains("\"3.0.1\"")));
     let json = serde_json::to_value(&view).unwrap();
     assert_eq!(json["write"], "anyone");
     assert_eq!(json["payer"], "writer");
@@ -1153,7 +1153,7 @@ fn migrates_v2_state_to_v3_and_is_idempotent() {
     }
     let mut migrated = Contract::migrate(vec![]);
     assert_eq!(migrated.version, 3);
-    assert_eq!(migrated.get_version().version, "3.0.0");
+    assert_eq!(migrated.get_version().version, "3.0.1");
     assert_eq!(migrated.get_production().as_deref(), Some("7"));
     assert_eq!(migrated.get_release("7".into()).unwrap().message, "kept");
     assert_eq!(body(&get(&migrated, "/")), "<p>v2 release</p>");
@@ -1497,6 +1497,28 @@ fn renders_the_board_sample_templates() {
     let one: Value = serde_json::from_str(&body(&get(&c, "/api/posts/1"))).unwrap();
     assert_eq!(one["fn"]["preview"]["title"], "Met Office");
     assert_eq!(get(&c, "/posts/99").status, Some(404));
+
+    // The digest box says which run wrote it, and never shows a failed run as a digest.
+    let digest_run = |c: &mut Contract, request: &str, result: PromiseResult| {
+        ctx_with(SITE, 0, vec![result]);
+        c.fn_on_result("digest".into(), request.into(), SITE.parse().unwrap(), U128(0), None, None);
+    };
+    let digest = |text: &str, scheduled: bool| {
+        PromiseResult::Successful(json!({ "title": "Harbour digest", "text": text, "scheduled": scheduled }).to_string().into_bytes())
+    };
+    digest_run(&mut c, "digest-1", digest("by hand", false));
+    site(0);
+    let html = body(&get(&c, "/"));
+    assert!(html.contains("by hand") && html.contains("run by hand."), "{html}");
+    digest_run(&mut c, "digest-2", digest("on schedule", true));
+    site(0);
+    let html = body(&get(&c, "/"));
+    assert!(html.contains("on schedule") && html.contains("by the hourly digest job."), "{html}");
+    digest_run(&mut c, "digest-3", PromiseResult::Failed);
+    site(0);
+    let html = body(&get(&c, "/"));
+    assert!(html.contains("failed: request failed."), "{html}");
+    assert!(!html.contains("Written"), "{html}");
 }
 
 #[test]

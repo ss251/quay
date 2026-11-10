@@ -4,7 +4,7 @@ use near_sdk::{near, AccountId};
 
 use crate::routes::RouteIn;
 
-pub const VERSION: &str = "3.0.0";
+pub const VERSION: &str = "3.0.1";
 pub const STATE_VERSION: u32 = 3;
 pub const STANDARD: &str = "quay";
 pub const INDEX_PATH: &str = "index.html";
