@@ -216,7 +216,9 @@ fn fake_rpc(sent: Rc<RefCell<Vec<Value>>>, node: Node) -> Rpc {
         let p = &req["params"];
         let result = match (method, p["request_type"].as_str()) {
             ("block", _) => json!({ "header": { "height": 1000, "hash": b58(&[5u8; 32]) } }),
-            ("query", Some("view_access_key")) => json!({ "nonce": 76, "permission": "FullAccess" }),
+            // the relayer's key is at 76, a member's key at 1
+            ("query", Some("view_access_key")) if p["account_id"] == "relay.board.testnet" => json!({ "nonce": 76, "permission": "FullAccess" }),
+            ("query", Some("view_access_key")) => json!({ "nonce": 1, "permission": "FullAccess" }),
             ("query", Some("view_account")) => json!({ "amount": "500000000000000000000000" }),
             ("send_tx", _) => {
                 sent.borrow_mut().push(p.clone());
@@ -334,4 +336,107 @@ fn joins_and_reports_health() {
     assert_eq!(h["policy"]["deposit"], "0");
     assert!(!h.to_string().contains("ed25519:"), "health must not show keys");
     assert_eq!(handle(&json!({}), &config(), &rpc, &store, 0)["code"], "malformed");
+}
+
+/// A node where the relayer's key has nonce 76 and the member key of seed 4 has `member_nonce`
+/// (`None`: the key is not on the sender account).
+fn member_rpc(sent: Rc<RefCell<Vec<Value>>>, member_nonce: Option<u64>) -> Rpc {
+    Rpc::with_transport(move |req| {
+        let p = &req["params"];
+        if p["request_type"] == "view_access_key" && p["account_id"] != "relay.board.testnet" {
+            return Ok(match member_nonce {
+                Some(n) => json!({ "result": { "nonce": n, "permission": "FullAccess" } }),
+                None => json!({ "error": { "name": "HANDLER_ERROR", "cause": { "name": "UNKNOWN_ACCESS_KEY" } } }),
+            });
+        }
+        let inner = fake_rpc(sent.clone(), Node::Ok);
+        inner.call(req["method"].as_str().unwrap(), p.clone()).map(|r| json!({ "result": r }))
+    })
+}
+
+#[test]
+fn a_key_that_is_not_on_the_sender_is_refused_before_anything_is_sent_or_charged() {
+    // Anyone can sign a delegate for <name>.<site> with a key of their own: the
+    // signature checks out, the chain rejects it, and the relayer pays for the try.
+    let sent = Rc::new(RefCell::new(Vec::new()));
+    let store = MemoryStore::default();
+    let bytes = delegate_bytes("mallory.board.testnet", "board.testnet", &[call("db_add", 300, 0)], 1100, 9);
+    let out = handle(&json!({ "op": "relay", "signed_delegate": b64(&bytes) }), &config(), &member_rpc(sent.clone(), None), &store, 0);
+    assert_eq!(out["code"], "unknown_key", "{out}");
+    assert!(sent.borrow().is_empty());
+    assert_eq!(store.get("tgas:0").unwrap(), 0, "a refused delegate spends no budget");
+}
+
+#[test]
+fn a_used_nonce_is_refused_so_a_seen_delegate_cannot_be_replayed() {
+    let sent = Rc::new(RefCell::new(Vec::new()));
+    let store = MemoryStore::default();
+    // delegate_bytes signs nonce 5; the key on chain is already at 5
+    let bytes = delegate_bytes("alice.board.testnet", "board.testnet", &[call("db_add", 100, 0)], 1100, 4);
+    let out = handle(&json!({ "op": "relay", "signed_delegate": b64(&bytes) }), &config(), &member_rpc(sent.clone(), Some(5)), &store, 0);
+    assert_eq!(out["code"], "nonce_used", "{out}");
+    assert!(sent.borrow().is_empty());
+    assert_eq!(store.get("acct:alice.board.testnet:0").unwrap(), 0);
+    let ok = handle(&json!({ "op": "relay", "signed_delegate": b64(&bytes) }), &config(), &member_rpc(sent.clone(), Some(4)), &store, 0);
+    assert!(ok.get("error").is_none(), "{ok}");
+}
+
+#[test]
+fn only_direct_sub_accounts_of_the_site_are_members() {
+    // A member can create x.alice.<site> accounts of its own and dodge the per-sender limit.
+    let p = policy();
+    let nested = delegate_bytes("x.alice.board.testnet", "board.testnet", &[call("db_add", 10, 0)], 1100, 4);
+    assert_eq!(refused(&nested, &p, 1000), "sender_not_member");
+    let bare = delegate_bytes(".board.testnet", "board.testnet", &[call("db_add", 10, 0)], 1100, 4);
+    assert_eq!(refused(&bare, &p, 1000), "sender_not_member");
+    assert!(is_member_of("alice.board.testnet", "board.testnet"));
+    assert!(!is_member_of("alice.xboard.testnet", "board.testnet"));
+    assert!(!is_member_of("board.testnet", "board.testnet"));
+}
+
+#[test]
+fn reserving_is_atomic_so_parallel_runs_cannot_pass_the_limits_together() {
+    // Two runs that both passed check() before either charged: only one may reserve.
+    let p = Policy { per_account_per_hour: 1, daily_tgas: 1000, ..policy() };
+    let store = MemoryStore::default();
+    let bytes = delegate_bytes("alice.board.testnet", "board.testnet", &[call("db_add", 100, 0)], 1100, 4);
+    let d = decode_signed_delegate(&bytes).unwrap();
+    let a = check(&d, &p, 0, 1000, &store).unwrap();
+    let b = check(&d, &p, 0, 1000, &store).unwrap();
+    assert!(reserve(&a, &p, &store).is_ok());
+    assert_eq!(reserve(&b, &p, &store).unwrap_err().code, "account_rate_limit");
+    assert_eq!(store.get(&a.hour_key).unwrap(), 1, "the refused reservation was rolled back");
+    assert_eq!(store.get(&a.day_key).unwrap(), 100);
+
+    let p = Policy { per_account_per_hour: 10, daily_tgas: 150, ..policy() };
+    let store = MemoryStore::default();
+    let a = check(&d, &p, 0, 1000, &store).unwrap();
+    let b = check(&d, &p, 0, 1000, &store).unwrap();
+    assert!(reserve(&a, &p, &store).is_ok());
+    assert_eq!(reserve(&b, &p, &store).unwrap_err().code, "daily_budget");
+    assert_eq!(store.get(&a.hour_key).unwrap(), 1);
+    assert_eq!(store.get(&a.day_key).unwrap(), 100);
+}
+
+#[test]
+fn relayer_busy_gives_the_reservation_back() {
+    // Nothing was sent, and the client resends the same delegate: it must not pay twice.
+    let store = MemoryStore::default();
+    let rpc = Rpc::with_transport(|req| {
+        let p = &req["params"];
+        Ok(match (req["method"].as_str().unwrap(), p["request_type"].as_str()) {
+            ("block", _) => json!({ "result": { "header": { "height": 1000, "hash": b58(&[5u8; 32]) } } }),
+            ("query", Some("view_access_key")) => {
+                json!({ "result": { "nonce": if p["account_id"] == "relay.board.testnet" { 76 } else { 1 }, "permission": "FullAccess" } })
+            }
+            ("send_tx", _) => json!({ "error": { "name": "HANDLER_ERROR", "cause": { "name": "INVALID_TRANSACTION" },
+                "data": { "TxExecutionError": { "InvalidTxError": { "NotEnoughBalance": {} } } } } }),
+            other => panic!("unexpected rpc {other:?}"),
+        })
+    });
+    let bytes = delegate_bytes("alice.board.testnet", "board.testnet", &[call("db_add", 100, 0)], 1100, 4);
+    let out = handle(&json!({ "op": "relay", "signed_delegate": b64(&bytes) }), &config(), &rpc, &store, 0);
+    assert_eq!(out["code"], "relayer_busy", "{out}");
+    assert_eq!(store.get("acct:alice.board.testnet:0").unwrap(), 0);
+    assert_eq!(store.get("tgas:0").unwrap(), 0);
 }

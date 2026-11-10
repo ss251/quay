@@ -214,6 +214,16 @@ pub fn day_bucket(ms: u64) -> u64 {
     ms / 86_400_000
 }
 
+/// `<name>.<site>` with one label, the only accounts `join` creates. A deeper
+/// `x.<name>.<site>` belongs to a member, who could mint any number of them to
+/// get around the per-sender limit.
+pub fn is_member_of(sender: &str, site: &str) -> bool {
+    sender
+        .strip_suffix(site)
+        .and_then(|rest| rest.strip_suffix('.'))
+        .is_some_and(|name| !name.is_empty() && !name.contains('.'))
+}
+
 /// What a passing delegate charges once it is sent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Charge {
@@ -244,8 +254,7 @@ pub fn check(d: &Delegate, p: &Policy, now_ms: u64, height: u64, store: &dyn Sto
     if gas > p.max_gas {
         return refuse("gas_too_high", format!("gas {gas} exceeds the limit of {}", p.max_gas));
     }
-    let is_member = d.sender.ends_with(&format!(".{}", p.site));
-    if p.member_only && !is_member {
+    if p.member_only && !is_member_of(&d.sender, &p.site) {
         return refuse("sender_not_member", format!("sender must be a member of {}", p.site));
     }
     if d.receiver == p.site {
@@ -284,6 +293,58 @@ pub fn check(d: &Delegate, p: &Policy, now_ms: u64, height: u64, store: &dyn Sto
         return refuse("daily_budget", "daily gas budget is used up");
     }
     Ok(charge)
+}
+
+/// Take the charge from the budgets, or refuse. `check` reads the counters and
+/// `reserve` adds to them, so two runs that passed `check` together could both
+/// send; here each add returns the new total and one over the limit is rolled back.
+pub fn reserve(charge: &Charge, p: &Policy, store: &dyn Store) -> Result<(), Refusal> {
+    let store_err = |e: String| Refusal { code: "store_unavailable", reason: format!("rate-limit store: {e}") };
+    let relays = store.add(&charge.hour_key, 1).map_err(store_err)?;
+    if relays > p.per_account_per_hour {
+        let _ = store.add(&charge.hour_key, -1);
+        return refuse("account_rate_limit", format!("the sender reached {} relays this hour", p.per_account_per_hour));
+    }
+    let tgas = match store.add(&charge.day_key, charge.tgas) {
+        Ok(t) => t,
+        Err(e) => {
+            let _ = store.add(&charge.hour_key, -1);
+            return Err(store_err(e));
+        }
+    };
+    if tgas > p.daily_tgas {
+        let _ = store.add(&charge.day_key, -charge.tgas);
+        let _ = store.add(&charge.hour_key, -1);
+        return refuse("daily_budget", "daily gas budget is used up");
+    }
+    Ok(())
+}
+
+/// Give a reservation back when nothing was sent.
+pub fn release(charge: &Charge, store: &dyn Store) {
+    let _ = store.add(&charge.hour_key, -1);
+    let _ = store.add(&charge.day_key, -charge.tgas);
+}
+
+/// The delegate's key must be on the sender account with a lower nonce. The
+/// signature alone proves nothing: anyone can sign a delegate for any
+/// `<name>.<site>` with a key of their own, or resend one they saw on chain. The
+/// chain would refuse both, but only after the relayer paid for the try.
+pub fn check_sender_key(rpc: &Rpc, d: &Delegate) -> Result<(), Refusal> {
+    let key = match rpc.access_key(&d.sender, &format_public_key(&d.public_key)) {
+        Ok(k) => k,
+        Err(e) => return refuse("rpc", quay_fn::clip(&e, 300)),
+    };
+    let Some(key) = key else {
+        return refuse("unknown_key", format!("the delegate's key is not a key of {}", d.sender));
+    };
+    let Some(nonce) = key.get("nonce").and_then(Value::as_u64) else {
+        return refuse("rpc", "the access key view has no nonce");
+    };
+    if d.nonce <= nonce {
+        return refuse("nonce_used", "the delegate's nonce is already used; sign a new one");
+    }
+    Ok(())
 }
 
 pub enum Action<'a> {
@@ -518,12 +579,20 @@ pub fn handle(input: &Value, cfg: &Config, rpc: &Rpc, store: &dyn Store, now_ms:
                 Ok(c) => c,
                 Err(r) => return refusal_json(r),
             };
-            // Charge before sending: a relay that times out still spent gas.
-            let _ = store.add(&charge.hour_key, 1);
-            let _ = store.add(&charge.day_key, charge.tgas);
+            if let Err(r) = check_sender_key(rpc, &d) {
+                return refusal_json(r);
+            }
+            // Charge before sending: a relay that times out or fails on chain still spent gas.
+            if let Err(r) = reserve(&charge, &cfg.policy, store) {
+                return refusal_json(r);
+            }
             // Return once included: waiting for execution would also wait for any
             // on_add trigger, which is another OutLayer run, and outlast the HTTPS window.
             let mut out = sign_and_send(rpc, cfg, &head, &d.sender, &[Action::Delegate(&bytes)], Wait::Included);
+            if out["code"] == "relayer_busy" {
+                // nothing was sent; the client sends the same delegate again
+                release(&charge, store);
+            }
             out["sender"] = json!(d.sender);
             out
         }
@@ -554,7 +623,15 @@ pub fn handle(input: &Value, cfg: &Config, rpc: &Rpc, store: &dyn Store, now_ms:
                 gas: JOIN_GAS,
                 deposit: 0,
             };
-            let _ = store.add(&day_key, 1);
+            // add, then check the total: two runs that both read n - 1 cannot both join
+            match store.add(&day_key, 1) {
+                Ok(n) if n > cfg.policy.joins_per_day => {
+                    let _ = store.add(&day_key, -1);
+                    return json!({ "error": format!("at most {} joins a day", cfg.policy.joins_per_day), "code": "join_rate_limit" });
+                }
+                Err(e) => return json!({ "error": format!("rate-limit store: {e}"), "code": "store_unavailable" }),
+                _ => {}
+            }
             let site = cfg.policy.site.clone();
             let mut out = sign_and_send(rpc, cfg, &head, &site, &[Action::FunctionCall(&call)], Wait::Executed);
             if out.get("error").is_none() {
