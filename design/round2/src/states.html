@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard states · Quay</title>
+<link rel="preload" href="fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="quay.css">
+<style>
+  .board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+  .state h2 { font: 500 13px/1 var(--mono); color: var(--text-2); margin: 0 0 12px; }
+  .lookup { display: grid; gap: 14px; padding: 28px; }
+  .field { display: grid; gap: 6px; }
+  .field label { font-size: 13px; font-weight: 500; }
+  .input { display: flex; gap: 8px; }
+  .input input { flex: 1; min-width: 0; height: 36px; padding: 0 12px; border-radius: var(--r-md); border: 0; box-shadow: 0 0 0 1px var(--line-strong); background: var(--surface); color: var(--text); font: 400 16px var(--mono); }
+  @media (min-width: 900px) { .input input { font-size: 14px; } }
+  .input input:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--focus), 0 0 0 4px color-mix(in oklch, var(--focus) 22%, transparent); }
+  .empty { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 40px 24px; }
+  .empty .ic { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--text-2); }
+  .empty p { max-width: 42ch; font-size: 14px; color: var(--text-2); }
+  .pending { position: relative; overflow: hidden; }
+  .pending::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--info), transparent); background-size: 50% 100%; background-repeat: no-repeat; animation: sweep 1.2s var(--ease-out) infinite; }
+  @keyframes sweep { from { background-position: -50% 0; } to { background-position: 150% 0; } }
+  @media (prefers-reduced-motion: reduce) { .pending::after { animation: none; background: var(--info); opacity: 0.5; } }
+  .err { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 16px; }
+  .err .icon { color: var(--danger); margin-top: 2px; }
+  @media (max-width: 900px) { .board { grid-template-columns: 1fr; } }
+</style>
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.get("theme")) document.documentElement.dataset.theme = q.get("theme");
+</script>
+</head>
+<body>
+<!--SPRITE-->
+<main class="app-main">
+  <div class="page-head"><div><h1>Dashboard states</h1><p class="muted" style="margin-top:6px;font-size:14px">Every state the dashboard can be in, with the sample account's real data where it applies.</p></div></div>
+  <div class="board">
+
+    <section class="state">
+      <h2>First visit, no account</h2>
+      <div class="card lookup">
+        <div><h3 style="font-size:18px;letter-spacing:-0.02em">Open a Quay account</h3><p class="muted" style="font-size:14px;margin-top:4px">Anyone can read releases. No wallet needed to look.</p></div>
+        <div class="field"><label for="acct">Account or host</label><div class="input"><input id="acct" value="" placeholder="name.testnet" spellcheck="false" autocomplete="off"><button class="btn btn-primary" type="button">Open</button></div></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px" class="muted">Try the sample <a class="chip chip-outline mono" href="#" style="font-family:var(--mono)">quay-65nqd3rn.testnet</a></div>
+      </div>
+    </section>
+
+    <section class="state">
+      <h2>Signed out, reading</h2>
+      <div class="card">
+        <div class="banner" style="border-top:0;border-bottom:1px solid var(--line);background:var(--surface-2)"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg><span class="grow muted">Read only. Sign in as <b style="color:var(--text);font-weight:500">quay-65nqd3rn.testnet</b> to promote, roll back or delete.</span><button class="btn btn-sm btn-primary" type="button"><svg class="icon sm" aria-hidden="true"><use href="#i-wallet"/></svg>Sign in</button></div>
+        <ol class="rows">
+          <li class="rel-row" style="grid-template-columns:minmax(0,1fr) auto"><div><div class="l1"><span class="id">3</span></div><div class="l2">latest preview</div></div><div class="acts"><button class="btn btn-sm" type="button" disabled title="Sign in as this account to promote"><svg class="icon sm" aria-hidden="true"><use href="#i-up"/></svg>Promote</button></div></li>
+          <li class="rel-row" style="grid-template-columns:minmax(0,1fr) auto"><div><div class="l1"><span class="id">2</span><span class="chip chip-prev">Previous</span></div><div class="l2">tide log linked</div></div><div class="acts"><button class="btn btn-sm" type="button" disabled><svg class="icon sm" aria-hidden="true"><use href="#i-up"/></svg>Promote</button></div></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="state">
+      <h2>Loading</h2>
+      <div class="card" aria-busy="true">
+        <div class="card-head"><h3>Releases</h3><span class="muted" style="font-size:12.5px">Reading the contract</span></div>
+        <div style="display:grid;gap:18px;padding:18px 16px">
+          <div style="display:grid;grid-template-columns:120px 1fr 80px;gap:24px"><div class="skel"></div><div class="skel" style="width:70%"></div><div class="skel"></div></div>
+          <div style="display:grid;grid-template-columns:120px 1fr 80px;gap:24px"><div class="skel"></div><div class="skel" style="width:55%"></div><div class="skel"></div></div>
+          <div style="display:grid;grid-template-columns:120px 1fr 80px;gap:24px"><div class="skel"></div><div class="skel" style="width:62%"></div><div class="skel"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="state">
+      <h2>Not a Quay account</h2>
+      <div class="card">
+        <div class="err"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><div><b style="font-weight:600;font-size:14px">quay-bb.testnet did not answer as a Quay 2 contract</b><p class="muted" style="font-size:13.5px;margin-top:4px">It may be on the old v1 contract, or have no contract. Check the name, or run <code>quay init</code> to create a new account.</p><div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-sm" type="button">Try again</button><a class="btn btn-sm btn-quiet" href="#">Open the sample</a></div></div></div>
+      </div>
+    </section>
+
+    <section class="state">
+      <h2>Waiting for the wallet</h2>
+      <div class="card">
+        <ol class="rows">
+          <li class="rel-row pending" style="grid-template-columns:minmax(0,1fr) auto"><div><div class="l1"><span class="id">3</span><span class="chip chip-info">Promoting</span></div><div class="l2">Approve the transaction in your wallet. Nothing changes until it is signed.</div></div><div class="acts"><button class="btn btn-sm" type="button" disabled>Waiting…</button></div></li>
+          <li class="rel-row" style="grid-template-columns:minmax(0,1fr) auto"><div><div class="l1"><span class="id">2</span><span class="chip chip-prev">Previous</span></div><div class="l2">tide log linked</div></div><div class="acts"><button class="btn btn-sm" type="button" disabled><svg class="icon sm" aria-hidden="true"><use href="#i-up"/></svg>Promote</button></div></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="state">
+      <h2>After a rollback</h2>
+      <div class="card" style="overflow:hidden">
+        <div class="card-head"><h3>Production</h3><span class="chip chip-live"><span class="dot dot-live"></span>Release 2</span></div>
+        <div class="card-body" style="display:grid;gap:10px;font-size:13.5px">
+          <div class="prev-row"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="grow">Now live: <b style="font-weight:500">release 2</b>, tide log linked</span><span class="mono faint">/</span></div>
+          <div class="prev-row" style="background:transparent"><span class="dot dot-sealed" style="margin:0 4px"></span><span class="grow" style="text-decoration:line-through;color:var(--text-2)">Release 4, harbour office</span><span class="mono faint">/r/4/</span></div>
+        </div>
+        <div class="banner banner-warn"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><span class="grow">Rolled back to 2. Release 4 is now previous.</span><button class="btn btn-sm" type="button">Undo</button></div>
+      </div>
+    </section>
+
+    <section class="state">
+      <h2>No releases yet</h2>
+      <div class="card">
+        <div class="card-head"><h3>Releases <span class="muted" style="font-weight:400">0</span></h3></div>
+        <div class="empty"><span class="ic"><svg class="icon" aria-hidden="true"><use href="#i-box"/></svg></span><b style="font-weight:600;font-size:15px">Nothing sealed on this account yet</b><p>Run a deploy from your project folder. The first release gets its own URL, and you can promote it from here.</p><span class="install" style="margin-top:6px"><b>$</b> quay deploy ./dist</span></div>
+      </div>
+    </section>
+
+    <section class="state">
+      <h2>Confirmed</h2>
+      <div style="display:grid;gap:12px;justify-items:start">
+        <div class="toast" role="status"><svg class="icon" aria-hidden="true" style="color:var(--live)"><use href="#i-check"/></svg><div><b>Release 3 is production</b><span class="muted">Previous is 4. The host root serves release 3 now.</span><div style="margin-top:8px"><a class="mono" style="font-size:12.5px;text-decoration:underline;text-underline-offset:3px" href="#">View transaction</a></div></div><button class="btn btn-sm btn-quiet btn-icon" type="button" aria-label="Dismiss"><svg class="icon sm" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <div class="toast" role="alert"><svg class="icon" aria-hidden="true" style="color:var(--danger)"><use href="#i-alert"/></svg><div><b>The wallet did not send it</b><span class="muted">You closed the request. Production is still release 4.</span></div><button class="btn btn-sm btn-quiet btn-icon" type="button" aria-label="Dismiss"><svg class="icon sm" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+      </div>
+    </section>
+
+  </div>
+</main>
+</body>
+</html>
