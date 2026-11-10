@@ -19,6 +19,7 @@ mod db;
 pub mod exports;
 mod functions;
 mod json_in;
+mod jv;
 mod legacy;
 mod members;
 mod pay;
@@ -267,7 +268,7 @@ impl Contract {
         }
         emit(
             "release_sealed",
-            &near_sdk::serde_json::json!({
+            &crate::jv::obj!({
                 "id": id,
                 "sha256": sha256,
                 "bytes": total_bytes,
@@ -295,7 +296,7 @@ impl Contract {
         self.push_history(id.clone(), previous.clone(), "promote");
         emit(
             "promoted",
-            &near_sdk::serde_json::json!({ "id": id, "previous": previous }),
+            &crate::jv::obj!({ "id": id, "previous": previous }),
         );
         id
     }
@@ -318,7 +319,7 @@ impl Contract {
         self.push_history(previous.clone(), Some(current), "rollback");
         emit(
             "rolled_back",
-            &near_sdk::serde_json::json!({
+            &crate::jv::obj!({
                 "id": self.production.clone(),
                 "previous": self.previous.clone(),
             }),
@@ -356,7 +357,7 @@ impl Contract {
         }
         emit(
             "release_deleted",
-            &near_sdk::serde_json::json!({ "id": id, "bytes_freed": freed }),
+            &crate::jv::obj!({ "id": id, "bytes_freed": freed }),
         );
         U64(freed)
     }
@@ -378,7 +379,7 @@ impl Contract {
         self.stored_bytes = self.stored_bytes.saturating_sub(chunk.len() as u64);
         emit(
             "chunk_dropped",
-            &near_sdk::serde_json::json!({
+            &crate::jv::obj!({
                 "sha256": sha256,
                 "bytes_freed": chunk.len(),
             }),
@@ -406,7 +407,7 @@ impl Contract {
         });
         emit(
             "purchased",
-            &near_sdk::serde_json::json!({ "buyer": buyer, "yocto": yocto }),
+            &crate::jv::obj!({ "buyer": buyer, "yocto": yocto }),
         );
     }
 
@@ -881,11 +882,11 @@ pub(crate) fn json_text(value: &near_sdk::serde_json::Value) -> String {
 }
 
 pub(crate) fn emit(event: &str, data: &near_sdk::serde_json::Value) {
-    let line = near_sdk::serde_json::json!({
+    let line = crate::jv::obj!({
         "standard": STANDARD,
         "version": VERSION,
         "event": event,
-        "data": [data],
+        "data": near_sdk::serde_json::Value::Array(vec![data.clone()]),
     });
     env::log_str(&["EVENT_JSON:", &json_text(&line)].concat());
 }

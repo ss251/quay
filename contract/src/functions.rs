@@ -75,6 +75,12 @@ pub struct FunctionView {
     pub spec: FunctionSpec,
 }
 
+impl crate::jv::J for TriggerRef {
+    fn j(self) -> Value {
+        crate::jv::obj!({ "collection": self.collection, "id": self.id })
+    }
+}
+
 /// The doc an `on_add` trigger reports back to.
 #[near(serializers = [json])]
 #[derive(Clone, Debug)]
@@ -124,7 +130,7 @@ impl Contract {
             env::panic_str("function list is full");
         }
         self.fns.specs.insert(name.clone(), spec);
-        emit("fn_set", &serde_json::json!({ "name": name }));
+        emit("fn_set", &crate::jv::obj!({ "name": name }));
     }
     pub fn fn_remove(&mut self, name: String) {
         assert_self();
@@ -132,7 +138,7 @@ impl Contract {
         if self.fns.specs.remove(&name).is_none() {
             env::panic_str("function missing");
         }
-        emit("fn_removed", &serde_json::json!({ "name": name }));
+        emit("fn_removed", &crate::jv::obj!({ "name": name }));
     }
 
     pub fn fn_get(&self, name: String) -> Option<FunctionSpec> {
@@ -153,7 +159,7 @@ impl Contract {
         assert_self();
         near_sdk::assert_one_yocto();
         self.fns.outlayer = account.clone();
-        emit("outlayer_set", &serde_json::json!({ "account": account }));
+        emit("outlayer_set", &crate::jv::obj!({ "account": account }));
     }
 
     pub fn get_outlayer(&self) -> AccountId {
@@ -234,7 +240,7 @@ impl Contract {
         }
         emit(
             "fn_result",
-            &serde_json::json!({ "name": name, "request": request, "ok": ok }),
+            &crate::jv::obj!({ "name": name, "request": request, "ok": ok }),
         );
         output.unwrap_or(Value::Null)
     }
@@ -256,22 +262,23 @@ impl Contract {
         let site = env::current_account_id();
         let request = format!("{}-{}", run.name, self.fns.next_request);
         self.fns.next_request += 1;
-        let mut args = serde_json::json!({
-            "source": { "Project": { "project_id": spec.project, "version_key": null } },
-            "resource_limits": {
+        let project = crate::jv::obj!({ "project_id": spec.project, "version_key": Value::Null });
+        let mut args = crate::jv::obj!({
+            "source": crate::jv::obj!({ "Project": project }),
+            "resource_limits": crate::jv::obj!({
                 "max_instructions": spec.max_instructions.0,
-                "max_memory_mb": 128,
+                "max_memory_mb": 128u32,
                 "max_execution_seconds": spec.max_seconds,
-            },
+            }),
             "input_data": run.input,
             "response_format": "Json",
             "payer_account_id": run.payer,
         });
         if spec.secrets {
-            args["secrets_ref"] = serde_json::json!({ "profile": "default", "account_id": site });
+            args["secrets_ref"] = crate::jv::obj!({ "profile": "default", "account_id": site });
         }
         let refund_to = (run.paid_by == PaidBy::Writer).then(|| run.payer.clone());
-        let callback = serde_json::json!({
+        let callback = crate::jv::obj!({
             "name": run.name,
             "request": request,
             "caller": run.caller,
@@ -285,7 +292,7 @@ impl Contract {
         };
         emit(
             "fn_called",
-            &serde_json::json!({ "name": run.name, "request": request, "caller": run.caller }),
+            &crate::jv::obj!({ "name": run.name, "request": request, "caller": run.caller }),
         );
         let request_index = env::promise_batch_create(&self.fns.outlayer);
         env::promise_batch_action_function_call_weight(
@@ -319,7 +326,7 @@ impl Contract {
             env::log_str(&format!("on_add {func} skipped: {reason}"));
             return;
         }
-        let input = crate::json_text(&serde_json::json!({
+        let input = crate::json_text(&crate::jv::obj!({
             "collection": collection,
             "id": id,
             "owner": owner,
@@ -389,7 +396,7 @@ impl Contract {
         let output_value = output
             .and_then(|text| serde_json::from_str::<Value>(text).ok())
             .unwrap_or(Value::Null);
-        let mut data = serde_json::json!({
+        let mut data = crate::jv::obj!({
             "name": name,
             "request": request,
             "caller": caller,
@@ -458,7 +465,7 @@ impl Contract {
         if hide {
             emit(
                 "doc_hidden",
-                &serde_json::json!({ "collection": target.collection, "id": target.id, "hidden": true }),
+                &crate::jv::obj!({ "collection": target.collection, "id": target.id, "hidden": true }),
             );
         }
     }

@@ -227,7 +227,7 @@ impl Contract {
                 },
             );
         }
-        emit("collection_set", &serde_json::json!({ "name": name }));
+        emit("collection_set", &crate::jv::obj!({ "name": name }));
     }
     pub fn drop_collection(&mut self, name: String) {
         assert_self();
@@ -243,7 +243,7 @@ impl Contract {
         }
         self.db.collections.remove(&name);
         self.db.pins.remove(&coll.cid);
-        emit("collection_dropped", &serde_json::json!({ "name": name }));
+        emit("collection_dropped", &crate::jv::obj!({ "name": name }));
     }
 
     pub fn get_collection(&self, name: String) -> Option<CollectionView> {
@@ -312,7 +312,7 @@ impl Contract {
         self.set_deposit(coll.cid, seq, cost);
         emit(
             "doc_added",
-            &serde_json::json!({ "collection": name, "id": id, "owner": writer, "bytes": bytes }),
+            &crate::jv::obj!({ "collection": name, "id": id, "owner": writer, "bytes": bytes }),
         );
         if let Some(func) = trigger {
             self.run_trigger(&func, &name, &id, &writer, &data);
@@ -369,7 +369,7 @@ impl Contract {
         self.set_deposit(coll.cid, seq, doc.deposit);
         emit(
             "doc_updated",
-            &serde_json::json!({ "collection": name, "id": id, "bytes": new_len }),
+            &crate::jv::obj!({ "collection": name, "id": id, "bytes": new_len }),
         );
     }
 
@@ -415,7 +415,7 @@ impl Contract {
         self.return_pool(doc.fn_deposit);
         emit(
             "doc_removed",
-            &serde_json::json!({
+            &crate::jv::obj!({
                 "collection": name,
                 "id": doc.id,
                 "by": caller,
@@ -437,7 +437,7 @@ impl Contract {
         }
         emit(
             "doc_hidden",
-            &serde_json::json!({ "collection": name, "id": id, "hidden": hidden }),
+            &crate::jv::obj!({ "collection": name, "id": id, "hidden": hidden }),
         );
     }
 
@@ -463,7 +463,7 @@ impl Contract {
         self.db.pool_balance = self.db.pool_balance.saturating_add(deposit);
         emit(
             "pool_funded",
-            &serde_json::json!({ "by": env::predecessor_account_id(), "yocto": U128(deposit) }),
+            &crate::jv::obj!({ "by": env::predecessor_account_id(), "yocto": U128(deposit) }),
         );
     }
 
@@ -476,7 +476,7 @@ impl Contract {
             env::panic_str("pool has less than that");
         }
         self.db.pool_balance -= amount.0;
-        emit("pool_withdrawn", &serde_json::json!({ "yocto": amount }));
+        emit("pool_withdrawn", &crate::jv::obj!({ "yocto": amount }));
     }
 
     pub fn get_pool(&self) -> PoolView {
@@ -768,6 +768,24 @@ fn collection_view(name: &str, coll: &Collection) -> CollectionView {
         bytes: U64(coll.bytes),
         next_seq: U64(coll.next_seq),
     }
+}
+
+/// A `DocView` as a JSON value, with the same keys in the same order as its
+/// serialized form. Templates read this.
+pub(crate) fn doc_json(view: &DocView) -> Value {
+    crate::jv::obj!({
+        "collection": view.collection.as_str(),
+        "id": view.id.as_str(),
+        "seq": view.seq,
+        "owner": view.owner,
+        "created": view.created,
+        "updated": view.updated,
+        "data": view.data,
+        "hidden": view.hidden,
+        "pinned_until": view.pinned_until,
+        "fn": view.fn_result,
+        "deposit": view.deposit,
+    })
 }
 
 pub(crate) fn doc_view(collection: &str, seq: u64, doc: &Doc) -> DocView {

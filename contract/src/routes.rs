@@ -458,7 +458,7 @@ impl Contract {
         let mut ctx = Map::new();
         ctx.insert(
             "site".to_string(),
-            serde_json::json!({
+            crate::jv::obj!({
                 "account": site,
                 "release": release_id,
                 "host": format!("https://{site}.page"),
@@ -492,7 +492,7 @@ impl Contract {
                 let page = self.list_page_probes(&list.collection, &query, ALSO_PROBES);
                 lists.insert(
                     list.name.clone(),
-                    serde_json::to_value(&page.docs).unwrap_or(Value::Null),
+                    Value::Array(page.docs.iter().map(crate::db::doc_json).collect()),
                 );
             }
             ctx.insert("lists".to_string(), Value::Object(lists));
@@ -511,7 +511,7 @@ impl Contract {
                 let Some(doc) = doc else {
                     return self.routed_not_found(release_id, release);
                 };
-                ctx.insert("doc".to_string(), serde_json::to_value(doc).unwrap_or(Value::Null));
+                ctx.insert("doc".to_string(), crate::db::doc_json(&doc));
             }
             _ => {
                 let list = ListQuery {
@@ -526,7 +526,7 @@ impl Contract {
                 let page = self.list_page(collection, &list);
                 ctx.insert(
                     "docs".to_string(),
-                    serde_json::to_value(&page.docs).unwrap_or(Value::Null),
+                    Value::Array(page.docs.iter().map(crate::db::doc_json).collect()),
                 );
                 ctx.insert(
                     "next".to_string(),

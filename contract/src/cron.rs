@@ -7,7 +7,6 @@
 //! the pending yield early.
 
 use near_sdk::json_types::U64;
-use near_sdk::serde_json;
 use crate::coll::IterMap;
 use near_sdk::{env, near, Gas, GasWeight, YieldId};
 
@@ -132,7 +131,7 @@ impl Contract {
                 last_run,
             },
         );
-        emit("cron_set", &serde_json::json!({ "name": name }));
+        emit("cron_set", &crate::jv::obj!({ "name": name }));
     }
     pub fn cron_remove(&mut self, name: String) {
         assert_self();
@@ -140,7 +139,7 @@ impl Contract {
         if self.cron.jobs.remove(&name).is_none() {
             env::panic_str("job missing");
         }
-        emit("cron_removed", &serde_json::json!({ "name": name }));
+        emit("cron_removed", &crate::jv::obj!({ "name": name }));
     }
 
     pub fn cron_list(&self) -> Vec<JobView> {
@@ -185,7 +184,7 @@ impl Contract {
         self.yield_next();
         emit(
             "cron_armed",
-            &serde_json::json!({ "chain": self.cron.chain, "by": env::predecessor_account_id() }),
+            &crate::jv::obj!({ "chain": self.cron.chain, "by": env::predecessor_account_id() }),
         );
     }
 
@@ -247,21 +246,21 @@ impl Contract {
                 trigger: None,
                 gas: Some(JOB_REQUEST_GAS),
             });
-            emit("cron_ran", &serde_json::json!({ "name": name, "fn": job.func }));
+            emit("cron_ran", &crate::jv::obj!({ "name": name, "fn": job.func }));
         }
         let left = env::prepaid_gas().saturating_sub(env::used_gas());
         if left >= CONTINUE_GAS.saturating_add(TICK_RESERVE) {
             self.yield_next();
         } else {
             self.cron.armed = false;
-            emit("cron_stopped", &serde_json::json!({ "hops": self.cron.hops }));
+            emit("cron_stopped", &crate::jv::obj!({ "hops": self.cron.hops }));
         }
     }
 }
 
 impl Contract {
     fn yield_next(&mut self) {
-        let args = crate::json_text(&serde_json::json!({ "chain": self.cron.chain }));
+        let args = crate::json_text(&crate::jv::obj!({ "chain": self.cron.chain }));
         let (_, id) = env::promise_yield_create_id("cron_tick", args.as_bytes(), Gas::from_tgas(0), GasWeight(1));
         self.cron.pending = Some(id);
     }

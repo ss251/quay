@@ -55,7 +55,7 @@ impl Contract {
         env::promise_batch_action_create_account(create);
         env::promise_batch_action_add_key_with_full_access(create, &public_key, 0);
         let callback = env::promise_batch_then(create, &site);
-        let args = crate::json_text(&near_sdk::serde_json::json!({ "account": account }));
+        let args = crate::json_text(&crate::jv::obj!({ "account": account }));
         env::promise_batch_action_function_call_weight(
             callback,
             "on_join",
@@ -81,14 +81,14 @@ impl Contract {
         if self.members.set.insert(account.clone()) {
             self.members.list.push(account.clone());
         }
-        emit("member_joined", &near_sdk::serde_json::json!({ "account": account }));
+        emit("member_joined", &crate::jv::obj!({ "account": account }));
         true
     }
     pub fn set_members_open(&mut self, open: bool) {
         assert_self();
         near_sdk::assert_one_yocto();
         self.members.open = open;
-        emit("members_open_set", &near_sdk::serde_json::json!({ "open": open }));
+        emit("members_open_set", &crate::jv::obj!({ "open": open }));
     }
 
     pub fn get_members_open(&self) -> bool {

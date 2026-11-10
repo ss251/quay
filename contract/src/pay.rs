@@ -107,7 +107,7 @@ impl Contract {
             env::panic_str("product list is full");
         }
         self.pay.products.insert(id.clone(), product);
-        emit("product_set", &serde_json::json!({ "id": id }));
+        emit("product_set", &crate::jv::obj!({ "id": id }));
     }
     pub fn remove_product(&mut self, id: String) {
         assert_self();
@@ -115,7 +115,7 @@ impl Contract {
         if self.pay.products.remove(&id).is_none() {
             env::panic_str("product missing");
         }
-        emit("product_removed", &serde_json::json!({ "id": id }));
+        emit("product_removed", &crate::jv::obj!({ "id": id }));
     }
 
     pub fn get_product(&self, id: String) -> Option<Product> {
@@ -136,7 +136,7 @@ impl Contract {
         assert_self();
         near_sdk::assert_one_yocto();
         self.pay.token = account.clone();
-        emit("token_set", &serde_json::json!({ "account": account }));
+        emit("token_set", &crate::jv::obj!({ "account": account }));
     }
 
     pub fn get_token(&self) -> Option<AccountId> {
@@ -268,7 +268,7 @@ impl Contract {
         let now = env::block_timestamp();
         let before = self.storage_mark();
         self.ensure_system(RECEIPTS);
-        let data = crate::json_text(&serde_json::json!({
+        let data = crate::json_text(&crate::jv::obj!({
             "buyer": buyer,
             "product": product,
             "ref": reference,
@@ -309,7 +309,7 @@ impl Contract {
         self.set_deposit(receipts_cid, seq, cost);
         emit(
             "paid",
-            &serde_json::json!({
+            &crate::jv::obj!({
                 "buyer": buyer,
                 "product": product,
                 "ref": reference,
