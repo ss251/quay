@@ -360,6 +360,9 @@ async function deployCmd(ctx, parsed) {
     [
       `relay function ${r.project} for relayer ${r.relayer}`,
       `wasm ${r.wasm_url}`,
+      r.upload_transaction
+        ? `upload ${explorerUrl(r.upload_transaction)}`
+        : null,
       r.project_transaction
         ? `project ${explorerUrl(r.project_transaction)}`
         : null,
