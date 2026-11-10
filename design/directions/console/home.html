@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quay</title>
+<meta name="color-scheme" content="dark light">
+<link rel="stylesheet" href="style.css">
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.get("theme")) document.documentElement.dataset.theme = q.get("theme");
+  if (q.has("static")) document.documentElement.classList.add("static");
+</script>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="home.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--accent)"/><path d="M5 18h14M8 18V9h3v9M13 18V6h3v12" stroke="var(--accent-ink)" stroke-width="1.6" fill="none"/></svg>
+      Quay
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a href="home.html" aria-current="page">Overview</a>
+      <a href="#">Docs</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a class="hide-s" href="#">Sample site</a>
+    </nav>
+    <div class="nav-end">
+      <span class="chip hide-s"><span class="dot"></span>testnet</span>
+      <a class="btn btn-ghost btn-sm" href="dashboard.html">Sign in</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <h1>Deploy a folder to NEAR. Move production when you mean to.</h1>
+      <p class="lede">Every deploy is sealed as a release with its own URL. Production is a pointer: promote a release, or roll back to the last one. A publish-only key can upload a preview and cannot touch production.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="dashboard.html?account=quay-65nqd3rn.testnet">Open the dashboard</a>
+        <a class="btn btn-ghost" href="#">Read the docs</a>
+      </div>
+      <div class="install" aria-label="Install command"><b>$</b> npm install -g ./cli</div>
+    </div>
+
+    <div class="term" role="img" aria-label="Terminal session: quay deploy seals release 4 and quay promote makes it production">
+      <div class="term-bar"><span>~/harbour</span><span class="state"><span class="dot"></span>release 4 sealed</span></div>
+      <pre aria-hidden="true"><span class="l" style="--i:0"><span class="p">$</span> quay deploy ./dist -m "harbour office"</span><span class="l" style="--i:1"><span class="d">8 files, 6.3 KB new, 0 B reused</span></span><span class="l" style="--i:2"><span class="d">storage estimate 0.0712 NEAR</span></span><span class="bar"><i></i></span><span class="l" style="--i:5"><span class="g">1/8</span>  404.html               637 bytes</span><span class="l" style="--i:6"><span class="g">2/8</span>  assets/index-DfTl37xK.js 781 bytes</span><span class="l" style="--i:7"><span class="g">3/8</span>  berth/index.html       925 bytes</span><span class="l" style="--i:8"><span class="d">…  5 more, 3.9 KB</span></span><span class="l" style="--i:9"><span class="g">4</span>  <span class="u">https://quay-65nqd3rn.testnet.page/r/4/</span></span><span class="l" style="--i:10"><span class="d">next  quay promote 4 to make this production</span></span>
+<span class="l" style="--i:12"><span class="p">$</span> quay promote 4</span><span class="l" style="--i:13"><span class="g">4 is production</span></span><span class="l" style="--i:14"><span class="u">https://quay-65nqd3rn.testnet.page/</span></span></pre>
+      <div class="term-foot"><span>production <b>4</b></span><span>previous <b>2</b></span><span>stored <b>9,588 B</b></span></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <ul class="facts">
+      <li><strong>Three commands</strong>init, deploy, promote</li>
+      <li><strong>About 1 NEAR per 100 KB</strong>locked until you delete the release</li>
+      <li><strong>Testnet only</strong>the CLI has no mainnet path</li>
+    </ul>
+  </div>
+
+  <section class="proof">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <h2>The sample site, read from the contract</h2>
+          <p>Four releases on <span class="mono">quay-65nqd3rn.testnet</span>. Production points at 4. Releases 1 to 3 still open at their own URLs.</p>
+        </div>
+        <a class="btn btn-ghost" href="dashboard.html">View in the dashboard</a>
+      </div>
+      <ol class="rail">
+        <li class="rel is-prod">
+          <header><span class="id">4</span><span class="badge prod"><span class="dot"></span>Production</span></header>
+          <h3>harbour office</h3>
+          <dl><dt>Files</dt><dd>8</dd><dt>Size</dt><dd>6,280 B</dd></dl>
+          <a class="url" href="#">/r/4/</a>
+        </li>
+        <li class="rel">
+          <header><span class="id">3</span></header>
+          <h3>latest preview</h3>
+          <dl><dt>Files</dt><dd>6</dd><dt>Size</dt><dd>2,754 B</dd></dl>
+          <a class="url" href="#">/r/3/</a>
+        </li>
+        <li class="rel is-prev">
+          <header><span class="id">2</span><span class="badge prev">Previous</span></header>
+          <h3>tide log linked</h3>
+          <dl><dt>Files</dt><dd>6</dd><dt>Size</dt><dd>2,754 B</dd></dl>
+          <a class="url" href="#">/r/2/</a>
+        </li>
+        <li class="rel">
+          <header><span class="id">1</span></header>
+          <h3>harbour opens</h3>
+          <dl><dt>Files</dt><dd>6</dd><dt>Size</dt><dd>2,754 B</dd></dl>
+          <a class="url" href="#">/r/1/</a>
+        </li>
+      </ol>
+      <p class="note">Unchanged files are stored once, so the four releases hold 9,588 bytes in total.</p>
+    </div>
+  </section>
+</main>
+<footer class="foot"><div class="wrap"><span>Testnet only. A release stays at its URL. Production is a pointer.</span><span class="mono">quay-esc0v902.testnet</span></div></footer>
+</body>
+</html>

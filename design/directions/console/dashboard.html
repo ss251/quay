@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quay dashboard</title>
+<meta name="color-scheme" content="dark light">
+<link rel="stylesheet" href="style.css">
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.get("theme")) document.documentElement.dataset.theme = q.get("theme");
+</script>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="home.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--accent)"/><path d="M5 18h14M8 18V9h3v9M13 18V6h3v12" stroke="var(--accent-ink)" stroke-width="1.6" fill="none"/></svg>
+      Quay
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a href="home.html">Overview</a>
+      <a href="#">Docs</a>
+      <a href="dashboard.html" aria-current="page">Dashboard</a>
+    </nav>
+    <div class="nav-end">
+      <span class="chip hide-s"><span class="dot"></span>Signed in as&nbsp;quay-65nqd3rn.testnet</span>
+      <button class="btn btn-ghost btn-sm" type="button">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap page">
+  <div class="crumbs">
+    <h1>quay-65nqd3rn.testnet</h1>
+    <span class="badge prev">contract 2.0.0</span>
+    <div class="tools">
+      <button class="btn btn-ghost btn-sm" type="button">Switch account</button>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="card prod">
+      <div class="k">Production <span class="badge prod"><span class="dot"></span>Live</span></div>
+      <div class="v">Release 4</div>
+      <div class="s">harbour office, promoted 2026-11-10 14:38 UTC</div>
+      <div class="actions">
+        <a class="btn btn-ghost btn-sm" href="#">Open production</a>
+        <button class="btn btn-ghost btn-sm" type="button">Roll back to 2</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="k">Previous</div>
+      <div class="v">Release 2</div>
+      <div class="s">Where a rollback lands</div>
+    </div>
+    <div class="card">
+      <div class="k">Stored</div>
+      <div class="v">9.6 KB</div>
+      <div class="meter" role="img" aria-label="9,588 of 2,000,000 bytes"><i></i></div>
+      <div class="s">of 2 MB payload cap</div>
+    </div>
+    <div class="card">
+      <div class="k">Storage price</div>
+      <div class="v">0.01 NEAR</div>
+      <div class="s">per 1,000 bytes, locked until the release is deleted</div>
+    </div>
+  </div>
+
+  <section class="panel" aria-labelledby="rel-h">
+    <header><h2 id="rel-h">Releases</h2><span class="meta">4 releases</span></header>
+    <table class="releases">
+      <thead><tr><th>Release</th><th>Message</th><th class="num">Files</th><th class="num">Size</th><th>Published</th><th><span class="sr">Actions</span></th></tr></thead>
+      <tbody>
+        <tr class="is-prod">
+          <td><span class="rid">4 <span class="badge prod"><span class="dot"></span>Production</span></span></td>
+          <td class="msg">harbour office</td>
+          <td class="num" data-l="Files">8</td><td class="num" data-l="Size">6,280 B</td>
+          <td class="when" data-l="Published">2026-11-10 14:38</td>
+          <td class="acts"><div class="cell-actions"><a class="btn btn-ghost btn-sm" href="#">Preview</a></div></td>
+        </tr>
+        <tr>
+          <td><span class="rid">3</span></td>
+          <td class="msg">latest preview</td>
+          <td class="num" data-l="Files">6</td><td class="num" data-l="Size">2,754 B</td>
+          <td class="when" data-l="Published">2026-11-10 14:06</td>
+          <td class="acts"><div class="cell-actions"><a class="btn btn-ghost btn-sm" href="#">Preview</a><button class="btn btn-ghost btn-sm" type="button">Promote</button><button class="btn btn-ghost btn-sm btn-danger" type="button">Delete</button></div></td>
+        </tr>
+        <tr>
+          <td><span class="rid">2 <span class="badge prev">Previous</span></span></td>
+          <td class="msg">tide log linked</td>
+          <td class="num" data-l="Files">6</td><td class="num" data-l="Size">2,754 B</td>
+          <td class="when" data-l="Published">2026-11-10 14:06</td>
+          <td class="acts"><div class="cell-actions"><a class="btn btn-ghost btn-sm" href="#">Preview</a><button class="btn btn-ghost btn-sm" type="button">Promote</button><button class="btn btn-ghost btn-sm btn-danger" type="button">Delete</button></div></td>
+        </tr>
+        <tr>
+          <td><span class="rid">1</span></td>
+          <td class="msg">harbour opens</td>
+          <td class="num" data-l="Files">6</td><td class="num" data-l="Size">2,754 B</td>
+          <td class="when" data-l="Published">2026-11-10 14:05</td>
+          <td class="acts"><div class="cell-actions"><a class="btn btn-ghost btn-sm" href="#">Preview</a><button class="btn btn-ghost btn-sm" type="button">Promote</button><button class="btn btn-ghost btn-sm btn-danger" type="button">Delete</button></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel" aria-labelledby="his-h">
+    <header><h2 id="his-h">Promotion history</h2><span class="meta">5 entries</span></header>
+    <table class="history">
+      <thead><tr><th>When (UTC)</th><th>Kind</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td class="when">2026-11-10 14:38</td><td class="kind">Promote</td><td>Production <span class="mono">4</span>, previous <span class="mono">2</span></td></tr>
+        <tr><td class="when">2026-11-10 14:06</td><td class="kind">Rollback</td><td>Production <span class="mono">2</span>, previous <span class="mono">3</span></td></tr>
+        <tr><td class="when">2026-11-10 14:06</td><td class="kind">Promote</td><td>Production <span class="mono">3</span>, previous <span class="mono">2</span></td></tr>
+        <tr><td class="when">2026-11-10 14:06</td><td class="kind">Promote</td><td>Production <span class="mono">2</span>, previous <span class="mono">1</span></td></tr>
+        <tr><td class="when">2026-11-10 14:06</td><td class="kind">Promote</td><td>Production <span class="mono">1</span>, no previous</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

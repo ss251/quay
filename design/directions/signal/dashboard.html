@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quay dashboard</title>
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="style.css">
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.get("theme")) document.documentElement.dataset.theme = q.get("theme");
+</script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="home.html"><span class="flag" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Quay</a>
+    <nav class="links" aria-label="Site">
+      <a href="home.html">Overview</a>
+      <a href="#">Docs</a>
+      <a href="dashboard.html" aria-current="page">Dashboard</a>
+    </nav>
+    <div class="end"><span class="tag hide-s">Signed in&nbsp;quay-65nqd3rn.testnet</span><button class="btn btn-sm" type="button">Sign out</button></div>
+  </div>
+</header>
+
+<main class="wrap page">
+  <div class="page-head">
+    <div>
+      <h1>quay-65nqd3rn.testnet</h1>
+      <p class="meta">Contract 2.0.0. Releases are read from the chain. Only this account can change production.</p>
+    </div>
+    <a class="btn btn-sm" href="#">Open production</a>
+  </div>
+
+  <section class="live" aria-label="Production">
+    <div class="flagtile prod"><div class="sq"><span class="lab">Production</span><span class="n">4</span></div></div>
+    <div class="live-main">
+      <p class="summary"><b>harbour office</b> has been live since 2026-11-10 14:38 UTC. Release 2 is the previous release.</p>
+      <div class="bar-actions"><button class="btn btn-red" type="button">Roll back to 2</button><a class="btn" href="#">Preview 4</a></div>
+      <div class="stats">
+        <div class="stat"><p class="k">Releases</p><p class="v">4</p><p class="s">Unchanged files stored once</p></div>
+        <div class="stat"><p class="k">Stored</p><p class="v">9.6 KB</p><div class="meter" role="img" aria-label="9,588 of 2,000,000 bytes"><i></i></div><p class="s">of the 2 MB payload cap</p></div>
+        <div class="stat"><p class="k">Price</p><p class="v">0.01 NEAR</p><p class="s">per 1,000 bytes, locked until deleted</p></div>
+      </div>
+    </div>
+  </section>
+
+  <h2 class="sec">Releases</h2>
+  <ol class="rows">
+    <li class="row prod">
+      <span class="tile">4</span>
+      <div class="m"><b><span class="pill prod">Production</span>harbour office</b><span>Sealed 2026-11-10 14:38 UTC</span></div>
+      <span class="num">8 files</span><span class="num">6,280 B</span><span class="when">/r/4/</span>
+      <div class="acts"><a class="btn btn-sm" href="#">Preview</a></div>
+    </li>
+    <li class="row">
+      <span class="tile">3</span>
+      <div class="m"><b>latest preview</b><span>Sealed 2026-11-10 14:06 UTC</span></div>
+      <span class="num">6 files</span><span class="num">2,754 B</span><span class="when">/r/3/</span>
+      <div class="acts"><a class="btn btn-sm" href="#">Preview</a><button class="btn btn-sm" type="button">Promote</button><button class="btn btn-sm btn-danger" type="button">Delete</button></div>
+    </li>
+    <li class="row prev">
+      <span class="tile">2</span>
+      <div class="m"><b><span class="pill prev">Previous</span>tide log linked</b><span>Sealed 2026-11-10 14:06 UTC</span></div>
+      <span class="num">6 files</span><span class="num">2,754 B</span><span class="when">/r/2/</span>
+      <div class="acts"><a class="btn btn-sm" href="#">Preview</a><button class="btn btn-sm" type="button">Promote</button><button class="btn btn-sm btn-danger" type="button">Delete</button></div>
+    </li>
+    <li class="row">
+      <span class="tile">1</span>
+      <div class="m"><b>harbour opens</b><span>Sealed 2026-11-10 14:05 UTC</span></div>
+      <span class="num">6 files</span><span class="num">2,754 B</span><span class="when">/r/1/</span>
+      <div class="acts"><a class="btn btn-sm" href="#">Preview</a><button class="btn btn-sm" type="button">Promote</button><button class="btn btn-sm btn-danger" type="button">Delete</button></div>
+    </li>
+  </ol>
+
+  <h2 class="sec">Promotion history</h2>
+  <ol class="hist">
+    <li><span class="when">2026-11-10 14:38</span><span class="k">Promote</span><span class="what">Production 4, previous 2</span></li>
+    <li><span class="when">2026-11-10 14:06</span><span class="k">Rollback</span><span class="what">Production 2, previous 3</span></li>
+    <li><span class="when">2026-11-10 14:06</span><span class="k">Promote</span><span class="what">Production 3, previous 2</span></li>
+    <li><span class="when">2026-11-10 14:06</span><span class="k">Promote</span><span class="what">Production 2, previous 1</span></li>
+    <li><span class="when">2026-11-10 14:06</span><span class="k">Promote</span><span class="what">Production 1, no previous</span></li>
+  </ol>
+</main>
+</body>
+</html>
