@@ -11,7 +11,7 @@ use near_sdk::serde_json::{self, Value};
 use near_sdk::store::{IterableMap, LookupMap};
 use near_sdk::{env, near, require, AccountId, NearToken};
 
-use crate::{assert_self, emit, Contract, ContractExt};
+use crate::{assert_self, emit, Contract};
 
 pub const MAX_COLLECTIONS: usize = 32;
 pub const MAX_DOC_BYTES: u32 = 16_384;
@@ -205,9 +205,7 @@ pub struct PoolView {
     pub reserved: U128,
 }
 
-#[near]
 impl Contract {
-    #[payable]
     pub fn set_collection(&mut self, name: String, rules: CollectionRules) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -239,8 +237,6 @@ impl Contract {
         }
         emit("collection_set", &serde_json::json!({ "name": name }));
     }
-
-    #[payable]
     pub fn drop_collection(&mut self, name: String) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -276,7 +272,6 @@ impl Contract {
     }
 
     /// Add a doc. Returns its id.
-    #[payable]
     pub fn db_add(&mut self, collection: String, id: Option<String>, data: String) -> String {
         let name = check_collection_name(&collection);
         let writer = env::predecessor_account_id();
@@ -336,7 +331,6 @@ impl Contract {
     }
 
     /// Replace a doc's data. Only its owner can.
-    #[payable]
     pub fn db_update(&mut self, collection: String, id: String, data: String) {
         let name = check_collection_name(&collection);
         let caller = env::predecessor_account_id();
@@ -439,8 +433,6 @@ impl Contract {
             }),
         );
     }
-
-    #[payable]
     pub fn db_hide(&mut self, collection: String, id: String, hidden: bool) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -476,7 +468,6 @@ impl Contract {
     }
 
     /// Add to the site storage pool.
-    #[payable]
     pub fn db_fund(&mut self) {
         let deposit = env::attached_deposit().as_yoctonear();
         if deposit < MIN_FUND_YOCTO {
@@ -491,7 +482,6 @@ impl Contract {
 
     /// Release unused pool NEAR. The site owner is this account, so the NEAR
     /// is already on it: the call only stops reserving it for the pool.
-    #[payable]
     pub fn db_withdraw(&mut self, amount: U128) {
         assert_self();
         near_sdk::assert_one_yocto();

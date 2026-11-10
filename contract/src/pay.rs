@@ -12,7 +12,7 @@ use near_sdk::{env, near, AccountId};
 use crate::db::{
     doc_id_ok, name_ok, refund, ListQuery, PaidBy, MAX_NAME_BYTES, RECEIPTS,
 };
-use crate::{assert_self, emit, Contract, ContractExt};
+use crate::{assert_self, emit, Contract};
 
 pub const MAX_PRODUCTS: usize = 32;
 pub const MAX_REF_BYTES: usize = 128;
@@ -88,9 +88,7 @@ struct PinTarget {
     seq: u64,
 }
 
-#[near]
 impl Contract {
-    #[payable]
     pub fn set_product(&mut self, id: String, product: Product) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -102,8 +100,6 @@ impl Contract {
         self.pay.products.insert(id.clone(), product);
         emit("product_set", &serde_json::json!({ "id": id }));
     }
-
-    #[payable]
     pub fn remove_product(&mut self, id: String) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -127,8 +123,6 @@ impl Contract {
             })
             .collect()
     }
-
-    #[payable]
     pub fn set_token(&mut self, account: Option<AccountId>) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -141,7 +135,6 @@ impl Contract {
     }
 
     /// Pay for `product` in NEAR. The excess over the price is refunded.
-    #[payable]
     pub fn pay(&mut self, product: String, r#ref: Option<String>) {
         let item = self
             .pay

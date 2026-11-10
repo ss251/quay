@@ -15,6 +15,7 @@
 
 mod cron;
 mod db;
+pub mod exports;
 mod functions;
 mod legacy;
 mod members;
@@ -62,9 +63,7 @@ pub struct Contract {
     cron: cron::CronState,
 }
 
-#[near]
 impl Contract {
-    #[init]
     pub fn new() -> Self {
         Self {
             chunks: LookupMap::new(b"c"),
@@ -89,7 +88,6 @@ impl Contract {
 
     /// Read v1, v2 or v3 state and return v3. Only this account can call it.
     /// `ids` is used for v1 state only.
-    #[init(ignore_state)]
     pub fn migrate(ids: Vec<String>) -> Self {
         assert_self();
         let raw = env::storage_read(b"STATE").unwrap_or_else(|| env::panic_str("state missing"));
@@ -279,8 +277,6 @@ impl Contract {
             }),
         );
     }
-
-    #[payable]
     pub fn promote(&mut self, id: String) -> String {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -301,8 +297,6 @@ impl Contract {
         );
         id
     }
-
-    #[payable]
     pub fn rollback(&mut self) -> String {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -329,8 +323,6 @@ impl Contract {
         );
         previous
     }
-
-    #[payable]
     pub fn delete(&mut self, id: String) -> U64 {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -370,7 +362,6 @@ impl Contract {
     /// Removes a chunk that no release references. A publish-only key cannot call
     /// this: it requires 1 yoctoNEAR. Bytes uploaded and then never sealed stay
     /// until the account owner drops them.
-    #[payable]
     pub fn drop_chunk(&mut self, sha256: String) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -391,8 +382,6 @@ impl Contract {
             }),
         );
     }
-
-    #[payable]
     pub fn buy(&mut self, memo: Option<String>) {
         let deposit = env::attached_deposit();
         if deposit.as_yoctonear() < MIN_BUY_YOCTO {

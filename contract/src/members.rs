@@ -7,7 +7,7 @@ use near_sdk::store::{LookupSet, Vector};
 use near_sdk::{env, near, require, AccountId, Gas, GasWeight, NearToken, PublicKey};
 
 use crate::db::name_ok;
-use crate::{assert_self, emit, page_bounds_max, Contract, ContractExt};
+use crate::{assert_self, emit, page_bounds_max, Contract};
 
 pub const RESERVED_NAMES: [&str; 5] = ["relay", "admin", "www", "api", "quay"];
 const ON_JOIN_GAS: Gas = Gas::from_tgas(10);
@@ -36,7 +36,6 @@ pub struct MemberPage {
     pub next: Option<u32>,
 }
 
-#[near]
 impl Contract {
     /// Create `<name>.<this account>` with `public_key` as its only full-access
     /// key. No NEAR is transferred.
@@ -68,7 +67,6 @@ impl Contract {
     }
 
     /// Records the member when the account was created. Never panics.
-    #[private]
     pub fn on_join(&mut self, account: AccountId) -> bool {
         let created = env::promise_results_count() == 1
             && !matches!(
@@ -85,8 +83,6 @@ impl Contract {
         emit("member_joined", &near_sdk::serde_json::json!({ "account": account }));
         true
     }
-
-    #[payable]
     pub fn set_members_open(&mut self, open: bool) {
         assert_self();
         near_sdk::assert_one_yocto();

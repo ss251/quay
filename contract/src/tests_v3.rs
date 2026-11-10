@@ -118,7 +118,7 @@ fn add(c: &mut Contract, who: &str, deposit: u128, coll: &str, id: Option<&str>,
     c.db_add(coll.to_string(), id.map(str::to_string), data.to_string())
 }
 
-fn sha_hex(bytes: &[u8]) -> String {
+pub(crate) fn sha_hex(bytes: &[u8]) -> String {
     hex_encode(Sha256::digest(bytes).as_slice())
 }
 

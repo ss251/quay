@@ -15,7 +15,7 @@ use near_sdk::store::IterableMap;
 use near_sdk::{env, near, require, AccountId, Gas, GasWeight, NearToken, PromiseError, PromiseIndex};
 
 use crate::db::{name_ok, refund, ListQuery, DocPage, PaidBy, WriteRule, FN_RESULTS, MAX_NAME_BYTES};
-use crate::{assert_self, emit, Contract, ContractExt};
+use crate::{assert_self, emit, Contract};
 
 pub const MAX_FUNCTIONS: usize = 16;
 pub const MAX_INPUT_BYTES: usize = 4096;
@@ -114,9 +114,7 @@ pub(crate) struct Run {
     pub gas: Option<Gas>,
 }
 
-#[near]
 impl Contract {
-    #[payable]
     pub fn fn_set(&mut self, name: String, spec: FunctionSpec) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -128,8 +126,6 @@ impl Contract {
         self.fns.specs.insert(name.clone(), spec);
         emit("fn_set", &serde_json::json!({ "name": name }));
     }
-
-    #[payable]
     pub fn fn_remove(&mut self, name: String) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -153,8 +149,6 @@ impl Contract {
             })
             .collect()
     }
-
-    #[payable]
     pub fn set_outlayer(&mut self, account: AccountId) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -168,7 +162,6 @@ impl Contract {
 
     /// Run a function on OutLayer. The transaction result is the function's
     /// output JSON (null when it failed).
-    #[payable]
     pub fn fn_call(&mut self, name: String, input: String) {
         let spec = self
             .fns
@@ -218,7 +211,6 @@ impl Contract {
     }
 
     /// Stores the result. Never panics: a failure is recorded, not raised.
-    #[private]
     pub fn fn_on_result(
         &mut self,
         name: String,

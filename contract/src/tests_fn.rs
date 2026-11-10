@@ -448,3 +448,158 @@ fn a_dead_chain_can_be_armed_again_after_ten_minutes() {
     as_who(ALICE, 0);
     assert!(panics(|| fresh.cron_kick()).contains("nothing to kick"));
 }
+
+// ---------------------------------------------------------------- the export layer
+
+/// Call an export with JSON input as `who`, against the state in storage.
+fn via_export(f: fn(), who: &str, deposit: u128, input: Value) {
+    let predecessor: AccountId = who.parse().unwrap();
+    let mut builder = VMContextBuilder::new();
+    builder
+        .current_account_id(SITE.parse().unwrap())
+        .signer_account_id(predecessor.clone())
+        .predecessor_account_id(predecessor)
+        .attached_deposit(NearToken::from_yoctonear(deposit))
+        .prepaid_gas(Gas::from_tgas(300))
+        .block_timestamp(NOW);
+    builder.context.input = input.to_string().into_bytes().into();
+    testing_env!(
+        builder.build(),
+        near_sdk::test_vm_config(),
+        near_sdk::RuntimeFeesConfig::test(),
+        Default::default(),
+        Vec::new(),
+    );
+    f();
+}
+
+fn state() -> Contract {
+    near_sdk::env::state_read().expect("state")
+}
+
+#[test]
+fn every_export_reads_its_json_arguments() {
+    use crate::exports as x;
+    let hash = crate::tests_v3::sha_hex(b"<p>x</p>");
+    let pk = "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp";
+    let steps: Vec<(fn(), &str, u128, Value)> = vec![
+        (x::new, SITE, 0, json!({})),
+        (x::put_chunk, SITE, 0, json!({ "sha256": hash, "data": "PHA+eDwvcD4=" })),
+        (x::seal, SITE, 0, json!({ "id": "1", "message": "m", "spa": false, "files": [{ "path": "index.html", "chunks": [hash], "content_type": "text/html" }] })),
+        (x::seal, SITE, 0, json!({ "id": "2", "message": "m", "spa": false, "routes": [], "files": [{ "path": "index.html", "chunks": [hash], "content_type": "text/html" }] })),
+        (x::promote, SITE, 1, json!({ "id": "1" })),
+        (x::promote, SITE, 1, json!({ "id": "2" })),
+        (x::rollback, SITE, 1, json!({})),
+        (x::delete, SITE, 1, json!({ "id": "2" })),
+        (x::buy, BOB, NEAR / 100, json!({ "memo": "hi" })),
+        (x::set_collection, SITE, 1, json!({ "name": "posts", "rules": { "write": "anyone", "max_doc_bytes": 100, "moderated": true, "payer": "writer" } })),
+        (x::set_collection, SITE, 1, json!({ "name": "tmp", "rules": { "write": "owner", "max_doc_bytes": 100, "moderated": false, "payer": "site" } })),
+        (x::drop_collection, SITE, 1, json!({ "name": "tmp" })),
+        (x::db_add, ALICE, NEAR, json!({ "collection": "posts", "data": "{\"a\":1}" })),
+        (x::db_add, ALICE, NEAR, json!({ "collection": "posts", "id": "slug", "data": "{\"a\":2}" })),
+        (x::db_update, ALICE, NEAR, json!({ "collection": "posts", "id": "slug", "data": "{\"a\":3}" })),
+        (x::db_hide, SITE, 1, json!({ "collection": "posts", "id": "1", "hidden": true })),
+        (x::db_remove, ALICE, 0, json!({ "collection": "posts", "id": "slug" })),
+        (x::db_fund, BOB, NEAR, json!({})),
+        (x::db_withdraw, SITE, 1, json!({ "amount": "10" })),
+        (x::join, BOB, 0, json!({ "name": "carol", "public_key": pk })),
+        (x::set_members_open, SITE, 1, json!({ "open": false })),
+        (x::set_product, SITE, 1, json!({ "id": "pin", "product": { "name": "Pin", "price_yocto": "100000000000000000000000", "grant": "pin", "pin_seconds": 60 } })),
+        (x::set_product, SITE, 1, json!({ "id": "gone", "product": { "name": "Gone", "price_token": "5", "grant": "receipt" } })),
+        (x::remove_product, SITE, 1, json!({ "id": "gone" })),
+        (x::set_token, SITE, 1, json!({ "account": "usdc.testnet" })),
+        (x::pay, BOB, NEAR, json!({ "product": "pin", "ref": "posts/1" })),
+        (x::fn_set, SITE, 1, json!({ "name": "digest", "spec": { "project": "a.testnet/digest", "call": "anyone", "payer": "caller" } })),
+        (x::fn_set, SITE, 1, json!({ "name": "gone", "spec": { "project": "a.testnet/gone", "call": "owner", "payer": "site" } })),
+        (x::fn_remove, SITE, 1, json!({ "name": "gone" })),
+        (x::set_outlayer, SITE, 1, json!({ "account": "mock.testnet" })),
+        (x::fn_call, ALICE, NEAR, json!({ "name": "digest", "input": "{}" })),
+        (x::cron_set, SITE, 1, json!({ "name": "hourly", "job": { "every_minutes": 60, "fn": "digest", "input": "{}" } })),
+        (x::cron_set, SITE, 1, json!({ "name": "gone", "job": { "every_minutes": 60, "fn": "digest" } })),
+        (x::cron_remove, SITE, 1, json!({ "name": "gone" })),
+        (x::cron_arm, BOB, 0, json!({})),
+    ];
+    for (f, who, deposit, input) in steps {
+        via_export(f, who, deposit, input);
+    }
+    let c = state();
+    assert_eq!(c.get_production().as_deref(), Some("1"));
+    assert_eq!(c.get_sales().len(), 1);
+    assert!(c.get_collection("tmp".into()).is_none());
+    assert!(c.db_get("posts".into(), "1".into()).unwrap().hidden);
+    assert!(c.db_get("posts".into(), "slug".into()).is_none());
+    assert!(!c.get_members_open());
+    assert!(c.get_product("gone".into()).is_none());
+    assert_eq!(c.get_token().unwrap().as_str(), "usdc.testnet");
+    assert!(c.has_paid(BOB.parse().unwrap(), "pin".into(), Some("posts/1".into())));
+    assert!(c.fn_get("gone".into()).is_none());
+    assert_eq!(c.get_outlayer().as_str(), "mock.testnet");
+    assert_eq!(c.cron_list().len(), 1);
+    assert!(c.cron_status().armed);
+    assert_eq!(c.get_pool().balance.0, NEAR - 10);
+
+    // Callbacks and the receiver hook, with their argument names.
+    via_export(x::on_join, SITE, 0, json!({ "account": format!("carol.{SITE}") }));
+    via_export(x::ft_on_transfer, "usdc.testnet", 0, json!({ "sender_id": BOB, "amount": "5", "msg": "{}" }));
+    via_export(x::fn_on_result, SITE, 0, json!({ "name": "digest", "request": "digest-1", "caller": ALICE, "deposit": "0", "refund_to": null, "trigger": null }));
+    let chain = state().cron.chain;
+    via_export(x::cron_tick, SITE, 0, json!({ "chain": chain }));
+    let kick = panics(|| via_export(x::cron_kick, BOB, 0, json!({})));
+    assert!(kick.contains("kicked too soon"), "{kick}");
+    assert!(state().db_get("_fn".into(), "digest-1".into()).is_some());
+
+    // Views run through their exports too.
+    let views: Vec<(fn(), Value)> = vec![
+        (x::publish_methods, json!({})),
+        (x::web4_get, json!({ "request": { "path": "/", "accountId": null, "query": {} } })),
+        (x::get_version, json!({})),
+        (x::get_status, json!({})),
+        (x::get_production, json!({})),
+        (x::get_previous, json!({})),
+        (x::get_release, json!({ "id": "1" })),
+        (x::list_releases, json!({ "from_index": 0, "limit": 5 })),
+        (x::list_history, json!({ "from_index": 0, "limit": 5 })),
+        (x::get_budget, json!({})),
+        (x::has_chunk, json!({ "sha256": hash })),
+        (x::get_sales, json!({})),
+        (x::get_collection, json!({ "name": "posts" })),
+        (x::list_collections, json!({})),
+        (x::db_get, json!({ "collection": "posts", "id": "1" })),
+        (x::db_list, json!({ "collection": "posts", "query": { "limit": 5, "include_hidden": true } })),
+        (x::db_list, json!({ "collection": "posts" })),
+        (x::get_pool, json!({})),
+        (x::get_members_open, json!({})),
+        (x::list_members, json!({ "from_index": 0, "limit": 5 })),
+        (x::is_member, json!({ "account": ALICE })),
+        (x::get_product, json!({ "id": "pin" })),
+        (x::list_products, json!({})),
+        (x::get_token, json!({})),
+        (x::has_paid, json!({ "account": BOB, "product": "pin", "ref": "posts/1" })),
+        (x::list_receipts, json!({ "query": { "owner": BOB } })),
+        (x::fn_get, json!({ "name": "digest" })),
+        (x::fn_list, json!({})),
+        (x::get_outlayer, json!({})),
+        (x::fn_results, json!({})),
+        (x::cron_list, json!({})),
+        (x::cron_status, json!({})),
+    ];
+    for (f, input) in views {
+        via_export(f, ALICE, 0, input);
+    }
+}
+
+#[test]
+fn exports_keep_the_near_sdk_refusals() {
+    use crate::exports as x;
+    via_export(x::new, SITE, 0, json!({}));
+    let msg = panics(|| via_export(x::new, SITE, 0, json!({})));
+    assert!(msg.contains("already been initialized"), "{msg}");
+    let msg = panics(|| via_export(x::put_chunk, SITE, 1, json!({ "sha256": "ab", "data": "" })));
+    assert!(msg.contains("Method put_chunk doesn't accept deposit"), "{msg}");
+    let msg = panics(|| via_export(x::on_join, ALICE, 0, json!({ "account": ALICE })));
+    assert!(msg.contains("Method on_join is private"), "{msg}");
+    let msg = panics(|| via_export(x::db_get, ALICE, 0, json!({ "collection": 5 })));
+    assert!(msg.contains("Failed to deserialize input from JSON."), "{msg}");
+    let msg = panics(|| via_export(x::promote, SITE, 1, json!("not an object")));
+    assert!(msg.contains("Failed to deserialize input from JSON."), "{msg}");
+}

@@ -13,7 +13,7 @@ use near_sdk::{env, near, Gas, GasWeight, YieldId};
 
 use crate::db::{name_ok, PaidBy, MAX_NAME_BYTES};
 use crate::functions::{check_input, Run, RESULT_GAS};
-use crate::{assert_self, emit, Contract, ContractExt};
+use crate::{assert_self, emit, Contract};
 
 pub const MAX_JOBS: usize = 8;
 pub const MIN_EVERY_MINUTES: u32 = 5;
@@ -104,9 +104,7 @@ impl CronState {
     }
 }
 
-#[near]
 impl Contract {
-    #[payable]
     pub fn cron_set(&mut self, name: String, job: JobIn) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -135,8 +133,6 @@ impl Contract {
         );
         emit("cron_set", &serde_json::json!({ "name": name }));
     }
-
-    #[payable]
     pub fn cron_remove(&mut self, name: String) {
         assert_self();
         near_sdk::assert_one_yocto();
@@ -207,7 +203,6 @@ impl Contract {
     }
 
     /// One hop: run the due jobs, then yield again or stop.
-    #[private]
     pub fn cron_tick(&mut self, chain: u64) {
         if chain != self.cron.chain || !self.cron.armed {
             env::log_str("cron tick from an old chain: stopped");
