@@ -28,7 +28,8 @@ export function findConfig(start = process.cwd()) {
 }
 
 export function gatewayFor(account) {
-  return `https://${account}.testnet.page`;
+  const name = String(account).replace(/\.testnet$/, "");
+  return `https://${name}.testnet.page`;
 }
 
 export function resolveConfig(flags, start = process.cwd()) {

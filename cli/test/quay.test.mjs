@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { deploy, promote, releases, run } from "../src/app.mjs";
+import { gatewayFor } from "../src/config.mjs";
 import { classifyChainError, formatNear, formatTime, helpText, parseArgs, redact } from "../src/text.mjs";
 import { COMMANDS } from "../src/text.mjs";
 import { checkPath, collectSite, contentType, planRelease, YOCTO_PER_BYTE } from "../src/site.mjs";
@@ -37,6 +38,11 @@ test("parseArgs reads the message and rejects an unknown flag", () => {
   assert.equal(parsed.flags.message, "harbour");
   assert.equal(parsed.flags.spa, true);
   assert.throws(() => parseArgs(["deploy", "--nope"]), /unknown flag/);
+});
+
+test("the gateway host is the account name plus testnet.page", () => {
+  assert.equal(gatewayFor("quay-bb.testnet"), "https://quay-bb.testnet.page");
+  assert.equal(gatewayFor("quay-esc0v902.testnet"), "https://quay-esc0v902.testnet.page");
 });
 
 test("storage price is 0.01 NEAR per 1000 bytes", () => {
