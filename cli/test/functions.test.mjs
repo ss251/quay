@@ -854,3 +854,145 @@ test("deployRelay stores RELAY_KEY from the key file encrypted and never prints 
   });
   assert.match(missing.error.message, /no key for relay\.board\.testnet/);
 });
+
+// ---------- quay functions rm: relay guard, --contract-only, exact confirm text ----------
+
+async function rmRun(
+  argv,
+  { fake, chain, credentialsDir = tempDir(), answer = "y" } = {},
+) {
+  const io = streams();
+  const ctx = baseCtx(io, {
+    chain,
+    outlayer: fake.client,
+    credentialsDir,
+    secrets: [],
+    yes: false,
+    isTTY: true,
+    stdin: Readable.from([`${answer}\n`]),
+  });
+  const parsed = parseArgs(argv);
+  ctx.dryRun = Boolean(parsed.flags["dry-run"]);
+  ctx.json = Boolean(parsed.flags.json);
+  let error = null;
+  try {
+    await run(ctx, parsed);
+  } catch (e) {
+    error = e;
+  }
+  return { io, error };
+}
+
+async function deployedRelay() {
+  const fake = fakeOutlayer();
+  const chain = fnChain(true);
+  fake.state.projects.set(`${SITE}/relay`, {
+    name: "relay",
+    project_id: `${SITE}/relay`,
+  });
+  fake.state.rows.set(`${SITE}/relay`, { updated_at: "1" });
+  chain.fns.set("relay", {
+    project: `${SITE}/relay`,
+    call: "anyone",
+    payer: "caller",
+  });
+  return { fake, chain };
+}
+
+test("functions rm refuses the relay unless --include-relay, and --contract-only removes only fn_remove", async () => {
+  const { fake, chain } = await deployedRelay();
+  const refusedRun = await rmRun(["functions", "rm", "relay"], { fake, chain });
+  assert.equal(refusedRun.error.code, 3);
+  assert.match(refusedRun.error.message, /quay relay deploy/);
+  assert.match(refusedRun.error.message, /--contract-only/);
+  assert.equal(fake.calls.length + chain.calls.length, 0, "nothing removed");
+
+  const only = await rmRun(["functions", "rm", "relay", "--contract-only"], {
+    fake,
+    chain,
+  });
+  assert.equal(only.error, null);
+  assert.equal(
+    only.io.err().trim(),
+    "Remove the contract entry relay (fn_remove)? [y/N]",
+  );
+  assert.deepEqual(
+    chain.calls.map((c) => c.method),
+    ["fn_remove"],
+  );
+  assert.equal(fake.calls.length, 0, "OutLayer project and secrets untouched");
+  assert.ok(fake.state.projects.has(`${SITE}/relay`));
+});
+
+test("functions rm guards any project whose secrets hold RELAY_KEY", async () => {
+  const credentialsDir = tempDir();
+  writeTree(credentialsDir, {
+    [`${SITE}.quay-secrets.json`]: JSON.stringify({
+      gasless: { names: ["RELAY_ACCOUNT", "RELAY_KEY"] },
+    }),
+  });
+  const fake = fakeOutlayer();
+  fake.state.projects.set(`${SITE}/gasless`, {
+    name: "gasless",
+    project_id: `${SITE}/gasless`,
+  });
+  const r = await rmRun(["functions", "rm", "gasless"], {
+    fake,
+    chain: fnChain(false),
+    credentialsDir,
+  });
+  assert.equal(r.error.code, 3);
+});
+
+test("functions rm --include-relay lists exactly what it deletes, then deletes it", async () => {
+  const { fake, chain } = await deployedRelay();
+  const r = await rmRun(["functions", "rm", "relay", "--include-relay"], {
+    fake,
+    chain,
+  });
+  assert.equal(r.error, null);
+  assert.equal(
+    r.io.err().trim(),
+    `Remove the contract entry relay (fn_remove), the OutLayer secrets of ${SITE}/relay, the OutLayer project ${SITE}/relay? [y/N]`,
+  );
+  assert.deepEqual(
+    chain.calls.map((c) => c.method),
+    ["fn_remove"],
+  );
+  assert.deepEqual(
+    fake.calls.map((c) => c.method),
+    ["delete_secrets", "delete_project"],
+  );
+});
+
+test("functions rm lists only what exists, honours no, and --dry-run deletes nothing", async () => {
+  const fake = fakeOutlayer();
+  fake.state.projects.set(`${SITE}/preview`, {
+    name: "preview",
+    project_id: `${SITE}/preview`,
+  });
+  const chain = fnChain(false);
+  const no = await rmRun(["functions", "rm", "preview"], {
+    fake,
+    chain,
+    answer: "n",
+  });
+  assert.equal(
+    no.io.err().trim(),
+    `Remove the OutLayer project ${SITE}/preview? [y/N]`,
+  );
+  assert.equal(fake.calls.length, 0);
+  const dry = await rmRun(
+    ["functions", "rm", "preview", "--dry-run", "--json"],
+    { fake, chain },
+  );
+  assert.deepEqual(JSON.parse(dry.io.text()).remove, ["project"]);
+  assert.equal(fake.calls.length, 0);
+  const none = await rmRun(["functions", "rm", "ghost"], { fake, chain });
+  assert.match(none.error.message, /nothing to remove for ghost/);
+  const noEntry = await rmRun(
+    ["functions", "rm", "preview", "--contract-only"],
+    { fake, chain: fnChain(true) },
+  );
+  assert.match(noEntry.error.message, /has no contract entry/);
+});

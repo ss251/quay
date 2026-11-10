@@ -16,6 +16,8 @@ const BOOLEAN = new Set([
   "no-verify",
   "trust-proxy",
   "https",
+  "include-relay",
+  "contract-only",
 ]);
 
 const KNOWN = new Set([
@@ -320,7 +322,12 @@ export const COMMANDS = [
       ["logs <fn>", "Contract results (_fn) and payment-key usage."],
       [
         "rm <fn>",
-        "Remove the contract entry, OutLayer project and secrets. Asks first.",
+        "Remove the contract entry, OutLayer project and secrets. Lists what it deletes and asks first.",
+      ],
+      ["  --contract-only", "rm: remove only the contract entry (fn_remove)."],
+      [
+        "  --include-relay",
+        "rm: allow removing the relay deployed by quay relay deploy. Without it rm refuses: members could no longer write.",
       ],
       [
         "key [--projects a,b] [--usd 0.05]",

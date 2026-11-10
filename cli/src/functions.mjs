@@ -13,7 +13,7 @@ import {
 import { basename, dirname, join, resolve } from "node:path";
 
 import { gatewayFor, requireAccount } from "./config.mjs";
-import { QuayError, usage } from "./errors.mjs";
+import { QuayError, refused, usage } from "./errors.mjs";
 import { parsePaymentKey, resourceLimits } from "./outlayer.mjs";
 import { readProject } from "./projectfile.mjs";
 import {
@@ -648,37 +648,94 @@ async function logs(ctx, parsed) {
   emit(ctx, { name, project, results, usage }, lines.join("\n"));
 }
 
+/** True for the project `quay relay deploy` manages: the name relay, or secrets holding RELAY_KEY. */
+export function isRelayProject(ctx, name) {
+  return (
+    name === "relay" ||
+    (readLedger(ctx)[name]?.names ?? []).includes("RELAY_KEY")
+  );
+}
+
 async function rm(ctx, parsed) {
   owner(ctx);
   const name = checkFunctionName(parsed.rest[1]);
+  const contractOnly = Boolean(parsed.flags["contract-only"]);
   const outlayer = outlayerFor(ctx);
   if (
-    !(await confirm(
+    !contractOnly &&
+    !parsed.flags["include-relay"] &&
+    isRelayProject(ctx, name)
+  )
+    throw refused(
+      `${name} is the relay that quay relay deploy runs on OutLayer. Removing its project and secrets stops every relayed member write. Use --contract-only to drop just its contract entry, or --include-relay to remove it all.`,
+    );
+
+  // What exists, so the question lists exactly what goes.
+  let entry = null;
+  if (await contractHasFunctions(ctx)) {
+    try {
+      entry = await ctx.chain.view("fn_get", { name });
+    } catch {
+      entry = null;
+    }
+  }
+  let row = null;
+  let project = null;
+  if (!contractOnly) {
+    try {
+      row = await outlayer.secretsRow(name);
+    } catch {
+      row = null;
+    }
+    project = await outlayer.getProject(name);
+  }
+  const plan = [];
+  if (entry) plan.push(["fn_remove", `the contract entry ${name} (fn_remove)`]);
+  if (row)
+    plan.push([
+      "secrets",
+      `the OutLayer secrets of ${outlayer.projectId(name)}`,
+    ]);
+  if (project)
+    plan.push(["project", `the OutLayer project ${outlayer.projectId(name)}`]);
+  if (plan.length === 0)
+    throw new QuayError(
+      contractOnly
+        ? `${name} has no contract entry`
+        : `nothing to remove for ${name}`,
+      1,
+    );
+  if (ctx.dryRun) {
+    emit(
       ctx,
-      `Remove ${name}: its contract entry, OutLayer project and secrets?`,
-    ))
+      { dry_run: true, name, remove: plan.map(([what]) => what) },
+      `dry run: would remove ${plan.map(([, text]) => text).join(", ")}`,
+    );
+    return;
+  }
+  if (
+    !(await confirm(ctx, `Remove ${plan.map(([, text]) => text).join(", ")}?`))
   )
     return stopped(ctx);
   const done = [];
-  if (await contractHasFunctions(ctx)) {
-    const sent = await ctx.chain.send("fn_remove", { name }, { deposit: 1n });
-    done.push(["fn_remove", sent.hash]);
+  for (const [what] of plan) {
+    if (what === "fn_remove")
+      done.push([
+        what,
+        (await ctx.chain.send("fn_remove", { name }, { deposit: 1n })).hash,
+      ]);
+    if (what === "secrets") {
+      done.push([what, (await outlayer.deleteSecrets(name)).hash]);
+      recordNames(ctx, name, null);
+    }
+    if (what === "project")
+      done.push([what, (await outlayer.deleteProject(name)).hash]);
   }
-  let row = null;
-  try {
-    row = await outlayer.secretsRow(name);
-  } catch {
-    row = null;
-  }
-  if (row) done.push(["secrets", (await outlayer.deleteSecrets(name)).hash]);
-  recordNames(ctx, name, null);
-  if (await outlayer.getProject(name))
-    done.push(["project", (await outlayer.deleteProject(name)).hash]);
   emit(
     ctx,
     { removed: name, transactions: Object.fromEntries(done) },
     [
-      `removed ${name}`,
+      `removed ${plan.map(([, text]) => text).join(", ")}`,
       ...done.map(([what, hash]) => `${what} ${explorerUrl(hash)}`),
     ].join("\n"),
   );
