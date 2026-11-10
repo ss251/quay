@@ -13,6 +13,7 @@
 //! The JSON method list is `docs/contract-interface.md` (v2) and
 //! `docs/fullstack-interface.md` (v3).
 
+mod cron;
 mod db;
 mod functions;
 mod legacy;
@@ -20,6 +21,8 @@ mod members;
 mod pay;
 mod routes;
 mod template;
+#[cfg(test)]
+mod tests_fn;
 #[cfg(test)]
 mod tests_v3;
 mod types;
@@ -55,6 +58,8 @@ pub struct Contract {
     db: db::DbState,
     members: members::MemberState,
     pay: pay::PayState,
+    fns: functions::FnState,
+    cron: cron::CronState,
 }
 
 #[near]
@@ -77,6 +82,8 @@ impl Contract {
             db: db::DbState::new(),
             members: members::MemberState::new(),
             pay: pay::PayState::new(),
+            fns: functions::FnState::new(),
+            cron: cron::CronState::new(),
         }
     }
 
@@ -533,6 +540,8 @@ impl Contract {
             db: db::DbState::new(),
             members: members::MemberState::new(),
             pay: pay::PayState::new(),
+            fns: functions::FnState::new(),
+            cron: cron::CronState::new(),
         }
     }
 
@@ -612,6 +621,8 @@ impl Contract {
             db: db::DbState::new(),
             members: members::MemberState::new(),
             pay: pay::PayState::new(),
+            fns: functions::FnState::new(),
+            cron: cron::CronState::new(),
         };
         for (hash, count) in refs {
             contract.chunk_refs.insert(hash, count);

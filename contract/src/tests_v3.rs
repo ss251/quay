@@ -19,13 +19,13 @@ use crate::routes::{RouteIn, RouteKind};
 use crate::types::*;
 use crate::*;
 
-const SITE: &str = "board.testnet";
-const ALICE: &str = "alice.testnet";
-const BOB: &str = "bob.testnet";
+pub(crate) const SITE: &str = "board.testnet";
+pub(crate) const ALICE: &str = "alice.testnet";
+pub(crate) const BOB: &str = "bob.testnet";
 const TOKEN: &str = "usdc.testnet";
-const NOW: u64 = 1_731_283_200_000_000_000;
+pub(crate) const NOW: u64 = 1_731_283_200_000_000_000;
 const BYTE: u128 = 10_000_000_000_000_000_000;
-const NEAR: u128 = 1_000_000_000_000_000_000_000_000;
+pub(crate) const NEAR: u128 = 1_000_000_000_000_000_000_000_000;
 
 fn ctx_with(predecessor: &str, deposit: u128, results: Vec<PromiseResult>) {
     let predecessor: AccountId = predecessor.parse().unwrap();
@@ -46,11 +46,11 @@ fn ctx_with(predecessor: &str, deposit: u128, results: Vec<PromiseResult>) {
     );
 }
 
-fn as_who(predecessor: &str, deposit: u128) {
+pub(crate) fn as_who(predecessor: &str, deposit: u128) {
     ctx_with(predecessor, deposit, Vec::new());
 }
 
-fn site(deposit: u128) {
+pub(crate) fn site(deposit: u128) {
     as_who(SITE, deposit);
 }
 
@@ -69,7 +69,7 @@ fn at_time(ns: u64) {
     );
 }
 
-fn panics(f: impl FnOnce()) -> String {
+pub(crate) fn panics(f: impl FnOnce()) -> String {
     let err = catch_unwind(AssertUnwindSafe(f)).expect_err("expected a panic");
     err.downcast_ref::<String>()
         .cloned()
@@ -77,7 +77,7 @@ fn panics(f: impl FnOnce()) -> String {
         .unwrap_or_default()
 }
 
-fn transfers() -> Vec<(String, u128)> {
+pub(crate) fn transfers() -> Vec<(String, u128)> {
     get_created_receipts()
         .into_iter()
         .flat_map(|receipt| {
