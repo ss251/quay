@@ -1,8 +1,14 @@
 {
   "account": "harbour-board.testnet",
   "network": "testnet",
-  "site": { "dir": "site", "spa": false },
-  "files": { "external_over": 32768, "store": "nearfs" },
+  "site": {
+    "dir": "site",
+    "spa": false
+  },
+  "files": {
+    "external_over": 32768,
+    "store": "nearfs"
+  },
   "collections": {
     "posts": {
       "write": "anyone",
@@ -21,7 +27,16 @@
       "template": "templates/home.html",
       "limit": 10,
       "order": "desc",
-      "pinned_first": true
+      "pinned_first": true,
+      "also": [
+        {
+          "name": "digest",
+          "collection": "_fn",
+          "prefix": "digest-",
+          "limit": 1,
+          "order": "desc"
+        }
+      ]
     },
     {
       "pattern": "/posts/:id",
@@ -29,24 +44,28 @@
       "collection": "posts",
       "template": "templates/post.html"
     },
-    { "pattern": "/api/posts", "kind": "json", "collection": "posts" },
-    { "pattern": "/api/posts/:id", "kind": "json", "collection": "posts" }
-  ],
-  "products": {
-    "pin": {
-      "name": "Pin a post for 24 hours",
-      "price_yocto": "100000000000000000000000",
-      "price_token": "100000",
-      "grant": "pin",
-      "pin_seconds": 86400
+    {
+      "pattern": "/api/posts",
+      "kind": "json",
+      "collection": "posts",
+      "limit": 20,
+      "order": "desc"
+    },
+    {
+      "pattern": "/api/posts/:id",
+      "kind": "json",
+      "collection": "posts"
     }
+  ],
+  "members": {
+    "open": true
   },
-  "members": { "open": true },
   "functions": {
     "moderate": {
       "dir": "../../functions/moderate",
       "call": "owner",
-      "payer": "site"
+      "payer": "site",
+      "secrets": ["MOD_API_KEY"]
     },
     "digest": {
       "dir": "../../functions/digest",
@@ -54,13 +73,24 @@
       "payer": "site"
     }
   },
-  "relay": {
-    "host": "outlayer",
-    "fallback": "node",
-    "account": "relay.harbour-board.testnet",
-    "methods": ["db_add"]
-  },
   "cron": [
-    { "name": "digest", "every_minutes": 60, "fn": "digest", "input": {} }
-  ]
+    {
+      "name": "digest",
+      "every_minutes": 60,
+      "fn": "digest",
+      "input": {}
+    }
+  ],
+  "payments": {
+    "token": "usdc.fakes.testnet",
+    "products": {
+      "pin": {
+        "name": "Pin a post for 24 hours",
+        "price_yocto": "100000000000000000000000",
+        "price_token": "100000",
+        "grant": "pin",
+        "pin_seconds": 86400
+      }
+    }
+  }
 }

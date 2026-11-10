@@ -9,9 +9,15 @@
 <figure class="hero"><img src="/assets/img/harbour.png" width="1000" height="400" alt="A fishing boat at berth 4, a dinghy under sail and the breakwater light at sunset" fetchpriority="high"></figure>
 <h1>Notices from the harbour</h1>
 <p class="lede">Tides, berths, the market, the lifeboat and the sailing club. Anyone can read. Members post.</p>
-<section class="card digest" id="digest" aria-labelledby="digest-h" data-digest>
+<section class="card digest" id="digest" aria-labelledby="digest-h">
 <h2 id="digest-h">Harbour digest</h2>
-<p class="muted" data-digest-body>The digest is written every hour by a function. <a href="/api/posts?limit=5">Read the newest notices as JSON</a> or enable JavaScript to see it here.</p>
+{{#each lists.digest}}
+<p><strong>{{data.output.title}}</strong></p>
+<p>{{data.output.text}}</p>
+<p class="meta">Written <time>{{created | date}}</time> by a scheduled function.</p>
+{{else}}
+<p class="muted">No digest yet. A scheduled function writes one every hour once the cron job is armed.</p>
+{{/each}}
 </section>
 <h2>Notices{{#if query.owner}} by {{query.owner}}{{/if}}</h2>
 {{#if query.owner}}<p><a href="/">Show everyone</a></p>{{/if}}

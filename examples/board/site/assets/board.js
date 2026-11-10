@@ -56,46 +56,6 @@ async function allMembers() {
 }
 
 const pages = {
-  async home() {
-    const body = $("[data-digest-body]");
-    if (!body) return;
-    try {
-      const { docs } = await quay.db
-        .collection("_fn")
-        .list({ prefix: "digest-", limit: 1, order: "desc" });
-      const doc = docs[0];
-      let output = doc?.data?.output;
-      if (typeof output === "string") {
-        try {
-          output = JSON.parse(output);
-        } catch {
-          output = { text: output };
-        }
-      }
-      const text = output?.text ?? output?.summary;
-      if (!doc || !text) {
-        say(
-          body,
-          "No digest yet. The first one is written within an hour of the cron job starting.",
-        );
-        return;
-      }
-      body.replaceChildren(
-        ...(output.title ? [el("strong", { textContent: output.title })] : []),
-        ...String(text)
-          .split("\n")
-          .filter(Boolean)
-          .map((line) => el("p", { textContent: line })),
-        el("small", {
-          className: "muted",
-          textContent: `Written ${dateText(doc.created)} by a scheduled function.`,
-        }),
-      );
-    } catch (error) {
-      say(body, `The digest could not be read: ${reason(error)}`);
-    }
-  },
-
   async members() {
     const status = $("#members-status");
     try {
@@ -182,15 +142,22 @@ const pages = {
         }
       })
       .catch(() => {});
-    button.addEventListener("click", async () => {
-      button.disabled = true;
+    const tokenButton = $("[data-pin-token]");
+    quay
+      .view("get_token", {})
+      .then((token) => {
+        if (!token && tokenButton) tokenButton.remove();
+      })
+      .catch(() => {});
+    const pin = async (options, label) => {
+      for (const b of [button, tokenButton]) if (b) b.disabled = true;
       try {
         if (quay.auth.mode !== "wallet") {
           say(status, "Opening your wallet to sign in.");
           await quay.auth.signIn({ mode: "wallet" });
         }
-        say(status, "Approve the payment in your wallet.");
-        await quay.pay("pin", { ref });
+        say(status, `Approve the ${label} payment in your wallet.`);
+        await quay.pay("pin", { ref, ...options });
         say(status, "Paid. Reading the pin from the contract.");
         const doc = await quay.db.collection("posts").get(id);
         say(
@@ -202,9 +169,17 @@ const pages = {
       } catch (error) {
         say(status, `Not pinned: ${reason(error)}`);
       } finally {
-        button.disabled = false;
+        for (const b of [button, tokenButton]) if (b) b.disabled = false;
       }
-    });
+    };
+    button.addEventListener("click", () => pin({}, "NEAR"));
+    tokenButton?.addEventListener("click", () =>
+      pin(
+        event.target,
+        { token: true },
+        "test USDC (usdc.fakes.testnet, not Circle USDC)",
+      ),
+    );
   },
 
   async new() {

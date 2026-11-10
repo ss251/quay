@@ -72,7 +72,25 @@ const ctxFor = (kind, full) => {
     now: String(NS),
   };
   return kind === "list"
-    ? { ...base, docs: docs.slice(0, 10), next: full ? "3" : null }
+    ? {
+        ...base,
+        docs: docs.slice(0, 10),
+        next: full ? "3" : null,
+        lists: {
+          digest: full
+            ? [
+                {
+                  id: "digest-1",
+                  created: String(NS),
+                  data: {
+                    name: "digest",
+                    output: { title: "Digest of posts", text: "3 new" },
+                  },
+                },
+              ]
+            : [],
+        },
+      }
     : { ...base, params: { id: "1" }, doc: docs.at(-1) };
 };
 
@@ -87,13 +105,20 @@ test("quay.json passes the CLI's strict reader and has the shape the board needs
   assert.equal(posts.max_docs_per_account, 50);
   assert.equal(posts.on_add, "moderate");
   const pin = project.products.pin;
+  assert.equal(project.token, "usdc.fakes.testnet");
   assert.equal(pin.grant, "pin");
   assert.equal(pin.pin_seconds, 86400);
   assert.equal(pin.price_yocto, "100000000000000000000000");
   assert.ok(pin.price_token);
+  assert.equal(raw.payments.token, "usdc.fakes.testnet");
+  assert.deepEqual(raw.routes[0].also[0], {
+    name: "digest",
+    collection: "_fn",
+    prefix: "digest-",
+    limit: 1,
+    order: "desc",
+  });
   assert.deepEqual(Object.keys(raw.functions).sort(), ["digest", "moderate"]);
-  assert.equal(raw.relay.host, "outlayer");
-  assert.equal(raw.relay.fallback, "node");
   assert.deepEqual(raw.cron, [
     { name: "digest", every_minutes: 60, fn: "digest", input: {} },
   ]);
