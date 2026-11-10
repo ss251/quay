@@ -93,6 +93,8 @@ No key. You need `cargo`, `curl`, `node`, and `shasum` on `PATH`. The same check
 
    See "Move production on purpose", `quay deploy`, and "Try the sample". The live release, 9, was sealed in [GegcmRL3wurnmnQGqZk7bAqK5mKizR5b5fP611CKRxTg](https://explorer.testnet.near.org/transactions/GegcmRL3wurnmnQGqZk7bAqK5mKizR5b5fP611CKRxTg) and promoted in [CvfPW9CGFDA1JdMk5nGgW9PmBJi1PpXxmZbJRW4cvnPw](https://explorer.testnet.near.org/transactions/CvfPW9CGFDA1JdMk5nGgW9PmBJi1PpXxmZbJRW4cvnPw). The previous design is still release 4, at https://quay-esc0v902.testnet.page/r/4/.
 
+   If testnet.page is down, run `node cli/bin/quay.js gateway --account quay-esc0v902.testnet` (or `quay gateway --account quay-esc0v902.testnet`) and open http://127.0.0.1:8787/, http://127.0.0.1:8787/docs/, http://127.0.0.1:8787/dashboard/?account=quay-65nqd3rn.testnet, and http://127.0.0.1:8787/r/4/.
+
 3. Open the sample. Production is release 5. The previous pointer is 4. Releases 1 to 4 stay at their URLs.
 
    ```sh
@@ -104,6 +106,8 @@ No key. You need `cargo`, `curl`, `node`, and `shasum` on `PATH`. The same check
    ```
 
    See `id="release">5` on production, the berth page, the chart, `1` on `/r/1/`, and `3` on `/r/3/`.
+
+   If testnet.page is down, run `quay gateway --account quay-65nqd3rn.testnet` and open http://127.0.0.1:8787/, http://127.0.0.1:8787/berth/, http://127.0.0.1:8787/chart.svg, http://127.0.0.1:8787/r/1/, and http://127.0.0.1:8787/r/3/. Run one gateway per account, or pass `--port` for a second one. `sh scripts/judge.sh` does this by itself for any page the public gateway fails.
 
    Seals and promotions: release 1 [vJzgAg1JYR4FFhMEVXnQCxC9RmLBmzr7Gef5WTBpSb1](https://explorer.testnet.near.org/transactions/vJzgAg1JYR4FFhMEVXnQCxC9RmLBmzr7Gef5WTBpSb1) and [CQL9fMZRyu2wQ3kYGHfoiuc1Fwpk57aA95fwL7i1nft5](https://explorer.testnet.near.org/transactions/CQL9fMZRyu2wQ3kYGHfoiuc1Fwpk57aA95fwL7i1nft5), release 2 [FZbrU9eYKc4D1zCoQUq9UawjCsWj2cVH5DPLKFKeyEno](https://explorer.testnet.near.org/transactions/FZbrU9eYKc4D1zCoQUq9UawjCsWj2cVH5DPLKFKeyEno) and [2koqS96kNYpFn7rarWzwEDHd9A48Ux18t5QEzHySnSkn](https://explorer.testnet.near.org/transactions/2koqS96kNYpFn7rarWzwEDHd9A48Ux18t5QEzHySnSkn), release 3 [u7An7nxhdYpuGL9r2vcsSGMDWbMGX4QRkkMYktaHTkv](https://explorer.testnet.near.org/transactions/u7An7nxhdYpuGL9r2vcsSGMDWbMGX4QRkkMYktaHTkv) and [bhdz1aR5f6HMSbTwCGE9PgxRMhpq8zV64YWcgb18bH4](https://explorer.testnet.near.org/transactions/bhdz1aR5f6HMSbTwCGE9PgxRMhpq8zV64YWcgb18bH4), the rollback [ED8gqjTUsZSsB31TbV2sHAz4wfX1LvUPYQnpSsfH1ixz](https://explorer.testnet.near.org/transactions/ED8gqjTUsZSsB31TbV2sHAz4wfX1LvUPYQnpSsfH1ixz), release 4 [5YMNMexGTbGeqQHQvrnNp2L6SEsMXVs3Q4dyfUnfHZjc](https://explorer.testnet.near.org/transactions/5YMNMexGTbGeqQHQvrnNp2L6SEsMXVs3Q4dyfUnfHZjc) and [F56bq5R6EKCnNHcY1MsEboJYB214kpGdkWu2shbyvNz1](https://explorer.testnet.near.org/transactions/F56bq5R6EKCnNHcY1MsEboJYB214kpGdkWu2shbyvNz1), release 5 [Ga6YgGiUtyPJEWUKdpt5tqeCGn3wk4W8b6KowkBe17eB](https://explorer.testnet.near.org/transactions/Ga6YgGiUtyPJEWUKdpt5tqeCGn3wk4W8b6KowkBe17eB) and [9hThf6KFAUPvpiacbMEBY79RpK1woQ9NqvRdLS9KPAUL](https://explorer.testnet.near.org/transactions/9hThf6KFAUPvpiacbMEBY79RpK1woQ9NqvRdLS9KPAUL). The account-creation transaction for this sample was not retained.
 

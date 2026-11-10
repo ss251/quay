@@ -1,13 +1,101 @@
 #!/bin/sh
 # Keyless checks. Needs cargo, curl, node, and shasum on PATH.
+#
+# Every page fetch tries https://<name>.testnet.page first. When that fails, or
+# answers with the deprecated-RPC JSON, the same path is fetched from a local
+# `quay gateway` for that account, started on a free port and stopped on exit.
+# The choice is made per request, because the public gateway flaps.
+# QUAY_JUDGE_LOCAL=1 skips the public gateway and uses only the local one.
 set -eu
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.cargo/bin:$PATH"
+
+work=$(mktemp -d)
+# local_port runs in a command substitution, so gateway pids go in a file.
+cleanup() {
+  if [ -f "$work/pids" ]; then
+    while read -r pid; do kill "$pid" 2>/dev/null || true; done <"$work/pids"
+  fi
+  rm -rf "$work"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
 
 rpc() {
   curl -fsS https://test.rpc.fastnear.com \
     -H 'content-type: application/json' \
     -d "$1"
+}
+
+free_port() {
+  node -e 'const s=require("node:net").createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})'
+}
+
+# Starts `quay gateway` for an account once per run; prints its port.
+local_port() {
+  file="$work/port-$1"
+  if [ ! -f "$file" ]; then
+    port=$(free_port)
+    node cli/bin/quay.js gateway --account "$1" --port "$port" >"$work/gateway-$1.log" 2>&1 &
+    echo "$!" >>"$work/pids"
+    tries=0
+    until curl -fsS -o /dev/null "http://127.0.0.1:$port/_quay/health" 2>/dev/null; do
+      tries=$((tries + 1))
+      if [ "$tries" -gt 40 ]; then
+        echo "   the local gateway for $1 did not start:" >&2
+        cat "$work/gateway-$1.log" >&2
+        exit 1
+      fi
+      sleep 0.5
+    done
+    echo "$port" >"$file"
+  fi
+  cat "$file"
+}
+
+# fetch <account> <path>: body in $work/body, status in $work/code.
+fetch() {
+  account=$1
+  path=$2
+  public="https://${account%.testnet}.testnet.page$path"
+  if [ "${QUAY_JUDGE_LOCAL:-}" != "1" ]; then
+    code=$(curl -sS -m 30 -o "$work/body" -w '%{http_code}' "$public" 2>"$work/err") || code=000
+    reason=""
+    if [ "$code" = 000 ]; then
+      reason="no answer: $(head -c 120 "$work/err")"
+    elif grep -q 'THIS ENDPOINT IS DEPRECATED' "$work/body"; then
+      reason="HTTP $code, deprecated RPC"
+    elif [ "$code" -ge 500 ] || { [ "$code" -ge 400 ] && grep -q '"jsonrpc"' "$work/body"; }; then
+      reason="HTTP $code"
+    fi
+    if [ -z "$reason" ]; then
+      echo "$code" >"$work/code"
+      echo "   public $public -> $code"
+      return 0
+    fi
+    echo "   public $public failed ($reason), using the local gateway"
+  fi
+  port=$(local_port "$account")
+  url="http://127.0.0.1:$port$path"
+  code=$(curl -sS -m 60 -o "$work/body" -w '%{http_code}' "$url") || code=000
+  echo "$code" >"$work/code"
+  echo "   local  $url -> $code"
+}
+
+# expect <text>: the last fetched body contains <text>.
+expect() {
+  if ! grep -F -- "$1" "$work/body" >/dev/null; then
+    echo "   expected \"$1\" in that page" >&2
+    exit 1
+  fi
+}
+
+# expect_code <status>: the last fetch answered <status>.
+expect_code() {
+  if [ "$(cat "$work/code")" != "$1" ]; then
+    echo "   expected HTTP $1, got $(cat "$work/code")" >&2
+    exit 1
+  fi
 }
 
 echo "1. cargo test"
@@ -23,29 +111,44 @@ rm -f "$log"
 test "$status" = 0
 
 echo "2. the old demo still answers"
-body=$(curl -fsS "https://quay-bb.testnet.page/")
-printf '%s\n' "$body" | grep -F "production: release" >/dev/null
-echo "   https://quay-bb.testnet.page/ still serves"
+fetch quay-bb.testnet /
+expect_code 200
+expect "production: release"
+echo "   quay-bb.testnet still serves"
 
 echo "3. product home, docs, and dashboard"
-curl -fsS "https://quay-esc0v902.testnet.page/" | grep -F "Move production on purpose" >/dev/null
-curl -fsS "https://quay-esc0v902.testnet.page/" | grep -F "2.3151 NEAR" >/dev/null
-curl -fsS "https://quay-esc0v902.testnet.page/docs/" | grep -F "quay deploy" >/dev/null
-curl -fsS "https://quay-esc0v902.testnet.page/docs/" | grep -F "gateway certificate" >/dev/null
-curl -fsS "https://quay-esc0v902.testnet.page/dashboard/?account=quay-65nqd3rn.testnet" | grep -F "Try the sample" >/dev/null
+fetch quay-esc0v902.testnet /
+expect_code 200
+expect "Move production on purpose"
+expect "2.3151 NEAR"
+fetch quay-esc0v902.testnet /docs/
+expect_code 200
+expect "quay deploy"
+expect "gateway certificate"
+fetch quay-esc0v902.testnet "/dashboard/?account=quay-65nqd3rn.testnet"
+expect_code 200
+expect "Try the sample"
 echo "   product pages answered"
 
 echo "4. harbour releases"
-curl -fsS "https://quay-65nqd3rn.testnet.page/" | grep -F 'id="release">5' >/dev/null
-curl -fsS "https://quay-65nqd3rn.testnet.page/berth/" | grep -F "Berth" >/dev/null
-curl -fsS "https://quay-65nqd3rn.testnet.page/chart.svg" | grep -F "<svg" >/dev/null
-curl -fsS "https://quay-65nqd3rn.testnet.page/r/1/" | grep -F 'id="release">1' >/dev/null
-curl -fsS "https://quay-65nqd3rn.testnet.page/r/3/" | grep -F 'id="release">3' >/dev/null
-missing=$(mktemp)
-code=$(curl -sS -o "$missing" -w "%{http_code}" "https://quay-65nqd3rn.testnet.page/missing")
-test "$code" = "404"
-grep -F "Not on this release" "$missing" >/dev/null
-rm -f "$missing"
+fetch quay-65nqd3rn.testnet /
+expect_code 200
+expect 'id="release">5'
+fetch quay-65nqd3rn.testnet /berth/
+expect_code 200
+expect "Berth"
+fetch quay-65nqd3rn.testnet /chart.svg
+expect_code 200
+expect "<svg"
+fetch quay-65nqd3rn.testnet /r/1/
+expect_code 200
+expect 'id="release">1'
+fetch quay-65nqd3rn.testnet /r/3/
+expect_code 200
+expect 'id="release">3'
+fetch quay-65nqd3rn.testnet /missing
+expect_code 404
+expect "Not on this release"
 echo "   production is release 5, older previews and the 404 still answer"
 
 echo "5. harbour status on the RPC"
