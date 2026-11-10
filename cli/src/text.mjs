@@ -44,6 +44,7 @@ const KNOWN = new Set([
   "store",
   "external-over",
   "verify-wait",
+  "input",
   "relayer",
   "near",
   "origin",
@@ -340,6 +341,26 @@ export const COMMANDS = [
       "Not versioned (live state): docs, collection rules, products, members, function code and secrets, relay and cron settings. quay up and quay rollback print this.",
       "payments.token and payments.products set the accepted token and products (a top-level products section still works).",
       "relay host node prints the quay relay serve command. functions, relay host outlayer and cron are applied when this build and the contract support them, else quay up prints a not applied line. cron_arm is never run by quay up: it costs about 1 NEAR liquid.",
+    ],
+  },
+  {
+    name: "cron",
+    summary: "Scheduled functions, kept alive by the contract itself.",
+    usage: "quay cron <add|list|rm|status|arm|kick>",
+    options: [
+      [
+        'add "<every 30m>" <fn>',
+        'Add a job. "every 30m" or "every 2h", at least 5 minutes, at most 8 jobs. --input <json> is passed to the function (at most 4096 bytes), --name <job> names it. Owner only, 1 yoctoNEAR.',
+      ],
+      ["list", "Show jobs with last run and next due."],
+      ["rm <name>", "Remove a job. Owner only."],
+      ["status", "Show whether the schedule is armed, hops, and last tick."],
+      [
+        "arm",
+        "Start the schedule: sends 1 PGas, about 1 NEAR liquid while it runs (unused gas is refunded) and about 14 hours of life, then arm again. Asks first, refuses under 1.1 NEAR liquid.",
+      ],
+      ["kick", "Run due jobs now by resuming the pending step. Anyone can."],
+      ["--dry-run", "Print the call and send nothing."],
     ],
   },
 ];

@@ -1199,9 +1199,7 @@ test("quay up applies the token, sets cron jobs when the contract has them, and 
   assert.ok(methods.indexOf("promote") < methods.indexOf("cron_set"));
   assert.deepEqual(chain.calls.find((c) => c.method === "cron_set").args, {
     name: "digest",
-    every_minutes: 60,
-    fn: "digest",
-    input: {},
+    job: { every_minutes: 60, fn: "digest", input: "{}" },
   });
   const text = io.text();
   assert.match(
@@ -1235,4 +1233,86 @@ test("quay up says cron is not applied when the contract has no cron", async () 
     false,
   );
   assert.match(io.text(), /cron digest {2}not applied/);
+});
+
+test("quay cron add, list, rm, status, kick", async () => {
+  const chain = fakeChain();
+  const list = [
+    {
+      name: "digest",
+      every_minutes: 60,
+      fn: "digest",
+      input: "{}",
+      last_run: null,
+      next_due: "1731283200000000000",
+    },
+  ];
+  const view = chain.view;
+  chain.view = async (method, args) =>
+    method === "cron_list"
+      ? list
+      : method === "cron_status"
+        ? { armed: false, hops: 0, last_tick: null, started: null }
+        : view(method, args);
+  await exec(["cron", "add", "every 2h", "digest", "--input", '{"n":1}'], {
+    chain,
+  });
+  assert.deepEqual(chain.calls[0], {
+    method: "cron_set",
+    args: {
+      name: "digest-2",
+      job: { every_minutes: 120, fn: "digest", input: '{"n":1}' },
+    },
+    deposit: 1n,
+  });
+  const out = await exec(["cron", "list"], { chain });
+  assert.match(out.io.text(), /digest\s+60m\s+digest\s+\{\}\s+never/);
+  assert.match(
+    (await exec(["cron", "status"], { chain })).io.text(),
+    /armed\s+no/,
+  );
+  await exec(["cron", "rm", "digest"], { chain });
+  assert.deepEqual(chain.calls.at(-1), {
+    method: "cron_remove",
+    args: { name: "digest" },
+    deposit: 1n,
+  });
+  await exec(["cron", "kick"], { chain });
+  assert.equal(chain.calls.at(-1).method, "cron_kick");
+  await assert.rejects(
+    exec(["cron", "add", "every 2m", "digest"], { chain }),
+    /at most every 5 minutes/,
+  );
+  await assert.rejects(
+    exec(["cron", "add", "daily", "digest"], { chain }),
+    /every 30m/,
+  );
+  await assert.rejects(
+    exec(["cron", "add", "every 5m", "digest", "--input", "{bad"], { chain }),
+    /valid JSON/,
+  );
+});
+
+test("quay cron arm sends 1 PGas, confirms, and refuses under 1.1 NEAR liquid", async () => {
+  const mk = (amount) => {
+    const chain = fakeChain();
+    const view = chain.view;
+    chain.view = async (method, args) =>
+      method === "cron_status" ? { armed: false } : view(method, args);
+    chain.accountView = async () => ({ amount, storage_usage: 1000 });
+    return chain;
+  };
+  const poor = mk(String(10n ** 24n));
+  await assert.rejects(
+    exec(["cron", "arm"], { chain: poor }),
+    /needs about 1 NEAR liquid/,
+  );
+  assert.equal(poor.calls.length, 0);
+  const rich = mk(String(5n * 10n ** 24n));
+  // --yes semantics: a non-interactive shell does not ask
+  await exec(["cron", "arm"], { chain: rich });
+  const call = rich.calls.at(-1);
+  assert.equal(call.method, "cron_arm");
+  assert.equal(call.deposit, 0n);
+  assert.equal(call.gas, 1000n * 10n ** 12n);
 });

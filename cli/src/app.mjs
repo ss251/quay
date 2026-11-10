@@ -19,6 +19,7 @@ import { generateKey } from "./chain.mjs";
 import { refused, QuayError } from "./errors.mjs";
 import { readProject } from "./projectfile.mjs";
 import { gateway, localCommand, publicGatewayHealth } from "./gateway.mjs";
+import { cronCmd } from "./cron.mjs";
 import { db } from "./db.mjs";
 import { parseCount } from "./units.mjs";
 import { membersCmd } from "./members.mjs";
@@ -107,6 +108,7 @@ export async function run(ctx, parsed) {
     receipts: receiptsCmd,
     relay: relayCmd,
     up: up,
+    cron: cronCmd,
   };
   const handler = handlers[parsed.command];
   if (!handler) {

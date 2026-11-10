@@ -1,5 +1,6 @@
 import { dirname, resolve } from "node:path";
 
+import { buildJob } from "./cron.mjs";
 import { requireAccount } from "./config.mjs";
 import { QuayError } from "./errors.mjs";
 import { allReleases, deployRelease, splitFiles } from "./release.mjs";
@@ -120,6 +121,19 @@ export async function planUp(ctx, project, options) {
   return steps;
 }
 
+function sameJson(left, right) {
+  const norm = (value) => {
+    try {
+      return JSON.stringify(
+        typeof value === "string" ? JSON.parse(value) : (value ?? {}),
+      );
+    } catch {
+      return String(value);
+    }
+  };
+  return norm(left) === norm(right);
+}
+
 const NOT_APPLIED = "not applied";
 
 async function optional(path) {
@@ -219,7 +233,7 @@ async function planAfter(ctx, project) {
           old &&
           old.every_minutes === job.every_minutes &&
           old.fn === job.fn &&
-          JSON.stringify(old.input ?? {}) === JSON.stringify(job.input);
+          sameJson(old.input, job.input);
         steps.push({
           step: "cron",
           name: job.name,
@@ -353,7 +367,7 @@ export async function up(ctx, parsed) {
           : step.step === "token"
             ? ["set_token", { account: step.account }]
             : step.step === "cron"
-              ? ["cron_set", step.job]
+              ? ["cron_set", { name: step.name, job: buildJob(step.job) }]
               : ["set_members_open", { open: step.open }];
     const sent = await ctx.chain.send(method, args, { deposit: 1n });
     log(

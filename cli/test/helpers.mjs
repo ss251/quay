@@ -106,7 +106,12 @@ export function fakeChain(seed = {}) {
       return null;
     },
     async send(method, args, options = {}) {
-      calls.push({ method, args, deposit: options.deposit ?? 0n });
+      calls.push({
+        method,
+        args,
+        deposit: options.deposit ?? 0n,
+        ...(options.gas ? { gas: options.gas } : {}),
+      });
       const hash = `tx-${calls.length}`;
       if (method === "set_collection")
         state.collections.set(args.name, args.rules);
