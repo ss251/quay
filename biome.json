@@ -10,6 +10,7 @@
       "package.json",
       "biome.json",
       "!**/dist",
+      "!gateway/worker/worker.mjs",
       "!**/node_modules",
       "!**/target"
     ]

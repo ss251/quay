@@ -20,7 +20,7 @@ From a checkout without installing: `node cli/bin/quay.js gateway --account <id>
 ### 2. A single file for Node, Deno, Bun, or a container
 
 ```sh
-node gateway/build.mjs                       # writes gateway/dist/
+node gateway/build.mjs                       # writes gateway/dist/ and gateway/worker/worker.mjs
 node gateway/dist/quay-gateway.mjs --account quay-65nqd3rn.testnet --port 8787
 deno run -A gateway/dist/quay-gateway.mjs --account quay-65nqd3rn.testnet --port 8787
 bun gateway/dist/quay-gateway.mjs --account quay-65nqd3rn.testnet --port 8787
@@ -44,14 +44,15 @@ docker run --rm -p 8787:8787 -e ACCOUNT=quay-65nqd3rn.testnet quay-gateway
 
 ### 3. Cloudflare Workers
 
-`gateway/dist/worker.mjs` is a module worker (`export default { fetch(request, env) }`). Edit the placeholders in `gateway/wrangler.toml`, then from `gateway/`:
+`gateway/worker/` is ready to deploy as is:
 
 ```sh
-node build.mjs
-npx wrangler@4 deploy
+cd gateway/worker && npx wrangler deploy
 ```
 
-Env: `DOMAIN` for host routing, or `ACCOUNT` for one site on every host (a custom domain). `RPC_URLS`, `NEARFS_URLS`, and `IPFS_URLS` are optional comma-separated lists. Host routing needs a wildcard DNS record and a `*.<domain>/*` route.
+Wrangler asks you to log in and pick an account; no account id, zone id, or secret is committed. Before the first deploy, edit `[vars]` in `gateway/worker/wrangler.toml`: set `ACCOUNT` for one site on every host (a custom domain, or the `*.workers.dev` URL), or set `DOMAIN` (and empty `ACCOUNT`) for host routing. `RPC_URLS`, `NEARFS_URLS`, and `IPFS_URLS` are optional comma-separated lists. The custom-domain and wildcard routes are commented out at the bottom; host routing needs a wildcard DNS record and the `*.<domain>/*` route.
+
+`worker/worker.mjs` is a prebuilt module worker (`export default { fetch(request, env) }`), generated from `src/` by `node gateway/build.mjs` and committed. `node gateway/build.mjs --check`, which `npm test` runs, fails when it is stale. `npx wrangler deploy --dry-run --outdir <dir>` (wrangler 4.45.0) bundles it without logging in: 30.09 KiB, 9.36 KiB gzipped.
 
 Nothing here has been deployed. Options 2 and 3 need your own server or Cloudflare account.
 
@@ -76,7 +77,7 @@ Running the gateway as an OutLayer function was evaluated and is not possible to
 ```sh
 cd gateway && node --test                 # stubbed RPC; runs dist under deno and bun when installed
 QUAY_LIVE=1 node --test test/runtimes.test.mjs   # also serves quay-65nqd3rn.testnet from the live testnet
-node build.mjs --check                    # fails when dist/ or cli/vendor/gateway is stale
+node build.mjs --check                    # fails when dist/, worker/worker.mjs, or cli/vendor/gateway is stale
 ```
 
-`npm test` at the repo root includes these. After editing `src/`, run `node gateway/build.mjs` and commit `dist/` and `cli/vendor/gateway/` with it.
+`npm test` at the repo root includes these. After editing `src/`, run `node gateway/build.mjs` and commit `dist/`, `worker/worker.mjs`, and `cli/vendor/gateway/` with it.

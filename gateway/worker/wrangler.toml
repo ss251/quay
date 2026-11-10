@@ -1,0 +1,28 @@
+# Cloudflare Workers config for the Quay gateway. Deploy from this folder:
+#   npx wrangler deploy
+# wrangler asks you to log in and pick an account. No account_id, zone_id, or
+# secret belongs in this file.
+name = "quay-gateway"
+# Prebuilt from gateway/src by `node gateway/build.mjs`. A test keeps it in sync.
+main = "worker.mjs"
+compatibility_date = "2025-09-01"
+# The *.workers.dev URL. With ACCOUNT set it serves that site there.
+workers_dev = true
+
+[vars]
+# Set exactly one of ACCOUNT and DOMAIN.
+# ACCOUNT: serve one site on every host, e.g. a custom domain for one account.
+ACCOUNT = "YOUR-NAME.testnet"
+# DOMAIN: host routing, <name>.<DOMAIN> serves <name>.testnet. Needs a wildcard
+# DNS record and the wildcard route below. Leave it empty when ACCOUNT is set.
+DOMAIN = ""
+# RPC endpoints, tried in order, comma-separated. Never rpc.testnet.near.org.
+RPC_URLS = "https://test.rpc.fastnear.com,https://testnet-rpc.intea.rs,https://near-testnet.drpc.org"
+# Optional. Defaults: https://ipfs.web4.testnet.page, then https://ipfs.io, https://dweb.link.
+# NEARFS_URLS = "https://ipfs.web4.testnet.page"
+# IPFS_URLS = "https://ipfs.io,https://dweb.link"
+
+# One custom domain for an ACCOUNT site:
+# routes = [{ pattern = "site.YOUR-DOMAIN.example", custom_domain = true }]
+# Host routing for DOMAIN (wildcard DNS record *.YOUR-DOMAIN.example, proxied):
+# routes = [{ pattern = "*.YOUR-DOMAIN.example/*", zone_name = "YOUR-DOMAIN.example" }]

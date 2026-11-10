@@ -122,10 +122,10 @@ for (const [command, prefix] of RUNTIMES) {
   );
 }
 
-test("dist/worker.mjs answers Requests with DOMAIN and ACCOUNT", async () => {
+test("worker/worker.mjs answers Requests with DOMAIN and ACCOUNT", async () => {
   const rpc = await rpcServer(ACCOUNTS);
   try {
-    const worker = (await import("../dist/worker.mjs")).default;
+    const worker = (await import("../worker/worker.mjs")).default;
     const routed = await worker.fetch(
       new Request("https://demo.example.com/"),
       {
@@ -153,11 +153,11 @@ test("dist/worker.mjs answers Requests with DOMAIN and ACCOUNT", async () => {
 });
 
 test("the worker bundle uses no Node built-ins", () => {
-  const text = readFileSync(here("../dist/worker.mjs"), "utf8");
+  const text = readFileSync(here("../worker/worker.mjs"), "utf8");
   assert.doesNotMatch(text, /from\s+["']node:|require\(/);
 });
 
-test("dist and cli/vendor/gateway match gateway/src", async (t) => {
+test("dist, worker, and cli/vendor/gateway match gateway/src", async (t) => {
   try {
     await import("esbuild");
   } catch {
