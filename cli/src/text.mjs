@@ -14,6 +14,7 @@ const BOOLEAN = new Set([
   "moderated",
   "hidden",
   "no-verify",
+  "trust-proxy",
 ]);
 
 const KNOWN = new Set([
@@ -43,6 +44,11 @@ const KNOWN = new Set([
   "store",
   "external-over",
   "verify-wait",
+  "relayer",
+  "near",
+  "origin",
+  "per-account",
+  "daily-tgas",
 ]);
 
 export const COMMANDS = [
@@ -277,6 +283,38 @@ export const COMMANDS = [
       ],
       ["--from <seq>", "Continue from this cursor."],
       ["--limit <1-50>", "Page size."],
+    ],
+  },
+  {
+    name: "relay",
+    summary:
+      "Run or fund the relayer that pays gas for member writes (serve, status, create).",
+    usage:
+      "quay relay serve [--port 8788] [--relayer <account>] | quay relay status | quay relay create [--near 0.5]",
+    options: [
+      ["--port <n>", "serve: port to listen on. The default is 8788."],
+      ["--host <addr>", "serve: interface. The default is 127.0.0.1."],
+      [
+        "--relayer <account>",
+        "The relayer account. The default is relay.<site>.",
+      ],
+      [
+        "--origin <urls>",
+        "serve: extra allowed browser origins, comma separated. The site's own origin and http://127.0.0.1:* are always allowed.",
+      ],
+      ["--per-account <n>", "serve: relays per member per hour. Default 30."],
+      ["--daily-tgas <n>", "serve: gas budget per UTC day. Default 30000."],
+      ["--trust-proxy", "serve: read the client address from X-Forwarded-For."],
+      [
+        "--near <NEAR>",
+        "create: NEAR moved from the site account to the relayer. Default 0.5.",
+      ],
+      ["--dry-run", "create: print the plan, create nothing."],
+      ["--yes", "create: skip the confirmation."],
+    ],
+    notes: [
+      "quay relay serve is the one off-chain piece of a Quay site. Members write through it with zero NEAR; the relayer balance is the hard spend limit.",
+      "Relayed writes attach no deposit, so they work for site-paid collections. The key lives in ~/.near-credentials/testnet/<relayer>.json.",
     ],
   },
   {

@@ -33,6 +33,7 @@ import {
   VERSIONED_NOTE,
   waitForGateway,
 } from "./shared.mjs";
+import { relayCmd } from "./relay.mjs";
 import { up } from "./up.mjs";
 import { checkId, yoctoUnlocked } from "./site.mjs";
 import {
@@ -104,6 +105,7 @@ export async function run(ctx, parsed) {
     members: membersCmd,
     products: productsCmd,
     receipts: receiptsCmd,
+    relay: relayCmd,
     up: up,
   };
   const handler = handlers[parsed.command];

@@ -3,6 +3,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { KeyPair } from "near-api-js";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -42,6 +43,47 @@ async function packedGateway(bin) {
   return { status: res.status, html };
 }
 
+// Starts the packed `quay relay serve` with a throwaway key and an RPC that
+// refuses connections, so the vendored relayer host and its near-api-js import
+// are in the tarball. The relayer has no balance, so /health says not ok.
+async function packedRelay(bin) {
+  const child = spawn(
+    bin,
+    [
+      "relay",
+      "serve",
+      "--account",
+      "demo.testnet",
+      "--port",
+      "0",
+      "--rpc",
+      "http://127.0.0.1:9",
+    ],
+    {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        QUAY_RELAYER_KEY: KeyPair.fromRandom("ed25519").toString(),
+      },
+    },
+  );
+  let out = "";
+  const url = await new Promise((resolve, reject) => {
+    child.stdout.on("data", (chunk) => {
+      out += chunk;
+      const match = /(http:\/\/127\.0\.0\.1:\d+)/.exec(out);
+      if (match) resolve(match[1]);
+    });
+    child.once("exit", () => reject(new Error(`relay exited: ${out}`)));
+  });
+  const health = await (await fetch(`${url}/health`)).json();
+  await new Promise((resolve) => {
+    child.once("exit", resolve);
+    child.kill("SIGINT");
+  });
+  return health;
+}
+
 test("npm pack installs a quay binary that prints help", async () => {
   const dir = mkdtempSync(join(tmpdir(), "quay-pack-"));
   try {
@@ -69,6 +111,9 @@ test("npm pack installs a quay binary that prints help", async () => {
     const served = await packedGateway(bin);
     assert.equal(served.status, 502);
     assert.match(served.html, /Every RPC endpoint failed/);
+    const relayed = await packedRelay(bin);
+    assert.equal(relayed.relayer, "relay.demo.testnet");
+    assert.equal(relayed.ok, false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
