@@ -75,12 +75,20 @@ impl PayState {
     }
 }
 
-/// `msg` of a token payment.
-#[near(serializers = [json])]
+/// `msg` of a token payment: `{"product": "pin", "ref": "posts/12"}`.
 struct TokenMsg {
     product: String,
-    #[serde(default, rename = "ref")]
     reference: Option<String>,
+}
+
+impl TokenMsg {
+    fn read(value: Value) -> Option<Self> {
+        let mut o = crate::json_in::Obj::new(value)?;
+        Some(TokenMsg {
+            product: o.req("product")?,
+            reference: o.opt("ref")?,
+        })
+    }
 }
 
 /// Where a pin lands: collection number and seq of an existing doc.
@@ -195,7 +203,10 @@ impl Contract {
         if self.pay.token.as_ref() != Some(&token) {
             return Err("token not accepted");
         }
-        let msg: TokenMsg = serde_json::from_str(msg).map_err(|_| "bad msg")?;
+        let msg = serde_json::from_str::<Value>(msg)
+            .ok()
+            .and_then(TokenMsg::read)
+            .ok_or("bad msg")?;
         let item = self
             .pay
             .products

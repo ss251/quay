@@ -18,6 +18,7 @@ mod cron;
 mod db;
 pub mod exports;
 mod functions;
+mod json_in;
 mod legacy;
 mod members;
 mod pay;

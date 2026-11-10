@@ -42,13 +42,13 @@ pub enum FnPayer {
     Site,
 }
 
-fn default_deposit() -> U128 {
+pub(crate) fn default_deposit() -> U128 {
     U128(DEFAULT_DEPOSIT)
 }
-fn default_instructions() -> U64 {
+pub(crate) fn default_instructions() -> U64 {
     U64(DEFAULT_INSTRUCTIONS)
 }
-fn default_seconds() -> u32 {
+pub(crate) fn default_seconds() -> u32 {
     DEFAULT_SECONDS
 }
 

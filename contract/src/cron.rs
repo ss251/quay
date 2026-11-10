@@ -33,6 +33,7 @@ const KICK_COOLDOWN_NS: u64 = 60 * 1_000_000_000;
 const MINUTE_NS: u64 = 60 * 1_000_000_000;
 
 #[near(serializers = [json])]
+#[derive(Debug)]
 pub struct JobIn {
     pub every_minutes: u32,
     #[serde(rename = "fn")]
@@ -41,7 +42,7 @@ pub struct JobIn {
     pub input: String,
 }
 
-fn empty_object() -> String {
+pub(crate) fn empty_object() -> String {
     "{}".to_string()
 }
 

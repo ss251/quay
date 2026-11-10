@@ -15,11 +15,11 @@
 //! a mocked input and catch its panics. On wasm a `#[no_mangle]` shim of the
 //! same name exports it.
 
-use near_sdk::serde::de::DeserializeOwned;
 use near_sdk::serde::Serialize;
 use near_sdk::serde_json::{self, Map, Value};
 use near_sdk::{env, AccountId};
 
+use crate::json_in::FromJson;
 use crate::Contract;
 
 /// The parsed argument object of one call.
@@ -35,9 +35,9 @@ impl Args {
     }
 
     /// A required or optional argument (`Option<T>` reads a missing key as `None`).
-    fn get<T: DeserializeOwned>(&mut self, key: &str) -> T {
+    fn get<T: FromJson>(&mut self, key: &str) -> T {
         let value = self.0.remove(key).unwrap_or(Value::Null);
-        serde_json::from_value(value).unwrap_or_else(|_| bad_input())
+        T::from_json(value).unwrap_or_else(|| bad_input())
     }
 }
 

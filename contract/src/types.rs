@@ -68,6 +68,7 @@ pub struct Sale {
 }
 
 #[near(serializers = [json])]
+#[derive(Debug)]
 pub struct FileIn {
     pub path: String,
     #[serde(default)]
@@ -178,7 +179,7 @@ pub struct VersionInfo {
 
 /// The gateway request. Unknown fields are ignored.
 #[near(serializers = [json])]
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Web4Request {
     #[serde(default)]
