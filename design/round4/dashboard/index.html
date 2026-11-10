@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#f5f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a1016" media="(prefers-color-scheme: dark)">
+<title>quay-65nqd3rn.testnet on Quay</title>
+<meta name="description" content="Read a Quay account's releases, then promote, roll back, or delete with a testnet wallet.">
+<link rel="preload" href="../assets/fonts/text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/quay.css">
+<script>const q=new URLSearchParams(location.search);if(q.get("theme"))document.documentElement.dataset.theme=q.get("theme");</script>
+<script type="module" src="../assets/quay.js"></script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="app-top">
+  <div class="row1 app-wrap" style="width:auto;padding:0 20px">
+    <a href="../index.html" aria-label="Quay home"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--accent)"/></svg></a>
+    <div class="crumb"><span class="slash" aria-hidden="true">/</span><a class="acct" href="#"><span data-account>quay-65nqd3rn.testnet</span><svg class="icon sm" aria-hidden="true"><use href="../assets/icons.svg#i-down"/></svg></a><span class="chip chip-outline hide-s net-chip"><span class="dot dot-live"></span>testnet</span></div>
+    <div class="nav-end"><a class="btn btn-sm btn-quiet hide-s" href="#">Docs</a><button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme"><svg class="icon i-moon" aria-hidden="true"><use href="../assets/icons.svg#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="../assets/icons.svg#i-sun"/></svg></button><button class="wallet" type="button"><span data-account>quay-65nqd3rn.testnet</span><svg class="icon sm" aria-hidden="true"><use href="../assets/icons.svg#i-down"/></svg></button></div>
+  </div>
+  <nav class="tabs" style="padding:0 20px" aria-label="Account views"><a href="#" aria-current="page">Canvas</a><a href="#">Releases</a><a href="#">History</a><a href="#">Storage</a></nav>
+</header>
+<main class="app-body" id="content">
+  <div class="canvas">
+    <div class="stage" id="stage" data-edges="gateway>site|h|web4_get; site>owner|v|promote, rollback, delete; site>ci|v|put_chunk, seal">
+      <svg class="edges" aria-hidden="true"></svg>
+      <div class="group" style="left:280px;top:72px;width:516px;height:500px"><span class="group-label" data-account>quay-65nqd3rn.testnet</span></div>
+      <div class="node" data-node="gateway" style="left:16px;top:176px;width:220px"><span class="node-name">testnet.page</span><span class="node-sub">Public HTTPS gateway</span></div>
+      <button class="node" type="button" data-node="site" aria-expanded="true" aria-controls="panel" style="left:384px;top:112px;width:316px"><span class="node-name">Site</span><span class="node-sub" data-site-sub>5 releases, 17,717&nbsp;B stored</span>
+        <span class="track-wrap" id="track"><ol class="track" aria-label="Releases 1 to 5. Production is 5, previous is 4."><li class=""><i aria-hidden="true"></i><span>1</span></li><li class=""><i aria-hidden="true"></i><span>2</span></li><li class=""><i aria-hidden="true"></i><span>3</span></li><li class="is-prev"><i aria-hidden="true"></i><span>4</span></li><li class="is-prod"><i aria-hidden="true"></i><span>5</span></li></ol><span class="track-ptr" aria-hidden="true" style="--n:5;--i:4" data-edge="end"><span class="ptr ptr-down">production</span></span></span>
+        <span class="node-foot" data-site-foot>Promoted Nov 10, 16:51 UTC</span></button>
+      <div class="node" data-node="owner" style="left:296px;top:436px;width:240px"><span class="node-name">Full-access key</span><span class="node-sub mono">ed25519:27sRhfJZebb3…</span><span class="node-note">Can promote, roll back and delete</span></div>
+      <div class="node" data-node="ci" style="left:548px;top:436px;width:240px"><span class="node-name">Publish-only key</span><span class="node-sub mono">ed25519:DaAfMdDQ8hdV…</span><span class="node-note">Can upload and seal. Cannot move production</span></div>
+    </div>
+  </div>
+  <aside class="side-panel" id="panel" data-open aria-labelledby="panel-title">
+    <div class="sp-head">
+      <div class="sp-grab" aria-hidden="true"></div>
+      <div class="sp-title"><h2 id="panel-title" tabindex="-1">Site</h2><span class="grow"></span><button class="btn btn-sm btn-icon btn-quiet" type="button" aria-label="Close the Site panel" id="close"><svg class="icon" aria-hidden="true"><use href="../assets/icons.svg#i-x"/></svg></button></div>
+      <div class="sp-meta"><a data-host href="https://quay-65nqd3rn.testnet.page/">quay-65nqd3rn.testnet.page<svg class="icon sm" aria-hidden="true"><use href="../assets/icons.svg#i-ext"/></svg></a><span data-meta-count>5 releases</span><span class="num" data-meta-stored>17,717&nbsp;B stored</span><span>Contract 2.0.0</span></div>
+    </div>
+    <div class="sp-body">
+      <section class="live-card" aria-label="Production">
+        <div class="lc-frame"><span class="lc-wait">Loading from testnet.page</span><iframe onload="this.dataset.ok=''" loading="lazy" src="https://quay-65nqd3rn.testnet.page/" title="Production, release 5" sandbox="allow-scripts allow-same-origin" tabindex="-1" aria-hidden="true"></iframe></div>
+        <div class="lc-main">
+          <div class="top"><span class="ptr">production</span><strong>Release 5</strong></div>
+          <p class="lc-msg">harbour office, new look</p>
+          <dl class="facts-line"><dt>Promoted</dt><dd>Nov 10, 16:51 UTC</dd><dt>Size</dt><dd class="num">8 files, 8,910&nbsp;B</dd><dt>Hash</dt><dd class="mono">f3fde7b5…cce8</dd></dl>
+          <div class="acts"><button class="btn btn-sm" type="button" id="rollback"><svg class="icon sm" aria-hidden="true"><use href="../assets/icons.svg#i-undo"/></svg><span>Roll back to 4</span></button><a class="btn btn-sm" href="https://quay-65nqd3rn.testnet.page/">Visit<svg class="icon sm icon-end" aria-hidden="true"><use href="../assets/icons.svg#i-ext"/></svg></a></div>
+        </div>
+      </section>
+      <section class="sp-section"><h3>Releases <a href="#">All releases</a></h3><ol class="rows"><li class="rel-row is-live"><span class="id">5</span><div class="msg"><span class="l1"><span class="m" title="harbour office, new look">harbour office, new look</span><span class="ptr">production</span></span><span class="l2 num">8 files, 8,910&nbsp;B</span></div><span class="when">Nov 10, 16:51</span><div class="acts"></div></li><li class="rel-row"><span class="id">4</span><div class="msg"><span class="l1"><span class="m" title="harbour office">harbour office</span><span class="chip chip-prev">previous</span></span><span class="l2 num">8 files, 6,280&nbsp;B</span></div><span class="when">Nov 10, 14:38</span><div class="acts"><button class="btn btn-sm" type="button" aria-label="Promote release 4 to production">Promote</button></div></li><li class="rel-row"><span class="id">3</span><div class="msg"><span class="l1"><span class="m" title="latest preview">latest preview</span></span><span class="l2 num">6 files, 2,754&nbsp;B</span></div><span class="when">Nov 10, 14:06</span><div class="acts"><button class="btn btn-sm" type="button" aria-label="Promote release 3 to production">Promote</button></div></li><li class="rel-row"><span class="id">2</span><div class="msg"><span class="l1"><span class="m" title="tide log linked">tide log linked</span></span><span class="l2 num">6 files, 2,754&nbsp;B</span></div><span class="when">Nov 10, 14:06</span><div class="acts"><button class="btn btn-sm" type="button" aria-label="Promote release 2 to production">Promote</button></div></li><li class="rel-row"><span class="id">1</span><div class="msg"><span class="l1"><span class="m" title="harbour opens">harbour opens</span></span><span class="l2 num">6 files, 2,754&nbsp;B</span></div><span class="when">Nov 10, 14:05</span><div class="acts"><button class="btn btn-sm" type="button" aria-label="Promote release 1 to production">Promote</button></div></li></ol></section>
+      <section class="sp-section"><h3>Recent changes</h3><ol class="timeline">
+        <li><span class="what">Promoted 5, previous 4</span><span class="when">Nov 10, 16:51</span></li>
+        <li><span class="what">Promoted 4, previous 2</span><span class="when">Nov 10, 14:38</span></li>
+        <li><span class="what">Rolled back to 2 from 3</span><span class="when">Nov 10, 14:06</span></li>
+      </ol></section>
+    </div>
+  </aside>
+  <div class="sheet-scrim" id="scrim" aria-hidden="true"></div>
+</main>
+<script type="module">
+import { fixtures, render } from "./fixtures.js";
+const dataKey = new URLSearchParams(location.search).get("data");
+if (dataKey && fixtures[dataKey]) {
+  render(fixtures[dataKey]);
+  // dev-only fixture switch, bottom centre; only present when ?data= is in the URL
+  const bar = document.createElement("nav");
+  bar.className = "fixture-switch"; bar.setAttribute("aria-label", "Mock data");
+  bar.innerHTML = Object.keys(fixtures).map((k) => `<a href="?data=${k}" ${k === dataKey ? 'aria-current="true"' : ""}>${{ demo: "Demo data", worst: "Worst case", empty: "Empty", one: "One" }[k]}</a>`).join("");
+  document.body.append(bar);
+}
+// Mock wiring only: open and close the sheet, and move production on the track the way promote and rollback will.
+import { drawAll } from "../assets/canvas.js";
+const panel = document.getElementById("panel"), stage = document.getElementById("stage"), track = document.getElementById("track");
+const site = stage.querySelector('[data-node="site"]');
+const setOpen = (open, from) => {
+  panel.toggleAttribute("data-open", open);
+  site.setAttribute("aria-expanded", String(open));
+  stage.style.margin = open ? "0" : "";
+  requestAnimationFrame(drawAll);
+  if (open) panel.querySelector("h2").focus(); else (from || site).focus();
+};
+if (new URLSearchParams(location.search).get("panel") === "none") { panel.removeAttribute("data-open"); site.setAttribute("aria-expanded", "false"); }
+else stage.style.margin = "0";
+site.addEventListener("click", () => setOpen(!panel.hasAttribute("data-open")));
+document.getElementById("close").addEventListener("click", () => setOpen(false));
+document.getElementById("scrim").addEventListener("click", () => setOpen(false));
+addEventListener("keydown", (e) => { if (e.key === "Escape" && panel.hasAttribute("data-open")) setOpen(false); });
+// Phone drawer: drag down to dismiss. Track phase is 1:1 (transform written directly, no transition);
+// release dismisses on distance (40%) or a flick (0.5 px/ms), otherwise snaps back fast. Upward drags rubber-band.
+const grab = panel.querySelector(".sp-grab"), scrim = document.getElementById("scrim");
+let drag = null;
+grab.addEventListener("pointerdown", (e) => {
+  if (drag || !matchMedia("(max-width: 1000px)").matches) return; // one finger at a time
+  const start = new DOMMatrix(getComputedStyle(panel).transform).m42; // catch a sheet mid-flight
+  drag = { id: e.pointerId, y0: e.clientY - start, t: e.timeStamp, y: start, v: 0 };
+  grab.setPointerCapture(e.pointerId);
+  panel.setAttribute("data-dragging", "");
+});
+grab.addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  let y = e.clientY - drag.y0;
+  if (y < 0) y *= 0.2; // rubber band past the top
+  drag.v = (y - drag.y) / Math.max(1, e.timeStamp - drag.t);
+  drag.y = y; drag.t = e.timeStamp;
+  panel.style.transform = `translateY(${y}px)`;
+  scrim.style.opacity = String(1 - Math.max(0, y) / panel.offsetHeight); // linked to drag progress
+});
+const release = (e) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const { y } = drag;
+  const v = e.timeStamp - drag.t > 100 ? 0 : drag.v; // a finger that stopped before lifting is not a flick
+  drag = null;
+  panel.removeAttribute("data-dragging");
+  panel.style.transform = ""; scrim.style.opacity = "";
+  if (y > panel.offsetHeight * 0.4 || v > 0.5) setOpen(false);
+  else { panel.setAttribute("data-snap", ""); setTimeout(() => panel.removeAttribute("data-snap"), 220); }
+};
+grab.addEventListener("pointerup", release);
+grab.addEventListener("pointercancel", release);
+document.getElementById("rollback").addEventListener("click", (e) => {
+  if (dataKey) return; // the rollback demo runs on the demo data only
+  const ptr = track.querySelector(".track-ptr");
+  const back = ptr.style.getPropertyValue("--i").trim() === "4";
+  const items = track.querySelectorAll("li");
+  ptr.style.setProperty("--i", back ? "3" : "4");
+  ptr.toggleAttribute("data-edge", !back); if (!back) ptr.dataset.edge = "end";
+  items[3].className = back ? "is-prod" : "is-prev";
+  items[4].className = back ? "is-prev" : "is-prod";
+  e.currentTarget.querySelector("span").textContent = back ? "Undo, back to 5" : "Roll back to 4";
+  // Everything else is an effect of the same confirmed call, so it changes together with the pointer:
+  // the production card and the list badges swap in place with a short fade, no travel, no stagger.
+  const card = panel.querySelector(".live-card .lc-main");
+  card.querySelector(".top strong").textContent = back ? "Release 4" : "Release 5";
+  card.querySelector(".lc-msg").textContent = back ? "harbour office" : "harbour office, new look";
+  const rows = panel.querySelectorAll(".rel-row .l1");
+  const [ptrBadge, prevBadge] = [rows[0].querySelector(".ptr"), rows[1].querySelector(".chip-prev")];
+  (back ? rows[1] : rows[0]).append(ptrBadge);
+  (back ? rows[0] : rows[1]).append(prevBadge);
+  for (const el of [card, ptrBadge, prevBadge]) el.animate([{ opacity: 0.3 }, { opacity: 1 }], { duration: 160, easing: "cubic-bezier(0.23, 1, 0.32, 1)" });
+});
+</script>
+</body>
+</html>

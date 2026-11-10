@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Quay: sealed releases on NEAR testnet</title>
+<meta name="description" content="Quay uploads a folder to your NEAR testnet account and seals it as the next numbered release, at its own URL for good. Moving production is one contract call.">
+<meta name="theme-color" content="#f5f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a1016" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Quay: sealed releases on NEAR testnet">
+<meta property="og:description" content="Quay uploads a folder to your NEAR testnet account and seals it as the next numbered release, at its own URL for good. Moving production is one contract call.">
+<meta property="og:image" content="https://quay-esc0v902.testnet.page/assets/og.png">
+<meta property="og:url" content="https://quay-esc0v902.testnet.page/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/mono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preconnect" href="https://quay-65nqd3rn.testnet.page">
+<link rel="stylesheet" href="assets/quay.css">
+<script>try{const t=localStorage.getItem("quay-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+<script type="module" src="assets/quay.js"></script>
+<script>const qt=new URLSearchParams(location.search).get("theme");if(qt)document.documentElement.dataset.theme=qt</script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="site-nav"><div class="container">
+<a class="brand" href="index.html"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--accent)"/></svg>Quay</a>
+<nav aria-label="Site"><a href="docs/index.html">Docs</a><a class="hide-s" href="https://quay-65nqd3rn.testnet.page/">Sample</a></nav>
+<div class="nav-end"><span class="net hide-s"><span class="dot dot-live"></span>Testnet</span>
+<button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme"><svg class="icon i-moon" aria-hidden="true"><use href="assets/icons.svg#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="assets/icons.svg#i-sun"/></svg></button>
+<a class="btn btn-sm" href="dashboard/index.html">Open dashboard</a></div>
+</div></header>
+<main id="content">
+<section class="hero4">
+<div class="container">
+<h1>Every deploy is sealed on chain.<br>Production is the one you point at.</h1>
+<p class="sub">Quay uploads a folder to your NEAR testnet account and seals it as the next numbered release, at its own URL for good. Moving production is one contract call, and so is moving it back.</p>
+<div class="ctas"><a class="btn btn-lg btn-primary" href="docs/index.html">Deploy your first site</a><a class="btn btn-lg btn-quiet" data-cta-account href="dashboard/index.html?account=quay-65nqd3rn.testnet">Open the sample in the dashboard</a></div>
+<div class="demo" data-demo>
+<div class="demo-side">
+<div class="demo-head"><span class="mono">quay-65nqd3rn.testnet</span><span class="muted">17,717&nbsp;B stored</span></div>
+<div class="ledger" role="tablist" aria-orientation="vertical" aria-label="Releases on the sample account">
+<button class="lg-row" type="button" role="tab" id="rel-5" aria-controls="demo-panel" aria-selected="true" tabindex="0" data-src="https://quay-65nqd3rn.testnet.page/"><span class="lg-id">5</span><span class="lg-msg">harbour office, new look<small>8 files, 8,910&nbsp;B</small></span><span class="ptr">production</span></button>
+<button class="lg-row" type="button" role="tab" id="rel-4" aria-controls="demo-panel" aria-selected="false" tabindex="-1" data-src="https://quay-65nqd3rn.testnet.page/r/4/"><span class="lg-id">4</span><span class="lg-msg">harbour office<small>8 files, 6,280&nbsp;B</small></span><span class="chip chip-prev">previous</span></button>
+<button class="lg-row" type="button" role="tab" id="rel-3" aria-controls="demo-panel" aria-selected="false" tabindex="-1" data-src="https://quay-65nqd3rn.testnet.page/r/3/"><span class="lg-id">3</span><span class="lg-msg">latest preview<small>6 files, 2,754&nbsp;B</small></span></button>
+<button class="lg-row" type="button" role="tab" id="rel-2" aria-controls="demo-panel" aria-selected="false" tabindex="-1" data-src="https://quay-65nqd3rn.testnet.page/r/2/"><span class="lg-id">2</span><span class="lg-msg">tide log linked<small>6 files, 2,754&nbsp;B</small></span></button>
+<button class="lg-row" type="button" role="tab" id="rel-1" aria-controls="demo-panel" aria-selected="false" tabindex="-1" data-src="https://quay-65nqd3rn.testnet.page/r/1/"><span class="lg-id">1</span><span class="lg-msg">harbour opens<small>6 files, 2,754&nbsp;B</small></span></button>
+</div>
+<p class="demo-note">Choose a release to load it from chain. Production stays on 5.</p>
+</div>
+<div class="demo-frame" role="tabpanel" id="demo-panel" aria-labelledby="rel-5">
+<div class="frame-bar"><span class="mono" data-demo-url>quay-65nqd3rn.testnet.page/</span><a class="btn btn-sm btn-quiet" data-demo-open href="https://quay-65nqd3rn.testnet.page/" target="_blank" rel="noopener">Open<svg class="icon sm icon-end" aria-hidden="true"><use href="assets/icons.svg#i-ext"/></svg></a></div>
+<div class="frame-fail" role="status" hidden><strong>testnet.page is not answering</strong><p>The release is still sealed on chain; only the public gateway is down. Try again in a minute, or read the account on the explorer.</p><div class="acts"><button class="btn btn-sm" type="button" data-demo-retry>Try again</button><a class="btn btn-sm btn-quiet" href="https://explorer.testnet.near.org/accounts/quay-65nqd3rn.testnet">Open the explorer</a></div></div>
+<iframe data-demo-frame src="https://quay-65nqd3rn.testnet.page/" title="Release 5 of the sample site, live" sandbox="allow-scripts allow-same-origin" tabindex="-1"></iframe>
+</div>
+</div>
+</div>
+</section>
+<section class="section" id="how">
+<div class="container">
+<div class="section-head">
+<h2>From a folder to production in three steps</h2>
+<p class="lede">Each step is one command, and the contract on your account records it. A release you sealed last week still opens at its URL.</p>
+</div>
+<ol class="steps4">
+<li><span class="n">1</span><div><h3>Deploy</h3><p><code>quay deploy ./dist</code> uploads the folder in chunks, skips bytes the account already stores, and prints a preview URL.</p></div></li>
+<li><span class="n">2</span><div><h3>Seal</h3><p>The release gets the next number. Its files, message and size are fixed, and <code>/r/5/</code> serves that build from then on.</p></div></li>
+<li><span class="n">3</span><div><h3>Promote or roll back</h3><p><code>quay promote 5</code> moves the production pointer. <code>quay rollback</code> swaps it with the previous release. Nothing is uploaded again.</p></div></li>
+</ol>
+</div>
+</section>
+<section class="section" id="ci">
+<div class="container split-sec">
+<div>
+<h2>A CI key that can preview, and cannot ship</h2>
+<p class="lede">Give your pipeline a publish-only key. Every pull request gets its own sealed preview. Moving production still takes the owner.</p>
+<ul class="ticks">
+<li><span><b>Refused twice.</b> The CLI exits 3 before sending a promote, and the contract rejects one sent anyway.</span></li>
+<li><span><b>Shown once.</b> <code>quay keys create --ci</code> prints the secret for <code>QUAY_CI_KEY</code> and keeps a 0600 copy outside the repo.</span></li>
+</ul>
+</div>
+<figure class="mini-canvas">
+<div class="canvas"><div class="stage" id="ci-stage" data-edges="site>owner|v|promote, rollback, delete; site>ci|v|put_chunk, seal">
+<svg class="edges" aria-hidden="true"></svg>
+<div class="node" data-node="site" style="left:132px;top:24px;width:296px"><span class="node-name">Site</span><span class="node-sub">5 releases, 17,717&nbsp;B stored</span><span class="track-wrap"><ol class="track" aria-label="Releases 1 to 5. Production is 5, previous is 4."><li class=""><i aria-hidden="true"></i><span>1</span></li><li class=""><i aria-hidden="true"></i><span>2</span></li><li class=""><i aria-hidden="true"></i><span>3</span></li><li class="is-prev"><i aria-hidden="true"></i><span>4</span></li><li class="is-prod"><i aria-hidden="true"></i><span>5</span></li></ol><span class="track-ptr" aria-hidden="true" style="--n:5;--i:4" data-edge="end"><span class="ptr ptr-down">production</span></span></span></div>
+<div class="node" data-node="owner" style="left:16px;top:262px;width:252px"><span class="node-name">Full-access key</span><span class="node-sub mono">ed25519:27sRhfJZebb3…</span><span class="node-note">Held by the owner</span></div>
+<div class="node" data-node="ci" style="left:292px;top:262px;width:252px"><span class="node-name">Publish-only key</span><span class="node-sub mono">ed25519:DaAfMdDQ8hdV…</span><span class="node-note">In the CI secret store</span></div>
+</div></div>
+<figcaption>The sample account in the dashboard: each key's edge names the contract calls it may make.</figcaption>
+</figure>
+</div>
+</section>
+<section class="section" id="cost">
+<div class="container split-sec top">
+<div>
+<h2>You pay for the bytes you store</h2>
+<p class="lede">NEAR locks storage on the account that holds it. Quay prints the estimate before it spends, and stores a file once even if ten releases use it. Delete a release that is not production and its bytes unlock on the same account.</p>
+</div>
+<div class="card" style="overflow:hidden">
+<table class="rates">
+<thead><tr><th>Item</th><th class="v">Locked</th></tr></thead>
+<tbody>
+<tr><td>Storage<small>NEAR's rate for contract state</small></td><td class="v">0.01&nbsp;NEAR / 1,000&nbsp;B</td></tr>
+<tr><td>The harbour sample<small>5 releases, 17,717 bytes sealed</small></td><td class="v">≈ 0.18&nbsp;NEAR</td></tr>
+<tr><td>The Quay contract<small>216,419 bytes of wasm, once per account</small></td><td class="v">≈ 2.16&nbsp;NEAR</td></tr>
+<tr><td>One full install<small>2 site releases, a CI preview and an agent page</small></td><td class="v">2.3151&nbsp;NEAR</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section class="cta-band cta4">
+<div class="container">
+<h2>Start with four commands</h2>
+<p class="lede">Node 20 or newer, and a checkout of this repository. The faucet funds the testnet account.</p>
+<div class="code-card">
+<div class="term">
+<div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="start-cmds" aria-label="Copy the commands"><svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-copy"/></svg></button></div>
+<pre id="start-cmds">npm install -g ./cli
+quay init
+quay deploy ./dist -m "first release"
+quay promote 1</pre>
+</div>
+</div>
+<p><a class="btn btn-lg" href="docs/index.html">Read the docs</a></p>
+</div>
+</section>
+</main>
+<footer class="site-foot"><div class="container">
+<div class="small"><span>Testnet only. No mainnet path and no real funds.</span><span class="mono">quay-esc0v902.testnet</span></div>
+</div></footer>
+<script type="module" src="assets/canvas.js"></script>
+</body>
+</html>
