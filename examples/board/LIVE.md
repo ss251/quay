@@ -41,7 +41,20 @@ The 0.2 NEAR top-up of the relayer (it needs about 0.3 NEAR free to send a 300 T
 - The moderation function ran with `auth: "ok"` (the throwaway MOD_API_KEY round-tripped through the echo API; only a sha256 prefix is stored) and attached a link preview to the Met Office post.
 - OutLayer relay and trigger calls stalled intermittently: a client call to the relay can hang for a long time, and its $0.01 reservation stays on the key.
 
+## Content and how it got there
+
+- Posts 1, 3 and 4 (Tide notes, Lost oar, Fish market) came through the **OutLayer relay** (payment key 2).
+- Posts 5 to 15 (Dredging, Volunteers, Ferry, Jumble sale, the spam post, Slipway, Ice machine, Thank you, Junior sailing, Lamp, Bike racks) came through the **Node relay** (`quay relay serve --account harbour-board.testnet`, then `node seed.mjs --relay http://127.0.0.1:8788 --wait`). It was stopped afterwards. Members joined through the OutLayer relay.
+- Post 9 (the spam notice) was hidden by `moderate` (`hide: true`, blocked words). It is absent from `/`, `/api/posts` and 404 at `/posts/9`.
+- Posts 5 (Dredging) paid in NEAR and 6 (Volunteers) paid in test USDC are pinned. `node pin.mjs posts/5` and `node pin.mjs posts/6 --token` ran as `buyer.harbour-board.testnet` with its explicit key. Both appear first on `/`. Token setup: `storage_deposit` for the buyer and the site, and an open `mint` of 0.2 test USDC to the buyer (txs 3raYtJDb..., EvqiAp5L..., 3oBAvyxB... on testnet).
+- Duplicates caused by client timeouts (posts 2, 16, 17) were removed by the site owner with `quay db rm`.
+- Post 3 has no `fn` result: its moderation run never came back, so it shows no preview and no moderation verdict. It is visible.
+- Checked on the public host and on `quay gateway --account harbour-board.testnet` (local, stopped): `/` shows 10 posts with the two pins first and the digest, `/posts/5` shows "Pinned until", `/api/posts` lists 13 visible posts.
+
+## Balances after (NEAR, account balance; storage is locked from it)
+
+site 4.181 (about 0.23 liquid), relayer 0.376, buyer 0.157, pool 0.514 free and 0.196 reserved.
+
 ## Not done
 
-- 11 of 14 notices (including the spam post), the two pin payments, cron arming and the hidden-spam check.
-- Verification of `/posts/<id>` pinned order and the `/api/posts` hidden check on the public host beyond the three live posts.
+- Cron is not armed (needs about 1.1 NEAR liquid; the site has about 0.23).

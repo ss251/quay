@@ -18,7 +18,8 @@ A community notice board for a small working harbour, hosted on one NEAR testnet
 - `quay.json`: the whole project, applied by `quay up`.
 - `site/`: `index.html` (static shell, replaced by the `/` route when routes are live), `404.html`, `templates/` (`home`, `post`), `partials/`, `new/`, `members/`, `receipts/`, `assets/` (`board.css`, `board.js`, `quay.js` from `client/dist`, `config.json`, images).
 - `art/harbour.svg`: source of the hero picture, drawn for this example. Render with `rsvg-convert -w 1000 -h 400 art/harbour.svg -o site/assets/img/harbour.png`.
-- `seed/posts.json` and `seed.mjs`: 13 notices by 6 harbour members, posted through `@quay/client`.
+- `seed/posts.json` and `seed.mjs`: 14 notices by 6 harbour members (one is a spam post that `moderate` hides), posted through `@quay/client`.
+- `pin.mjs`: pays a pin with an explicit key (NEAR or `--token`), for seeding pins.
 - `build.mjs`: copies the client bundle into `site/assets/` and writes `config.json` from `quay.json` and `board.json`.
 - `test/`: `node --test` from this folder.
 
@@ -37,7 +38,7 @@ quay products token usdc.fakes.testnet # test USDC for the token price (quay.jso
 quay db fund 2                         # the pool pays for every post, so it must have NEAR
 quay up -m "Harbour Board"             # functions, collections, products, members, cron, release with routes and the large image, promote
 quay cron arm                          # starts the hourly chain
-node seed.mjs                          # joins six members through the relay and posts 13 notices
+node seed.mjs                          # joins six members through the relay and posts 14 notices
 ```
 
 `quay up --dry-run` prints the plan first. `node seed.mjs --dry-run` prints the seed plan with no network. `node seed.mjs --wait` waits for each moderation result (about 13 s per post). Seeding is safe to repeat: a title already on the board is skipped. Member keys for the seed accounts are kept in `.seed-sessions.json` (gitignored, never printed).
