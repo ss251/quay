@@ -26,6 +26,7 @@ Status on 2026-11-10: site, functions, collection, payments, members, routes, cr
 | production 1 | https://explorer.testnet.near.org/transactions/8pFfe6DQazJZZcfH8yYQhxk5nY2gVSyG5AqngDxwvUk6 |
 | cron_set `digest` (60 min, not armed) | https://explorer.testnet.near.org/transactions/27D5zLACRqV5PKMEwroVqc2JwKYoAp7bq2ZN9GfnRPao |
 | replaced the code with the audited 295,153-byte wasm (state kept; 3 posts still read) | https://explorer.testnet.near.org/transactions/Ga4ufTfXqZNQGmud9tEcXnZQBZm2qv59SjXozJUsxkd7 |
+| release 2 (key 2 in config.json, home copy) / production 2 | https://explorer.testnet.near.org/transactions/5EouQrNVgTKChY9hmJkLuAsuB3VZmeFKXcChMmXq93G2 / https://explorer.testnet.near.org/transactions/2JpjgNNyEPa4m34eWxsrrb27x4sYb8FjH64LVfUxosdr |
 | buyer account (0.18 NEAR) | https://explorer.testnet.near.org/transactions/5JL8HAeKEnsbTVJnfR4Y2iJQ42wG6VrRFXVLriytUnau |
 | removed a duplicate seed post (posts/2) | https://explorer.testnet.near.org/transactions/H7Nt6iku8gmJLJtunL1e77rR7CLUYUQmjDNHv7YGEMyS |
 | `quay functions invoke digest` (call id in attestation) | https://explorer.testnet.near.org/transactions/9vX1o2oDv4cKdE1Qf95LGW6xQoJ6J5KXBYjqRND3RWAD , https://testnet-api.outlayer.ai/attestations/by-tx/9vX1o2oDv4cKdE1Qf95LGW6xQoJ6J5KXBYjqRND3RWAD |
@@ -34,7 +35,7 @@ The 0.2 NEAR top-up of the relayer (it needs about 0.3 NEAR free to send a 300 T
 
 ## Facts worth knowing
 
-- The relay payment key in `site/assets/config.json` is public by design: key 2, scoped to the `relay` project, about $0.05 of test USDC at most $0.01 per call. Anyone who reads the page can spend it. The copy on chain in release 1 is the unfunded key 1; redeploy `site/assets/config.json` with key 2 (`node build.mjs && quay up`) so the live `/new/` page can join and post.
+- The relay payment key in `site/assets/config.json` is public by design: key 2, scoped to the `relay` project, about $0.05 of test USDC at most $0.01 per call. Anyone who reads the page can spend it. Release 2 carries key 2, so the live `/new/` page can join and post.
 - The hero is an SVG on chain. The 493 KB PNG went to NEARFS (two upload batches), but NEARFS did not serve it (`ipfs.web4.testnet.page` answered 404 and `quay up` waited without end on the read-back), so release 1 has no external file. The PNG is kept in `art/harbour.png`.
 - On chain: 19 files, 62.7 KB, locks about 0.64 NEAR.
 - The moderation function ran with `auth: "ok"` (the throwaway MOD_API_KEY round-tripped through the echo API; only a sha256 prefix is stored) and attached a link preview to the Met Office post.
