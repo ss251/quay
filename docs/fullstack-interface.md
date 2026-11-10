@@ -159,6 +159,8 @@ A release may declare routes. They are sealed with the release, so `quay rollbac
 }
 ```
 
+`"prefix": "digest-"` (list routes only) keeps docs whose id starts with it. Routes may read the system collections `_receipts` and `_fn` like any collection; writes to them stay contract-only. `_fn` doc ids are `<fn-name>-<n>`, so a `prefix` picks one function's results.
+
 At most 16 routes per release. `web4_get` checks routes before static files, in declaration order, for both production (`/…`) and previews (`/r/<id>/…`).
 
 - `doc` loads `db_get(collection, params.id)`. Missing or hidden is 404 with the release `404.html` when there is one.
@@ -329,3 +331,47 @@ Grant `pin` needs `ref` = `<collection>/<id>` of an existing doc and sets its `p
 `quay up [-m message]` applies, in order: functions (build, upload, register; secrets are only checked for presence by name), collection rules, products, members setting, cron jobs, then deploys `site.dir` as a new release with `routes` (large files per `files`), then promotes it. `--dry-run` prints the plan and changes nothing. Each step prints its transaction link.
 
 What is versioned: files, routes and templates, together, per release. `quay rollback` restores all three. What is live state and is **not** versioned: documents, collection rules, products, members, function code and secrets, the relay and cron settings. `quay up` and `quay rollback` print this so nobody expects a data rollback.
+
+
+## Contract deviations and clarifications (v3 implementation)
+
+Each line is a choice the contract makes where this spec was silent or could not be followed exactly.
+
+- **Doc ids.** An explicit id may not be all digits. Digit ids are the automatic ids, so a writer cannot block the next sequence number by taking it first.
+- **Pool.** `get_pool().balance` is pool NEAR not held by any doc. `db_withdraw` transfers nothing, because the site owner is the contract account and the NEAR is already there. It only releases the amount from the pool and emits `pool_withdrawn {yocto}`.
+- **`CollectionView`** flattens the rules: `{name, write, max_doc_bytes, moderated, payer, max_docs_per_account, on_add, count, bytes, next_seq}`. `list_collections` leaves out system collections; `get_collection("_receipts")` still answers.
+- **`db_list`** clamps `limit` to 1..=50 instead of refusing. `pinned_first` puts live pins first on the first page (no `from`); every page then skips live pins, so a pinned doc appears once. At most 16 docs per collection are pinned at once (`pin list is full`).
+- **Storage accounting.** Every charge is recorded on the doc (`deposit`) and every refund comes out of that record, so a doc never returns more than was paid for it. A shrink refunds at most the recorded deposit. The first doc a writer adds in a collection also pays for that writer's count record; it is freed with the writer's last doc.
+- **Payments.** `price_yocto` and `price_token` are each optional; one is required. `pin_seconds` is 1..=31,536,000 for grant `pin` and ignored for `receipt`. `ref` is 1 to 128 bytes of `[A-Za-z0-9._/:-]`. A NEAR receipt's storage must fit inside the price (`price does not cover receipt storage`). A token receipt's storage comes from the pool, so `ft_on_transfer` refuses (returns the full amount) unless the pool holds at least 1,000 bytes of storage (0.01 NEAR). `ft_on_transfer` returns the unused amount: the excess over `price_token` when accepted, the full amount when refused. `pay` returns nothing.
+- **Members.** `name` must also make a valid account id (no leading, trailing or doubled `-`/`_`). `join` returns the creation promise; the transaction result is `true` once `on_join` records the member, `false` when the account could not be created (it already exists, for example). Extra view: `get_members_open()`.
+- **Routes.** A pattern may not start with `/r/`. `*rest` matches zero or more segments. Json list routes read `from`, `limit`, `order`, `owner` and `prefix` from the query, with the route's values as defaults. Template, include, filter and route errors are refused at `seal`, which names the route pattern. `get_release` returns `routes` only when a release has them, and `external` only on external files, so v2 releases keep their v2 JSON.
+- **Extra views and events.** Views `get_members_open`, `get_token`. Events `collection_dropped`, `pool_withdrawn`, `members_open_set`, `product_removed`, `token_set`. `release_sealed` gains `routes` and `external` counts. `on_add` names are 1 to 32 bytes of `[a-z0-9_-]`.
+
+## 11. Layer status API (for the dashboard and the node canvas)
+
+One small read-only function reports every layer's live state, so the dashboard today and the planned canvas of nodes (Site, Gateway, Data, Functions, Routes, Relay, Cron, Keys) read the same data. It lives in the client as `@quay/client/status` and is also exposed on dashboard pages as `window.quay.status(account, options)`.
+
+```js
+import { layerStatus } from "@quay/client/status";
+const s = await layerStatus({ site: "board-x1.testnet", rpc?, gateway?, relay?, fetch?, timeoutMs: 6000 });
+// s = { site: "board-x1.testnet", measured_at: "2026-11-11T09:00:00Z", layers: { site, gateway, data, functions, routes, relay, cron, keys } }
+// each layer:
+{ "state": "ok" | "warn" | "down" | "off",   // off = not configured on this site
+  "summary": "Production is release 7",        // one plain sentence
+  "metrics": { "releases": 7, "stored_bytes": 52000 },   // small flat numbers/strings, layer-specific
+  "links": [{ "label": "Open production", "href": "https://board-x1.testnet.page/" }],
+  "error": null }                               // short reason when state is down/warn
+```
+
+| Layer | Reads | `down`/`warn` when |
+| --- | --- | --- |
+| site | `get_status`, `get_version` | RPC fails, no production release |
+| gateway | one timed `GET` of the public host, `GET /_quay/health` of a configured self-hosted gateway | non-2xx, the deprecated-RPC JSON body, timeout |
+| data | `list_collections`, `get_pool` | pool below one doc's storage |
+| functions | `fn_list`, newest `_fn` results | last result failed |
+| routes | production release `routes` | template file missing |
+| relay | relay `/health` (URL or OutLayer adapter), relayer balance | unreachable, balance < 0.05 NEAR |
+| cron | `cron_status`, `cron_list` | jobs set but chain not armed, last tick older than 2 × interval |
+| keys | `view_access_key_list` | a full-access key count other than 1 (warn) |
+
+Every layer is measured independently with its own timeout; one failure never hides the others. Pre-v3 contracts report `off` for layers they do not have.
