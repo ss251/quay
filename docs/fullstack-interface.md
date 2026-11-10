@@ -242,8 +242,10 @@ Policy, checked on the decoded delegate before anything is sent:
 - `receiver_id` is the site contract, or the sender itself for `fs_store` (large-file upload, section 7) when `allow_uploads` is on.
 - Every action is a `FunctionCall` with deposit `0`, gas ≤ `max_gas` (default 300 Tgas, enough for a `db_add` with a trigger), and a method in `methods` (default: `db_add`, `db_update`, `db_remove`).
 - `max_block_height` is in the future and at most 200 blocks ahead.
-- Per sender: at most `per_account_per_hour` relays (default 30). Overall: at most `daily_tgas` (default 30,000 Tgas) per UTC day.
-- `join` is rate-limited per client address and per day.
+- With `member_only` (default), the sender is `<name>.<site>` with exactly one label before the site.
+- The delegate's public key is an access key of the sender (`unknown_key`) and its nonce is above that key's nonce at final (`nonce_used`). The signature alone proves nothing: anyone can sign a delegate for any sender with a key of their own, or resend one seen on chain, and the chain refuses those only after the relayer paid for the try.
+- Per sender: at most `per_account_per_hour` relays (default 30). Overall: at most `daily_tgas` (default 30,000 Tgas) per UTC day. Both are charged before sending, atomically (add, compare, roll back), and a relay that fails on chain stays charged; `relayer_busy` (nothing sent) gives the charge back.
+- `join` is rate-limited per client address and per day. The Node host takes the client address from the socket, or with `--trust-proxy` from the last `X-Forwarded-For` entry. The OutLayer host cannot see the client, so it has only the daily cap, and anyone holding the public payment key can use it up.
 
 A refusal names the rule that failed. The relayer logs hashes and senders, never keys.
 
