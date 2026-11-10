@@ -78,6 +78,31 @@ export function createChain({ accountId, rpc, secret }) {
     async hasChunk(sha256) {
       return Boolean(await view("has_chunk", { sha256 }));
     },
+    /**
+     * One transaction of raw function calls to `receiverId` (default: this
+     * account). Used for NEARFS blocks, where the call is meant to fail and the
+     * indexer keeps the args, so a failed receipt is not an error here.
+     */
+    async sendBatch(calls, { receiverId = accountId } = {}) {
+      try {
+        const outcome = await account.signAndSendTransaction({
+          receiverId,
+          waitUntil: "INCLUDED",
+          throwOnFailure: false,
+          actions: calls.map((call) =>
+            actions.functionCall(
+              call.method,
+              call.args,
+              call.gas ?? GAS_CALL,
+              call.deposit ?? 0n,
+            ),
+          ),
+        });
+        return { hash: transactionHashOf(outcome), outcome };
+      } catch (error) {
+        throw classifyChainError(error);
+      }
+    },
     async putChunk(sha256, bytes) {
       return send(
         "put_chunk",
@@ -85,10 +110,12 @@ export function createChain({ accountId, rpc, secret }) {
         { deposit: 0n, gas: GAS_CHUNK },
       );
     },
-    async seal(id, files, message, spa) {
+    async seal(id, files, message, spa, routes) {
       return send(
         "seal",
-        { id, files, message, spa },
+        routes?.length
+          ? { id, files, message, spa, routes }
+          : { id, files, message, spa },
         { deposit: 0n, gas: GAS_CALL },
       );
     },
