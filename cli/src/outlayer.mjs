@@ -391,6 +391,12 @@ export function createOutlayer({
      * runs before the transaction so a crash cannot leave an unspendable key.
      */
     async createPaymentKey({ projects = [], maxPerCall = "0", save }) {
+      // an empty project_ids list does not scope the key to anything
+      if (!Array.isArray(projects) || projects.length === 0)
+        throw new QuayError(
+          "a payment key needs at least one project: a key with no projects is not scoped",
+          1,
+        );
       const nonce = Number(
         await view("get_next_payment_key_nonce", { account_id: account }),
       );

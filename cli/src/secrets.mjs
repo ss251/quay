@@ -171,14 +171,15 @@ async function set(ctx, parsed) {
   const names = parsed.rest.slice(1);
   if (names.length === 0)
     throw usage("quay: quay secrets set <NAME> [NAME...] [--fn <fn>]");
-  for (const name of names) {
+  for (const [i, name] of names.entries()) {
     if (name.includes("="))
       throw usage(
         "quay: secret values never go on the command line. Pass the name only; the value is read from stdin or a hidden prompt.",
       );
     if (!SECRET_NAME.test(name))
+      // not echoed: a value typed where a name goes would land in the terminal and logs
       throw usage(
-        `quay: ${name} is not a secret name (A-Z, 0-9 and _, starting with a letter or _)`,
+        `quay: argument ${i + 1} is not a secret name (A-Z, 0-9 and _, starting with a letter or _). Values are read from stdin or a hidden prompt.`,
       );
   }
   if (new Set(names).size !== names.length)

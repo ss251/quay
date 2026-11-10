@@ -353,6 +353,16 @@ test("deployProject creates, then adds a version, then leaves an unchanged build
   assert.equal(fake.calls.length, 2);
 });
 
+test("createPaymentKey refuses an empty project list (an unscoped key)", async () => {
+  const fake = fakeOutlayer();
+  await assert.rejects(
+    fake.client.createPaymentKey({ projects: [], maxPerCall: "10000" }),
+    /at least one project/,
+  );
+  assert.equal(fake.calls.length, 0);
+  assert.equal(fake.requests.length, 0);
+});
+
 test("createPaymentKey saves before storing and never sends the key in clear", async () => {
   const fake = fakeOutlayer();
   let saved = null;
@@ -506,6 +516,10 @@ test("secrets set refuses values on the command line and bad names", async () =>
     (await exec(["secrets", "set", "lower", "--fn", "x"])).error.message,
     /not a secret name/,
   );
+  // a value typed where a name goes is not echoed back
+  const typed = await exec(["secrets", "set", "MOD_API_KEY", SECRET_VALUE, "--fn", "x"]);
+  assert.match(typed.error.message, /not a secret name/);
+  assert.ok(!typed.error.message.includes(SECRET_VALUE));
   const empty = await exec(["secrets", "set", "A", "--fn", "x"], {
     ctx: { stdin: Readable.from(["\n"]) },
   });
