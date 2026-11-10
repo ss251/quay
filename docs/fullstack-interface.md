@@ -100,7 +100,44 @@ A doc id is 1 to 64 bytes of `[A-Za-z0-9_-]`. When the writer passes no id, the 
 
 Sign-in is off chain (NEP-413, section 5). It needs no contract method.
 
-## 3. Functions (`quay functions`) — *pending spike (a)*
+## 3. Functions (`quay functions`)
+
+Functions run on OutLayer (`outlayer.testnet`): WASI wasm in TEE workers, paid in NEAR from a contract, or over HTTPS with a payment key. Spike (a) proved both on testnet on 2026-11-10.
+
+**Code.** A function is a Rust crate built for `wasm32-wasip2` (outbound HTTP needs WASI P2 `wasi:http`). It reads its input JSON on stdin and writes its output JSON on stdout. Secrets arrive as environment variables. The guest helper crate is `functions/quay-fn` (input/output, secrets, HTTP GET/POST, NEP-413 sign-in verification). OutLayer has no JavaScript guest runtime, so JS/TS functions are not offered.
+
+**Where the wasm lives.** OutLayer fetches code from any public HTTPS URL and checks its sha256. `quay functions deploy` uploads the wasm to FastFS (`https://test.fastfs.io/<account>/<receiver>/<sha256>.wasm`, gas only, no signup) and registers an OutLayer project `<site>/<name>` whose source is that URL. `--store release` instead seals the wasm into the next site release and uses `https://<site>.testnet.page/fn/<name>.wasm` (costs storage: 0.01 NEAR per KB).
+
+**Secrets.** `quay secrets set <name> [--fn <fn>]` reads the value from stdin or a prompt, never from argv, encrypts it on the client (X25519 + HKDF-SHA256 `outlayer-keystore-v1` + ChaCha20-Poly1305, key from `POST /secrets/pubkey`), and stores it with `store_secrets` on `outlayer.testnet` under the project accessor and profile `default`. The `/secrets/pubkey` request carries placeholder values with the real key names, never the real values. Access condition: the site contract as predecessor (contract calls) or the site account as owner (HTTPS calls). `quay secrets list` shows names only. `quay secrets rm` removes the profile.
+
+**Contract registry** (site owner, 1 yocto, like other config):
+
+```jsonc
+// FunctionSpec
+{ "project": "board-x1.testnet/preview",      // OutLayer project id
+  "call": "owner" | "anyone" | "members",     // who may call fn_call
+  "payer": "caller" | "site",                  // who attaches the run deposit
+  "deposit": "5000000000000000000000",          // U128 yocto per run, default 0.005 NEAR; OutLayer refunds the unused part to the payer
+  "max_instructions": "2000000000", "max_seconds": 30,
+  "secrets": true }                             // pass secrets_ref {profile: "default", account_id: <site>}
+```
+
+| Method | Who | Deposit | Effect |
+| --- | --- | --- | --- |
+| `fn_set(name, spec)` / `fn_remove(name)` | site owner | 1 yocto | at most 16 functions. Emits `fn_set`. |
+| `fn_get(name)`, `fn_list()` | view | | |
+| `fn_call(name, input) -> Promise` | per `call` | ≥ `deposit` when `payer: caller`, else 0 | calls `request_execution` on OutLayer with `input` (JSON text, ≤ 4096 bytes), then `fn_on_result`. With `payer: site` the deposit comes from the pool (section 1). Returns the function output JSON as the transaction result. |
+| `fn_on_result(...)` | `#[private]` callback | | stores `{name, caller, ok, output, at}` as doc `<request>` in system collection `_fn` (output capped at 16 KB), emits `fn_result {name, request, ok}` |
+| `fn_results(query)` | view | | `db_list` over `_fn` |
+
+**Triggers.** A collection with `on_add: "<fn>"` runs that function after every `db_add`, input `{collection, id, owner, data}`, deposit from the pool. The callback stores the output in the doc's `fn` field. If the output contains `"hide": true` and the collection is `moderated`, the doc is hidden. A `db_add` that triggers a function needs about 150 Tgas of prepaid gas.
+
+**The 1024-byte cap.** OutLayer's one-call resume carries at most 1024 bytes; larger outputs switch to a two-call path by themselves (20 KB was returned on testnet). Quay stores at most 16 KB per result. Larger data belongs in a db doc the function writes with its own key, or in the HTTPS answer.
+
+**HTTPS.** `POST https://testnet-api.outlayer.ai/call/<site>/<fn>` with `X-Payment-Key: <owner>:<nonce>:<secret>` and `{"input": {...}, "secrets_ref": {"profile": "default", "account_id": "<site>"}}`. CORS is open. A payment key in a public page can be spent by anyone who reads it, so `quay functions key` makes one scoped to named projects with a small balance, and the docs say so. On testnet it is topped up with `usdc.fakes.testnet` (anyone can mint). `quay.functions.call(name, input)` uses HTTPS when the site publishes a key in `quay.json` → `functions.https_key`, else `fn_call` through the relayer or the wallet.
+
+`quay functions logs <fn>` reads `_fn` results and the payment-key usage history (`GET /public/payment-keys/<owner>/<nonce>/usage`, public). `quay functions invoke <fn> <json>` calls `fn_call` and prints the output and the attestation URL.
+
 
 ## 4. Routes (server-rendered pages and JSON)
 
@@ -184,7 +221,7 @@ Writes go through, in order: a member session key through the relayer (section 6
 
 ## 6. Relay
 
-Where the relayer runs (an OutLayer function or a small Node process) is *pending spikes (a) and (d)*. The HTTP protocol is frozen; both hosts serve the same one.
+Two hosts serve the same protocol. (1) `quay relay serve` is a small Node process, the one off-chain piece, labelled as such. (2) The relayer as an OutLayer function (`quay relay deploy`): the relayer key is an OutLayer secret, the page calls `POST https://testnet-api.outlayer.ai/call/<site>/relay` with `{"input": {"op": "relay" | "join" | "health", ...}}` and a scoped payment key, and the function signs and sends the transaction over RPC. No server, at the cost of a public payment key (see section 3).
 
 The relayer is its own account (`relay.<site>` by default) with a full-access key and a small NEAR balance. That balance is the hard spend limit. It never holds the site's key.
 
@@ -197,7 +234,7 @@ The relayer is its own account (`relay.<site>` by default) with a full-access ke
 Policy, checked on the decoded delegate before anything is sent:
 
 - `receiver_id` is the site contract, or the sender itself for `fs_store` (large-file upload, section 7) when `allow_uploads` is on.
-- Every action is a `FunctionCall` with deposit `0`, gas ≤ `max_gas` (default 100 Tgas), and a method in `methods` (default: `db_add`, `db_update`, `db_remove`).
+- Every action is a `FunctionCall` with deposit `0`, gas ≤ `max_gas` (default 300 Tgas, enough for a `db_add` with a trigger), and a method in `methods` (default: `db_add`, `db_update`, `db_remove`).
 - `max_block_height` is in the future and at most 200 blocks ahead.
 - Per sender: at most `per_account_per_hour` relays (default 30). Overall: at most `daily_tgas` (default 30,000 Tgas) per UTC day.
 - `join` is rate-limited per client address and per day.
@@ -225,7 +262,20 @@ Contract part (frozen). The store and upload path are *pending spike (b)*.
 
 `web4_get` receives `{"request": {"accountId": "alice.testnet" | null, "path": "/posts/12", "query": {"from": ["40"]}, "preloads": {…}?}}`. `path` has no query string. Every query value is an array. `Web4Request` must accept all four fields and ignore unknown ones. POST requests never reach `web4_get`.
 
-## 8. Scheduled jobs — *pending spike (e)*
+## 8. Scheduled jobs (`quay cron`)
+
+Spike (e): OutLayer has no scheduler. A contract can keep a yield chain alive by itself: each yield times out after about 200 blocks (~2 minutes), its callback runs, and it yields again with the gas it has left. Each hop costs about 2.25 Tgas, so 1 PGas of prepaid gas lasts about 440 hops (~14.5 hours) and less when jobs run. After that the chain stops until any transaction re-arms it. That is the mechanism, with that limit stated everywhere it is offered.
+
+| Method | Who | Deposit | Effect |
+| --- | --- | --- | --- |
+| `cron_set(name, job)` / `cron_remove(name)` | site owner | 1 yocto | `job = {"every_minutes": 30, "fn": "digest", "input": "{}"}`, `every_minutes` ≥ 5, at most 8 jobs |
+| `cron_list()` | view | | jobs with `last_run`, `next_due` |
+| `cron_status()` | view | | `{armed, hops, last_tick, started}` |
+| `cron_arm()` | anyone | 0 | starts the chain when it is not running. The caller's prepaid gas becomes the chain's budget. Emits `cron_armed`. |
+| `cron_kick()` | anyone | 0 | resumes the pending yield now (runs due jobs early). |
+| `cron_tick(...)` | `#[private]` callback | | runs each due job as a function call paid from the pool (about 60 Tgas each), then yields again when at least 20 Tgas would remain, else emits `cron_stopped`. |
+
+`quay cron add "<every 30m>" <fn>`, `quay cron list`, `quay cron rm`, `quay cron arm` (sends 1 PGas; about 1 NEAR must be liquid while it runs and the unused gas is refunded).
 
 ## 9. Payments
 
@@ -270,12 +320,12 @@ Grant `pin` needs `ref` = `<collection>/<id>` of an existing doc and sets its `p
   ],
   "products": { "pin": { "name": "Pin a post for 24 hours", "price_yocto": "100000000000000000000000", "grant": "pin", "pin_seconds": 86400 } },
   "members": { "open": true },
-  "functions": {},     // section 3, pending
-  "relay": {},         // section 6 host, pending
-  "cron": []           // section 8, pending
+  "functions": { "preview": { "dir": "functions/preview", "call": "anyone", "payer": "site", "secrets": ["PREVIEW_TOKEN"] } },
+  "relay": { "host": "outlayer" | "node", "account": "relay.board-x1.testnet", "methods": ["db_add", "db_update", "db_remove", "fn_call"] },
+  "cron": [ { "name": "digest", "every_minutes": 60, "fn": "digest", "input": {} } ]
 }
 ```
 
-`quay up [-m message]` applies, in order: functions (pending), collection rules, products, members setting, then deploys `site.dir` as a new release with `routes` (large files per `files`), then promotes it. `--dry-run` prints the plan and changes nothing. Each step prints its transaction link.
+`quay up [-m message]` applies, in order: functions (build, upload, register; secrets are only checked for presence by name), collection rules, products, members setting, cron jobs, then deploys `site.dir` as a new release with `routes` (large files per `files`), then promotes it. `--dry-run` prints the plan and changes nothing. Each step prints its transaction link.
 
 What is versioned: files, routes and templates, together, per release. `quay rollback` restores all three. What is live state and is **not** versioned: documents, collection rules, products, members, function code and secrets, the relay and cron settings. `quay up` and `quay rollback` print this so nobody expects a data rollback.
