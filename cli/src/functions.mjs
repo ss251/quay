@@ -177,7 +177,12 @@ function projectRoot(ctx) {
 }
 
 /** One function: build, upload, register on OutLayer, fn_set when the contract can. */
-export async function deployOne(ctx, name, spec, { secretsCheck = true } = {}) {
+export async function deployOne(
+  ctx,
+  name,
+  spec,
+  { secretsCheck = true, register = true } = {},
+) {
   owner(ctx);
   const dir = resolve(projectRoot(ctx), spec.dir);
   const built = await buildFunction(ctx, dir);
@@ -203,7 +208,9 @@ export async function deployOne(ctx, name, spec, { secretsCheck = true } = {}) {
   const project = await outlayer.deployProject(name, upload);
   let registered = "pending";
   let fnHash = null;
-  if (await contractHasFunctions(ctx)) {
+  if (!register) {
+    registered = "not registered";
+  } else if (await contractHasFunctions(ctx)) {
     const sent = await ctx.chain.send(
       "fn_set",
       { name, spec: contractSpec(project.project, spec) },
@@ -254,6 +261,8 @@ function reportLines(r) {
   if (r.unchanged) lines.push("  project already runs this build");
   if (r.registered === true)
     lines.push(`  fn_set ${explorerUrl(r.fn_set_transaction)}`);
+  else if (r.registered === "not registered")
+    lines.push("  not in the contract registry (HTTPS only)");
   else
     lines.push(
       "  contract registry: pending (this site contract has no fn_set yet); HTTPS calls work now",

@@ -327,7 +327,11 @@ export async function deployRelay(ctx, relayConfig = {}, flags = {}) {
     payer: "caller",
     secrets: ["RELAY_KEY", "RELAY_ACCOUNT", "RELAY_POLICY"],
   });
-  const deployed = await deployOne(ctx, "relay", spec, { secretsCheck: false });
+  // The relay is reached over HTTPS only; it needs no contract registry entry.
+  const deployed = await deployOne(ctx, "relay", spec, {
+    secretsCheck: false,
+    register: false,
+  });
   const values = {
     RELAY_KEY: file.private_key,
     RELAY_ACCOUNT: relayer,

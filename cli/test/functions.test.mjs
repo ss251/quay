@@ -826,7 +826,10 @@ test("deployRelay stores RELAY_KEY from the key file encrypted and never prints 
       return { path: "relay.wasm", bytes: WASM };
     },
   });
+  ctx.chain = fnChain(true);
   const r = await deployRelay(ctx, { host: "outlayer", methods: ["db_add"] });
+  assert.equal(r.registered, "not registered");
+  assert.equal(ctx.chain.calls.filter((c) => c.method === "fn_set").length, 0);
   assert.equal(r.project, `${SITE}/relay`);
   assert.equal(r.relayer, `relay.${SITE}`);
   const store = fake.calls.find((c) => c.method === "store_secrets");
