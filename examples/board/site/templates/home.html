@@ -14,9 +14,9 @@
 {{#each lists.digest}}
 <p><strong>{{data.output.title}}</strong></p>
 <p>{{data.output.text}}</p>
-<p class="meta">Written <time>{{created | date}}</time> by the digest function, run by hand. An hourly schedule is set but not armed yet.</p>
+<p class="meta">Written <time>{{created | date}}</time> {{#if data.output.scheduled}}by the hourly digest job.{{else}}by the digest function, run by hand.{{/if}}</p>
 {{else}}
-<p class="muted">No digest yet. The digest function writes one when it runs; an hourly schedule is set but not armed yet.</p>
+<p class="muted">No digest yet. The digest function writes one when it runs.</p>
 {{/each}}
 </section>
 <h2>Notices{{#if query.owner}} by {{query.owner}}{{/if}}</h2>

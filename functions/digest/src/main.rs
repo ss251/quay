@@ -1,6 +1,7 @@
 //! `digest`: a scheduled job. Reads the newest docs of a collection with the
 //! `db_list` view over JSON-RPC and returns a short digest (at most 2 KB):
-//! `{"title","text","collection","counts":{"docs","last_24h","posters"},"top_posters","newest"}`.
+//! `{"title","text","collection","counts":{"docs","last_24h","posters"},"top_posters","newest","scheduled"}`.
+//! `scheduled` is true when the input says `{"run": "schedule"}` (the cron job does).
 //!
 //! Input (all optional): `{"collection": "posts", "site": "<account>", "limit": 50}`.
 //! The site defaults to the OutLayer project owner, then the calling contract.
@@ -88,7 +89,10 @@ fn answer(input: &Value, rpc: &Rpc, env: &dyn Fn(&str) -> Option<String>, now_ns
         &json!({ "collection": collection, "query": { "limit": limit, "order": "desc" } }),
     )?;
     let docs = page.get("docs").and_then(Value::as_array).cloned().unwrap_or_default();
-    Ok(digest(collection, &docs, now_ns))
+    let mut out = digest(collection, &docs, now_ns);
+    // A cron job passes {"run": "schedule"}; anything else is a run by hand.
+    out["scheduled"] = json!(input.get("run").and_then(Value::as_str) == Some("schedule"));
+    Ok(out)
 }
 
 fn main() {
@@ -143,6 +147,9 @@ mod tests {
         let env = |k: &str| (k == "OUTLAYER_PROJECT_OWNER").then(|| "board.testnet".to_string());
         let out = answer(&json!({ "collection": "notes", "limit": 5 }), &rpc, &env, 0).unwrap();
         assert_eq!(out["counts"]["docs"], 1);
+        assert_eq!(out["scheduled"], false);
+        let cron = answer(&json!({ "collection": "notes", "limit": 5, "run": "schedule" }), &rpc, &env, 0).unwrap();
+        assert_eq!(cron["scheduled"], true);
         let none = |_: &str| None;
         assert!(answer(&json!({}), &rpc, &none, 0).is_err());
     }

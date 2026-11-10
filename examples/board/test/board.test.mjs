@@ -84,7 +84,11 @@ const ctxFor = (kind, full) => {
                   created: String(NS),
                   data: {
                     name: "digest",
-                    output: { title: "Digest of posts", text: "3 new" },
+                    output: {
+                      title: "Digest of posts",
+                      text: "3 new",
+                      scheduled: true,
+                    },
                   },
                 },
               ]
@@ -120,7 +124,12 @@ test("quay.json passes the CLI's strict reader and has the shape the board needs
   });
   assert.deepEqual(Object.keys(raw.functions).sort(), ["digest", "moderate"]);
   assert.deepEqual(raw.cron, [
-    { name: "digest", every_minutes: 60, fn: "digest", input: {} },
+    {
+      name: "digest",
+      every_minutes: 60,
+      fn: "digest",
+      input: { run: "schedule" },
+    },
   ]);
   assert.ok(raw.cron.every((job) => raw.functions[job.fn]));
   assert.ok(raw.collections.posts.on_add in raw.functions);

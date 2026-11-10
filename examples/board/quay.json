@@ -78,7 +78,7 @@
       "name": "digest",
       "every_minutes": 60,
       "fn": "digest",
-      "input": {}
+      "input": { "run": "schedule" }
     }
   ],
   "payments": {
