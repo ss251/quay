@@ -101,5 +101,10 @@ if (refused.status === 0) {
 }
 console.log("promote rejected");
 if (refusedTx) console.log(`rejected tx ${refusedTx}`);
-const line = refused.output.split("\n").find((item) => /not allowed|MethodNotAllowed|permission|AccessKey|yoctoNEAR|panic/i.test(item));
+const line = refused.output
+  .split("\n")
+  .map((item) => item.trim())
+  .find((item) =>
+    /allowed by the access key|MethodNameMismatch|MethodNotAllowed|not allowed|yoctoNEAR|panic/i.test(item),
+  );
 if (line) console.log(line.trim());
