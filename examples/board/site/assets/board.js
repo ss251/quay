@@ -238,18 +238,7 @@ const pages = {
       const account = quay.auth.account;
       refresh();
       show($msg, false);
-      let member = quay.auth.mode === "member";
-      if (!member) {
-        try {
-          member = await quay.members.isMember(account);
-        } catch {}
-      }
-      if (!member) {
-        fail(
-          `${account} is not a member, so it cannot post here. Sign out and join the board with a name; your wallet still works for pinning.`,
-        );
-      }
-      show($("#post-card"), member);
+      show($("#post-card"), Boolean(account));
     }
 
     if (quay.auth.account) enter();

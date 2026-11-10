@@ -5,7 +5,7 @@ A community notice board for a small working harbour, hosted on one NEAR testnet
 | Layer | Where it shows up |
 | --- | --- |
 | Sealed release | `site/` is the release: files, templates and routes are versioned together, and `quay rollback` restores all three. |
-| Document db | Each notice is a doc in the `posts` collection (`write: members`, `payer: site`, moderated, 2000 bytes, 50 per member). |
+| Document db | Each notice is a doc in the `posts` collection (`write: anyone`, `payer: site`, moderated, 2000 bytes, 50 per member). |
 | Routes | `/` lists posts (pinned first, newest first, `?from=` paging, `?owner=`). `/posts/:id` renders one. `/api/posts` and `/api/posts/:id` are JSON. The contract fills `site/templates/*.html` in `web4_get`. |
 | Members | `/new/` creates `<name>.<site>` through the relayer with no NEAR. `/members/` lists them from `list_members`. |
 | Functions | `moderate` runs on every add (`on_add`) and writes `fn.preview` (link title, description, image) and an optional `hide`. The post page shows that preview. |
@@ -31,7 +31,7 @@ You need a funded testnet account that holds the contract (the account in `quay.
 ```sh
 cd examples/board
 # 1. set "account" in quay.json (and relay.account) to your funded account
-# 2. relay: quay relay deploy   (or quay relay serve for the Node host); copy board.example.json to board.json and put the relay URL in it
+# 2. relay: quay relay deploy   (or quay relay serve for the Node host); copy board.example.json to board.json and put the relay URL in it, or the OutLayer form `{"relay":{"outlayer":{"owner":"...","project":"relay","paymentKey":"..."}}}` once the client supports it (a payment key in a public page can be spent by anyone)
 node build.mjs                         # client bundle + assets/config.json
 quay products token usdc.fakes.testnet # test USDC for the token price (quay.json has no token key yet)
 quay db fund 2                         # the pool pays for every post, so it must have NEAR
@@ -55,7 +55,7 @@ Then open `https://<account>.page/`. If the public gateway is down, run `quay ga
 - **Link previews fetch a third party.** A preview image is loaded by the visitor's browser from the linked site. Links in a post are shown as text until the function has checked them and written an `https` URL.
 - **Gateway.** The page is served by the `testnet.page` gateway. `quay gateway` serves the same release on your machine from RPC.
 - **Cron re-arms by hand.** The yield chain lives about 14 hours per arming. After that run `quay cron arm` again, or any transaction that calls `cron_arm`. The digest page says "No digest yet" until the first run.
-- **Pinning and members.** Pinning needs a wallet with at least 0.1 NEAR; a relayed member holds no NEAR and cannot pay. A wallet account that is not a `*.<account>` member cannot post, because `posts` is `write: members`.
+- **Posting and pinning.** Members (`<name>.<account>`) post gasless through the relayer. Any wallet account can also post and pays its own gas; storage is paid by the site pool either way. Pinning needs a wallet with at least 0.1 NEAR; a relayed member holds no NEAR and cannot pay.
 - **Test USDC.** The token price is test USDC (`usdc.fakes.testnet`), not Circle USDC. Anyone can mint it. This page does not offer a token checkout button; use `ft_transfer_call` with `{"product":"pin","ref":"posts/<id>"}`.
 - **Images.** The seeded picture is stored through the CLI's file store (`nearfs` by default). User image uploads are out of scope: NEARFS was not serving on 2026-11-10, so the post form takes text and a link only.
 - **Data is live state.** `quay rollback` restores files, templates and routes. It does not restore posts, members, receipts or rules. A moderator can hide a post, but the data stays on chain.

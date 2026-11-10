@@ -80,7 +80,7 @@ test("quay.json passes the CLI's strict reader and has the shape the board needs
   assert.deepEqual(project.site, { dir: "site", spa: false });
   assert.deepEqual(project.members, { open: true });
   const posts = project.collections.posts;
-  assert.equal(posts.write, "members");
+  assert.equal(posts.write, "anyone");
   assert.equal(posts.payer, "site");
   assert.equal(posts.moderated, true);
   assert.equal(posts.max_doc_bytes, 2000);

@@ -5,7 +5,7 @@
   "files": { "external_over": 32768, "store": "nearfs" },
   "collections": {
     "posts": {
-      "write": "members",
+      "write": "anyone",
       "payer": "site",
       "max_doc_bytes": 2000,
       "moderated": true,
