@@ -3,6 +3,7 @@
   "files": {
     "includes": [
       "cli/**",
+      "gateway/**",
       "web/**",
       "examples/**",
       "action/**",

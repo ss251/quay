@@ -1,0 +1,28 @@
+{
+  "name": "@quay/gateway",
+  "version": "1.0.0",
+  "description": "Serve Quay (web4) sites from NEAR testnet over JSON-RPC, without testnet.page.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/core.mjs",
+    "./node": "./src/node.mjs",
+    "./worker": "./src/worker.mjs"
+  },
+  "bin": {
+    "quay-gateway": "./dist/quay-gateway.mjs"
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test",
+    "start": "node src/bin.mjs"
+  }
+}

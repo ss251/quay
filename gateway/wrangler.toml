@@ -1,0 +1,14 @@
+# Sample Cloudflare Workers config. Replace the placeholders, then from gateway/:
+#   node build.mjs && npx wrangler@4 deploy
+name = "quay-gateway"
+main = "dist/worker.mjs"
+compatibility_date = "2025-09-01"
+
+# Pick one. DOMAIN routes <name>.<DOMAIN> to <name>.testnet and needs a
+# wildcard DNS record and route. ACCOUNT serves one site on every host.
+[vars]
+DOMAIN = "YOUR-DOMAIN.example"
+# ACCOUNT = "YOUR-NAME.testnet"
+RPC_URLS = "https://test.rpc.fastnear.com,https://testnet-rpc.intea.rs,https://near-testnet.drpc.org"
+
+# routes = [{ pattern = "*.YOUR-DOMAIN.example/*", zone_name = "YOUR-DOMAIN.example" }]
