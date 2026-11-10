@@ -1,0 +1,9 @@
+{
+  "note": "Hosts that serve a Quay account. The first mirror is the primary demo URL; <name>.testnet.page and `quay gateway --account <id>` are fallbacks. Mirrors are Cloudflare Workers running gateway/worker in single-site mode, deployed by the owner.",
+  "mirrors": {
+    "quay-esc0v902.testnet": "https://quay.ss251.workers.dev",
+    "quay-65nqd3rn.testnet": "https://quay-harbour.ss251.workers.dev"
+  },
+  "public": "https://{name}.testnet.page",
+  "local": "http://127.0.0.1:8787"
+}
