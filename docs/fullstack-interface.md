@@ -182,7 +182,29 @@ await quay.pay("pin", { ref: "posts/12" });             // section 9
 
 Writes go through, in order: a member session key through the relayer (section 6), or the signed-in wallet.
 
-## 6. Relay — *pending spike (d)*
+## 6. Relay
+
+Where the relayer runs (an OutLayer function or a small Node process) is *pending spikes (a) and (d)*. The HTTP protocol is frozen; both hosts serve the same one.
+
+The relayer is its own account (`relay.<site>` by default) with a full-access key and a small NEAR balance. That balance is the hard spend limit. It never holds the site's key.
+
+| Request | Body | Answer |
+| --- | --- | --- |
+| `POST /relay` | `{"signed_delegate": "<base64 borsh SignedDelegateAction>"}` | `200 {"hash": "<tx hash>"}`, or `4xx {"error": "<reason>"}` |
+| `POST /join` | `{"name": "alice", "public_key": "ed25519:…"}` | relayer calls `join` on the site. `200 {"account": "alice.<site>", "hash": "…"}` |
+| `GET /health` | | `{"site", "relayer", "balance", "policy"}` |
+
+Policy, checked on the decoded delegate before anything is sent:
+
+- `receiver_id` is the site contract, or the sender itself for `fs_store` (large-file upload, section 7) when `allow_uploads` is on.
+- Every action is a `FunctionCall` with deposit `0`, gas ≤ `max_gas` (default 100 Tgas), and a method in `methods` (default: `db_add`, `db_update`, `db_remove`).
+- `max_block_height` is in the future and at most 200 blocks ahead.
+- Per sender: at most `per_account_per_hour` relays (default 30). Overall: at most `daily_tgas` (default 30,000 Tgas) per UTC day.
+- `join` is rate-limited per client address and per day.
+
+A refusal names the rule that failed. The relayer logs hashes and senders, never keys.
+
+Client side: a member session is an ed25519 key made in the browser and stored in `localStorage` under `quay:<site>:session`. `join` puts it on `<name>.<site>` as a full-access key. Writes are NEP-366 delegates signed with it and sent to `/relay`. The same key signs NEP-413 sign-in messages, so `verifySignIn` treats a member exactly like a wallet user.
 
 ## 7. Large files
 
