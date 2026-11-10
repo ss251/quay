@@ -57,7 +57,8 @@ struct World {
     signer: Arc<Signer>,
     contract_id: AccountId,
     outsider_id: AccountId,
-    _sandbox: &'static near_sandbox::Sandbox,
+    /// Owned, so the node is killed when the test ends (pass or panic).
+    sandbox: near_sandbox::Sandbox,
 }
 
 /// `QUAY_WASM` overrides the vendored wasm, so a fresh build can be tested
@@ -83,7 +84,7 @@ fn chunk_of(html: &str) -> (String, String) {
 }
 
 async fn world() -> TestResult<World> {
-    let sandbox = Box::leak(Box::new(near_sandbox::Sandbox::start_sandbox().await?));
+    let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
     let network = NetworkConfig::from_rpc_url("sandbox", sandbox.rpc_addr.parse()?);
     let signer = Signer::from_secret_key(
         near_sandbox::config::DEFAULT_GENESIS_ACCOUNT_PRIVATE_KEY
@@ -115,7 +116,7 @@ async fn world() -> TestResult<World> {
         signer,
         contract_id,
         outsider_id,
-        _sandbox: sandbox,
+        sandbox,
     })
 }
 
@@ -423,7 +424,7 @@ async fn balance(world: &World, account: &AccountId) -> TestResult<u128> {
 async fn make_account(world: &World, name: &str, near: u128) -> TestResult<AccountId> {
     let id: AccountId = name.parse()?;
     world
-        ._sandbox
+        .sandbox
         .create_account(id.as_str().parse().expect("account id"))
         .initial_balance(NearToken::from_yoctonear(near * NEAR))
         .send()
@@ -651,5 +652,187 @@ async fn routed_pages_render_within_gas_and_payments_work() -> TestResult {
         .await?;
     assert_eq!(full(right).json::<String>()?, "500", "the excess over the price is unused");
     assert!(view::<bool>(&world, "has_paid", json!({ "account": alice, "product": "pin", "ref": "posts/4" })).await?);
+    Ok(())
+}
+
+// ------------------------------------------------------------------ functions, cron, NEP-141
+
+/// `contract/sandbox/mock` built with `cargo near build non-reproducible-wasm`
+/// and copied to `mock/res/quay_mock.wasm`.
+fn mock_wasm() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("mock/res/quay_mock.wasm")
+}
+
+async fn deploy_mock(world: &World, name: &str) -> TestResult<AccountId> {
+    let id = make_account(world, name, 10).await?;
+    Contract::deploy(id.clone())
+        .use_code(std::fs::read(mock_wasm())?)
+        .with_init_call("new", json!({}))?
+        .with_signer(world.signer.clone())
+        .send_to(&world.network)
+        .await?
+        .assert_success();
+    Ok(id)
+}
+
+async fn call_gas(world: &World, who: &AccountId, receiver: &AccountId, method: &str, args: Value, deposit: u128, tgas: u64) -> TestResult<Box<near_api::types::transaction::result::ExecutionFinalResult>> {
+    let result = Contract(receiver.clone())
+        .call_function(method, args)
+        .transaction()
+        .gas(NearGas::from_tgas(tgas))
+        .deposit(NearToken::from_yoctonear(deposit))
+        .with_signer(who.clone(), world.signer.clone())
+        .send_to(&world.network)
+        .await
+        .map_err(|error| format!("{method}: {error:?}"))?;
+    Ok(full(result))
+}
+
+#[tokio::test]
+async fn functions_triggers_and_tokens_with_mock_contracts() -> TestResult {
+    let world = world().await?;
+    let site = world.contract_id.clone();
+    let alice = make_account(&world, "alice.sandbox", 20).await?;
+    let mock = deploy_mock(&world, "mock.sandbox").await?;
+    call(&world, &site, "set_outlayer", json!({ "account": mock }), 1).await.expect("set_outlayer");
+    call(&world, &site, "fn_set", json!({ "name": "echo", "spec": { "project": "quay.sandbox/echo", "call": "anyone", "payer": "caller", "deposit": (MILLI).to_string(), "secrets": true } }), 1)
+        .await
+        .expect("fn_set");
+
+    // fn_call: the output is the transaction result and lands in `_fn`.
+    let out = call_gas(&world, &alice, &site, "fn_call", json!({ "name": "echo", "input": "{\"hello\":\"world\"}" }), 10 * MILLI, 300).await?;
+    assert!(out.is_success(), "{out:?}");
+    let value: Value = out.json()?;
+    assert_eq!(value["echo"]["hello"], "world");
+    assert_eq!(value["project"], "quay.sandbox/echo");
+    assert_eq!(value["deposit"], (10 * MILLI).to_string());
+    let requests: Vec<String> = Contract(mock.clone()).call_function("get_requests", json!({})).read_only().fetch_from(&world.network).await?.data;
+    let request: Value = serde_json::from_str(&requests[0])?;
+    assert_eq!(request["resource_limits"]["max_memory_mb"], 128);
+    assert_eq!(request["payer_account_id"], "alice.sandbox");
+    assert_eq!(request["secrets_ref"]["account_id"], "quay.sandbox");
+    // The result needs pool storage; the pool was empty, so nothing was stored yet.
+    call(&world, &alice, "db_fund", json!({}), 200 * MILLI).await.expect("fund");
+    let out = call_gas(&world, &alice, &site, "fn_call", json!({ "name": "echo", "input": "{\"n\":2}" }), 10 * MILLI, 300).await?;
+    assert_eq!(out.json::<Value>()?["echo"]["n"], 2);
+    let results: Value = view(&world, "fn_results", json!({ "query": { "prefix": "echo-" } })).await?;
+    assert_eq!(results["docs"][0]["id"], "echo-2");
+    assert_eq!(results["docs"][0]["data"]["ok"], true);
+
+    // A refused request: the deposit comes back to the caller.
+    let before = balance(&world, &alice).await?;
+    let out = call_gas(&world, &alice, &site, "fn_call", json!({ "name": "echo", "input": "{\"panic\":true}" }), 50 * MILLI, 300).await?;
+    assert_eq!(out.json::<Value>()?, Value::Null);
+    let after = balance(&world, &alice).await?;
+    assert!(before - after < 10 * MILLI, "the 0.05 NEAR deposit was refunded, spent {}", before - after);
+    let failed: Value = view(&world, "db_get", json!({ "collection": "_fn", "id": "echo-3" })).await?;
+    assert_eq!(failed["data"]["error"], "request failed");
+    // A forged callback is refused.
+    let forged = call(&world, &alice, "fn_on_result", json!({ "name": "echo", "request": "x", "caller": alice, "deposit": "0" }), 0).await;
+    expect_panic(forged, "private");
+
+    // on_add trigger: runs from the pool, stores the output on the doc, hides it.
+    call(&world, &site, "fn_set", json!({ "name": "moderate", "spec": { "project": "quay.sandbox/moderate", "call": "owner", "payer": "site" } }), 1)
+        .await
+        .expect("fn_set moderate");
+    call(&world, &site, "set_collection", json!({ "name": "posts", "rules": { "write": "anyone", "max_doc_bytes": 2000, "moderated": true, "payer": "site", "on_add": "moderate" } }), 1)
+        .await
+        .expect("posts");
+    let low = call(&world, &alice, "db_add", json!({ "collection": "posts", "data": "{\"t\":\"x\"}" }), 0).await;
+    expect_panic(low, "150 Tgas");
+    let ok = call_gas(&world, &alice, &site, "db_add", json!({ "collection": "posts", "data": "{\"t\":\"fine\"}" }), 0, 300).await?;
+    assert_eq!(ok.json::<String>()?, "1");
+    assert!(call_gas(&world, &alice, &site, "db_add", json!({ "collection": "posts", "data": "{\"t\":\"spam\",\"hide\":true}" }), 0, 300).await?.is_success());
+    let fine: Value = view(&world, "db_get", json!({ "collection": "posts", "id": "1" })).await?;
+    assert_eq!(fine["fn"]["echo"]["data"]["t"], "fine");
+    assert_eq!(fine["hidden"], false);
+    let spam: Value = view(&world, "db_get", json!({ "collection": "posts", "id": "2" })).await?;
+    assert_eq!(spam["hidden"], true);
+    assert_eq!(spam["fn"]["hide"], true);
+
+    // NEP-141: ft_transfer_call through the mock token, with the unused part returned.
+    call(&world, &site, "set_product", json!({ "id": "pin", "product": { "name": "Pin", "price_token": "1000", "grant": "pin", "pin_seconds": 3600 } }), 1)
+        .await
+        .expect("product");
+    call(&world, &site, "set_token", json!({ "account": mock }), 1).await.expect("token");
+    assert!(call_gas(&world, &alice, &mock, "mint", json!({ "account": alice, "amount": "10000" }), 0, 30).await?.is_success());
+    let used = call_gas(&world, &alice, &mock, "ft_transfer_call", json!({ "receiver_id": site, "amount": "1500", "msg": "{\"product\":\"pin\",\"ref\":\"posts/1\"}" }), 1, 200).await?;
+    assert_eq!(used.json::<String>()?, "1000");
+    let tokens: String = Contract(mock.clone()).call_function("ft_balance_of", json!({ "account_id": alice })).read_only().fetch_from(&world.network).await?.data;
+    assert_eq!(tokens, "9000");
+    assert!(view::<bool>(&world, "has_paid", json!({ "account": alice, "product": "pin", "ref": "posts/1" })).await?);
+    let refused = call_gas(&world, &alice, &mock, "ft_transfer_call", json!({ "receiver_id": site, "amount": "1500", "msg": "{\"product\":\"nope\"}" }), 1, 200).await?;
+    assert_eq!(refused.json::<String>()?, "0");
+    let tokens: String = Contract(mock.clone()).call_function("ft_balance_of", json!({ "account_id": alice })).read_only().fetch_from(&world.network).await?.data;
+    assert_eq!(tokens, "9000", "a refused payment returns every token");
+    Ok(())
+}
+
+#[tokio::test]
+async fn cron_chain_ticks_runs_a_job_and_kicks() -> TestResult {
+    let world = world().await?;
+    let site = world.contract_id.clone();
+    let alice = make_account(&world, "alice.sandbox", 20).await?;
+    let mock = deploy_mock(&world, "mock.sandbox").await?;
+    call(&world, &site, "set_outlayer", json!({ "account": mock }), 1).await.expect("set_outlayer");
+    call(&world, &site, "fn_set", json!({ "name": "digest", "spec": { "project": "quay.sandbox/digest", "call": "owner", "payer": "site", "deposit": MILLI.to_string() } }), 1)
+        .await
+        .expect("fn_set");
+    call(&world, &site, "cron_set", json!({ "name": "hourly", "job": { "every_minutes": 60, "fn": "digest", "input": "{\"kind\":\"digest\"}" } }), 1)
+        .await
+        .expect("cron_set");
+    call(&world, &alice, "db_fund", json!({}), 200 * MILLI).await.expect("fund");
+    // The arm transaction never reaches final status: its yield chain keeps
+    // going. Send it without waiting for finality, then read the status.
+    let _included = Contract(site.clone())
+        .call_function("cron_arm", json!({}))
+        .transaction()
+        .gas(NearGas::from_tgas(300))
+        .with_signer(alice.clone(), world.signer.clone())
+        .wait_until(near_api::types::TxExecutionStatus::Included)
+        .send_to(&world.network)
+        .await?;
+    let mut status = Value::Null;
+    for _ in 0..40 {
+        status = view(&world, "cron_status", json!({})).await?;
+        if status["armed"] == true {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+    assert_eq!(status["armed"], true, "{status}");
+    assert_eq!(status["pending"], true);
+    let again = call(&world, &alice, "cron_arm", json!({}), 0).await;
+    expect_panic(again, "already armed");
+    let early = call(&world, &alice, "cron_kick", json!({}), 0).await;
+    expect_panic(early, "kicked too soon");
+
+    // Let the yield time out: the tick runs the due job and yields again.
+    world.sandbox.fast_forward(250).await?;
+    let mut ticked = Value::Null;
+    for _ in 0..60 {
+        ticked = view(&world, "cron_status", json!({})).await?;
+        let results: Value = view(&world, "fn_results", json!({ "query": { "prefix": "digest-" } })).await?;
+        if ticked["hops"] != "0" && !results["docs"].as_array().unwrap().is_empty() {
+            assert_eq!(results["docs"][0]["data"]["output"]["echo"]["kind"], "digest");
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+    assert_ne!(ticked["hops"], "0", "{ticked}");
+    let jobs: Value = view(&world, "cron_list", json!({})).await?;
+    assert!(jobs[0]["last_run"].is_string());
+    println!("cron after one hop: {ticked}");
+
+    // A kick resumes the pending yield once the cooldown has passed.
+    world.sandbox.fast_forward(100).await?;
+    let status: Value = view(&world, "cron_status", json!({})).await?;
+    if status["pending"] == true {
+        let kick = call(&world, &alice, "cron_kick", json!({}), 0).await;
+        match kick {
+            Ok(_) => {}
+            Err(text) => assert!(text.contains("kicked too soon") || text.contains("already run"), "{text}"),
+        }
+    }
     Ok(())
 }
