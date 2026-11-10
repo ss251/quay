@@ -12,3 +12,5 @@ examples/**/dist/
 .DS_Store
 .grok/skills/
 skills-lock.json
+functions/target
+functions/*/target

@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 export PATH="$HOME/.cargo/bin:$PATH"
 
 cargo test --manifest-path contract/Cargo.toml -- --test-threads=8
+cargo test --manifest-path functions/Cargo.toml
 (cd cli && node --test)
 (cd gateway && node --test)
 (cd client && node --test)

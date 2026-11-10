@@ -1,0 +1,22 @@
+[package]
+name = "quay-fn"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Guest helpers for Quay functions on OutLayer: input/output JSON, secrets, HTTPS, NEAR RPC, NEP-413 sign-in."
+
+[features]
+default = []
+# ed25519 signing and verification, NEP-413 sign-in checks.
+ed25519 = ["dep:ed25519-dalek"]
+
+[dependencies]
+serde_json = { workspace = true }
+sha2 = { version = "0.10", default-features = false }
+bs58 = { version = "0.5", default-features = false, features = ["alloc"] }
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }
+ed25519-dalek = { version = "2.2", default-features = false, optional = true }
+
+# Outbound HTTP is WASI P2 wasi:http, which only exists inside the guest.
+[target.'cfg(target_os = "wasi")'.dependencies]
+wasi = "0.13"

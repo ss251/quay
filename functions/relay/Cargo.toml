@@ -1,0 +1,18 @@
+[package]
+name = "relay"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "NEP-366 relayer as an OutLayer function: checks a signed delegate against the site policy, wraps it, signs with RELAY_KEY, sends it."
+
+[[bin]]
+name = "relay"
+path = "src/main.rs"
+
+[dependencies]
+quay-fn = { workspace = true, features = ["ed25519"] }
+serde_json = { workspace = true }
+
+# Rate-limit counters live in OutLayer persistent storage (needs a project run).
+[target.'cfg(target_os = "wasi")'.dependencies]
+outlayer = { version = "0.2.1", default-features = false }
