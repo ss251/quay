@@ -48,6 +48,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       external: ["near-api-js"], // only the Node explicit-key path imports it, lazily
       legalComments: "none",
     });
+    // The dashboard loads this lazily as assets/status.js (web/build.mjs copies it).
+    const statusOut = here("./dist/status.js");
+    await build({ entryPoints: [here("./src/status.mjs")], outfile: statusOut, bundle: true, minify: true, format: "esm", target: "es2022", platform: "browser", legalComments: "none" });
+    console.log(`client/dist/status.js ${statSync(statusOut).size} bytes, gzip ${gzipSync(readFileSync(statusOut)).length} bytes`);
     const size = statSync(out).size;
     console.log(`client/dist/quay.js ${size} bytes (${(size / 1024).toFixed(1)} KB), gzip ${gzipSync(readFileSync(out)).length} bytes`);
     mkdirSync(dirname(VENDORED), { recursive: true });
