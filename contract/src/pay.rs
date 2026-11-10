@@ -6,7 +6,8 @@
 
 use near_sdk::json_types::{U128, U64};
 use near_sdk::serde_json::{self, Value};
-use near_sdk::store::{IterableMap, LookupSet};
+use crate::coll::IterMap;
+use near_sdk::store::LookupSet;
 use near_sdk::{env, near, AccountId};
 
 use crate::db::{
@@ -58,7 +59,7 @@ pub struct ReceiptPage {
 
 #[near(serializers = [borsh])]
 pub struct PayState {
-    pub products: IterableMap<String, Product>,
+    pub products: IterMap<String, Product>,
     /// `(buyer, product, ref or "")`.
     pub paid: LookupSet<(AccountId, String, String)>,
     pub token: Option<AccountId>,
@@ -67,7 +68,7 @@ pub struct PayState {
 impl PayState {
     pub fn new() -> Self {
         Self {
-            products: IterableMap::new(b"P"),
+            products: IterMap::new(b"P"),
             paid: LookupSet::new(b"q"),
             token: None,
         }
@@ -110,7 +111,7 @@ impl Contract {
     }
 
     pub fn get_product(&self, id: String) -> Option<Product> {
-        self.pay.products.get(&id).cloned()
+        self.pay.products.get(&id)
     }
 
     pub fn list_products(&self) -> Vec<ProductView> {
@@ -140,7 +141,6 @@ impl Contract {
             .pay
             .products
             .get(&product)
-            .cloned()
             .unwrap_or_else(|| env::panic_str("product missing"));
         let price = item
             .price_yocto
@@ -200,7 +200,6 @@ impl Contract {
             .pay
             .products
             .get(&msg.product)
-            .cloned()
             .ok_or("product missing")?;
         let price = item.price_token.ok_or("product has no token price")?.0;
         if amount < price {
@@ -230,7 +229,7 @@ impl Contract {
             return Err("pin needs ref = <collection>/<id>");
         }
         let coll = self.db.collections.get(name).ok_or("pinned doc missing")?;
-        let seq = *self
+        let seq = self
             .db
             .ids
             .get(&(coll.cid, id.to_string()))

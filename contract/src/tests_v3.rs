@@ -7,7 +7,7 @@ use near_sdk::borsh;
 use near_sdk::json_types::{U128, U64};
 use near_sdk::mock::MockAction;
 use near_sdk::serde_json::{self, json, Value};
-use near_sdk::store::{LookupMap, Vector};
+use crate::coll::{Map, Seq};
 use near_sdk::test_utils::{get_created_receipts, get_logs, VMContextBuilder};
 use near_sdk::{env, testing_env, AccountId, Gas, NearToken, PromiseResult};
 use sha2::{Digest, Sha256};
@@ -170,7 +170,7 @@ fn doc_bytes(c: &Contract, coll: &str, seq: u64, new_writer: bool) -> u64 {
     let cid = c.db.collections.get(coll).unwrap().cid;
     let doc = c.db.docs.get(&(cid, seq)).unwrap();
     let record = |key: Vec<u8>, value: usize| (1 + key.len() + value + 40) as u64;
-    let mut total = record(borsh::to_vec(&(cid, seq)).unwrap(), borsh::to_vec(doc).unwrap().len())
+    let mut total = record(borsh::to_vec(&(cid, seq)).unwrap(), borsh::to_vec(&doc).unwrap().len())
         + record(borsh::to_vec(&(cid, doc.id.clone())).unwrap(), 8);
     if new_writer {
         total += record(borsh::to_vec(&(cid, doc.owner.clone())).unwrap(), 4);
@@ -356,7 +356,7 @@ fn remove_refunds_the_writer_even_when_a_moderator_removes() {
     let view = c.get_collection("posts".into()).unwrap();
     assert_eq!(view.count.0, 0);
     assert_eq!(view.bytes.0, 0);
-    assert!(c.db.counts.get(&(1, ALICE.parse().unwrap())).is_none());
+    assert!(c.db.counts.get(&(1, ALICE.parse::<AccountId>().unwrap())).is_none());
     assert!(panics(|| c.db_remove("posts".into(), "2".into())).contains("doc missing"));
 }
 
@@ -1078,9 +1078,9 @@ fn migrates_v2_state_to_v3_and_is_idempotent() {
     let html = b"<p>v2 release</p>";
     let hash = sha_hex(html);
     {
-        let mut chunks: LookupMap<String, Vec<u8>> = LookupMap::new(b"c");
+        let mut chunks: Map<String, Vec<u8>> = Map::new(b"c");
         chunks.insert(hash.clone(), html.to_vec());
-        let mut releases: LookupMap<String, Release> = LookupMap::new(b"r");
+        let mut releases: Map<String, Release> = Map::new(b"r");
         releases.insert(
             "7".into(),
             Release {
@@ -1092,18 +1092,18 @@ fn migrates_v2_state_to_v3_and_is_idempotent() {
                 spa: false,
             },
         );
-        let mut release_ids: Vector<String> = Vector::new(b"i");
+        let mut release_ids: Seq<String> = Seq::new(b"i");
         release_ids.push("7".into());
-        let mut refs: LookupMap<String, u32> = LookupMap::new(b"n");
+        let mut refs: Map<String, u32> = Map::new(b"n");
         refs.insert(hash.clone(), 1);
         let v2 = StateV2 {
             chunks,
             releases,
             production: Some("7".into()),
             stored_bytes: html.len() as u64,
-            sales: Vector::new(b"s"),
+            sales: Seq::new(b"s"),
             release_ids,
-            history: Vector::new(b"h"),
+            history: Seq::new(b"h"),
             previous: None,
             chunk_refs: refs,
             version: 2,
@@ -1417,10 +1417,9 @@ fn renders_the_board_sample_templates() {
         json!({ "topic": "<b>x</b>", "title": "<script>alert(1)</script>", "body": "line one\n<img src=x onerror=alert(2)>" }),
     );
     // A link preview from the moderation function on the first post.
-    c.db.docs.get_mut(&(1, 1)).unwrap().fn_result = Some(
-        json!({ "preview": { "url": "https://www.metoffice.gov.uk/", "title": "Met Office", "description": "Forecasts \"and\" tides", "image": "https://example.com/p.png" } })
-            .to_string(),
-    );
+    let preview = json!({ "preview": { "url": "https://www.metoffice.gov.uk/", "title": "Met Office", "description": "Forecasts \"and\" tides", "image": "https://example.com/p.png" } })
+        .to_string();
+    c.db.docs.update(&(1, 1), |doc| doc.fn_result = Some(preview));
 
     site(0);
     let home = get(&c, "/");

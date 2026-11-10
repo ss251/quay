@@ -8,7 +8,7 @@
 
 use near_sdk::json_types::{U128, U64};
 use near_sdk::serde_json::{self, Value};
-use near_sdk::store::{IterableMap, LookupMap};
+use crate::coll::{IterMap, Map};
 use near_sdk::{env, near, require, AccountId, NearToken};
 
 use crate::{assert_self, emit, Contract};
@@ -111,11 +111,11 @@ pub struct Doc {
 
 #[near(serializers = [borsh])]
 pub struct DbState {
-    pub collections: IterableMap<String, Collection>,
-    pub docs: LookupMap<(u32, u64), Doc>,
-    pub ids: LookupMap<(u32, String), u64>,
-    pub counts: LookupMap<(u32, AccountId), u32>,
-    pub pins: LookupMap<u32, Vec<u64>>,
+    pub collections: IterMap<String, Collection>,
+    pub docs: Map<(u32, u64), Doc>,
+    pub ids: Map<(u32, String), u64>,
+    pub counts: Map<(u32, AccountId), u32>,
+    pub pins: Map<u32, Vec<u64>>,
     pub next_cid: u32,
     pub pool_balance: u128,
     pub pool_reserved: u128,
@@ -124,23 +124,15 @@ pub struct DbState {
 impl DbState {
     pub fn new() -> Self {
         Self {
-            collections: IterableMap::new(b"k"),
-            docs: LookupMap::new(b"d"),
-            ids: LookupMap::new(b"e"),
-            counts: LookupMap::new(b"w"),
-            pins: LookupMap::new(b"p"),
+            collections: IterMap::new(b"k"),
+            docs: Map::new(b"d"),
+            ids: Map::new(b"e"),
+            counts: Map::new(b"w"),
+            pins: Map::new(b"p"),
             next_cid: 1,
             pool_balance: 0,
             pool_reserved: 0,
         }
-    }
-
-    pub fn flush(&mut self) {
-        self.collections.flush();
-        self.docs.flush();
-        self.ids.flush();
-        self.counts.flush();
-        self.pins.flush();
     }
 }
 
@@ -211,8 +203,8 @@ impl Contract {
         near_sdk::assert_one_yocto();
         let name = check_collection_name(&name);
         let rules = check_rules(rules);
-        if let Some(existing) = self.db.collections.get_mut(&name) {
-            existing.rules = rules;
+        if self.db.collections.contains_key(&name) {
+            self.db.collections.update(&name, |existing| existing.rules = rules);
         } else {
             let user = self
                 .db
@@ -245,7 +237,6 @@ impl Contract {
             .db
             .collections
             .get(&name)
-            .cloned()
             .unwrap_or_else(|| env::panic_str("collection missing"));
         if coll.count > 0 {
             env::panic_str("collection has docs");
@@ -259,7 +250,7 @@ impl Contract {
         self.db
             .collections
             .get(&name)
-            .map(|coll| collection_view(&name, coll))
+            .map(|coll| collection_view(&name, &coll))
     }
 
     pub fn list_collections(&self) -> Vec<CollectionView> {
@@ -267,7 +258,7 @@ impl Contract {
             .collections
             .iter()
             .filter(|(name, _)| !name.starts_with('_'))
-            .map(|(name, coll)| collection_view(name, coll))
+            .map(|(name, coll)| collection_view(&name, &coll))
             .collect()
     }
 
@@ -280,7 +271,6 @@ impl Contract {
             .db
             .collections
             .get(&name)
-            .cloned()
             .unwrap_or_else(|| env::panic_str("collection missing"));
         if !self.can_write(&coll.rules, &writer) {
             env::panic_str("not allowed to write here");
@@ -337,7 +327,7 @@ impl Contract {
         let deposit = env::attached_deposit().as_yoctonear();
         let coll = self.collection(&name);
         let seq = self.doc_seq(coll.cid, &id);
-        let mut doc = self.db.docs.get(&(coll.cid, seq)).cloned().unwrap_or_else(|| env::panic_str("doc missing"));
+        let mut doc = self.db.docs.get(&(coll.cid, seq)).unwrap_or_else(|| env::panic_str("doc missing"));
         if doc.owner != caller {
             env::panic_str("only the doc owner can update it");
         }
@@ -351,9 +341,9 @@ impl Contract {
         doc.data = data;
         doc.updated = env::block_timestamp();
         self.db.docs.insert((coll.cid, seq), doc.clone());
-        if let Some(c) = self.db.collections.get_mut(&name) {
+        self.db.collections.update(&name, |c| {
             c.bytes = c.bytes.saturating_sub(old_len).saturating_add(new_len);
-        }
+        });
         let after = self.storage_mark();
         let byte_cost = env::storage_byte_cost().as_yoctonear();
         if after > before {
@@ -398,7 +388,6 @@ impl Contract {
             .db
             .docs
             .get(&(coll.cid, seq))
-            .cloned()
             .unwrap_or_else(|| env::panic_str("doc missing"));
         let moderator = caller == env::current_account_id() && coll.rules.moderated;
         if doc.owner != caller && !moderator {
@@ -412,10 +401,11 @@ impl Contract {
         } else {
             self.db.counts.insert((coll.cid, doc.owner.clone()), held - 1);
         }
-        if let Some(c) = self.db.collections.get_mut(&name) {
+        let freed = doc.data.len() as u64;
+        self.db.collections.update(&name, |c| {
             c.count = c.count.saturating_sub(1);
-            c.bytes = c.bytes.saturating_sub(doc.data.len() as u64);
-        }
+            c.bytes = c.bytes.saturating_sub(freed);
+        });
         self.unpin(coll.cid, seq);
         match doc.paid_by {
             PaidBy::Writer => refund(&doc.owner, doc.deposit),
@@ -442,12 +432,9 @@ impl Contract {
             env::panic_str("collection is not moderated");
         }
         let seq = self.doc_seq(coll.cid, &id);
-        let doc = self
-            .db
-            .docs
-            .get_mut(&(coll.cid, seq))
-            .unwrap_or_else(|| env::panic_str("doc missing"));
-        doc.hidden = hidden;
+        if !self.db.docs.update(&(coll.cid, seq), |doc| doc.hidden = hidden) {
+            env::panic_str("doc missing");
+        }
         emit(
             "doc_hidden",
             &serde_json::json!({ "collection": name, "id": id, "hidden": hidden }),
@@ -456,11 +443,11 @@ impl Contract {
 
     pub fn db_get(&self, collection: String, id: String) -> Option<DocView> {
         let coll = self.db.collections.get(&collection)?;
-        let seq = *self.db.ids.get(&(coll.cid, id))?;
+        let seq = self.db.ids.get(&(coll.cid, id))?;
         self.db
             .docs
             .get(&(coll.cid, seq))
-            .map(|doc| doc_view(&collection, seq, doc))
+            .map(|doc| doc_view(&collection, seq, &doc))
     }
 
     pub fn db_list(&self, collection: String, query: Option<ListQuery>) -> DocPage {
@@ -513,12 +500,11 @@ impl Contract {
         self.db
             .collections
             .get(name)
-            .cloned()
             .unwrap_or_else(|| env::panic_str("collection missing"))
     }
 
     fn doc_seq(&self, cid: u32, id: &str) -> u64 {
-        *self
+        self
             .db
             .ids
             .get(&(cid, id.to_string()))
@@ -529,7 +515,6 @@ impl Contract {
         self.db
             .counts
             .get(&(cid, writer.clone()))
-            .copied()
             .unwrap_or(0)
     }
 
@@ -544,10 +529,9 @@ impl Contract {
         }
     }
 
-    /// Flush every cached write, then read the account's storage usage.
+    /// The account's storage usage now.
     pub(crate) fn storage_mark(&mut self) -> u64 {
-        // `LookupSet` (members, `has_paid`) writes through, so it needs no flush.
-        self.db.flush();
+        // Every collection writes through, so usage is exact without a flush.
         env::storage_usage()
     }
 
@@ -588,20 +572,18 @@ impl Contract {
         );
         self.db.ids.insert((coll.cid, id), seq);
         self.db.counts.insert((coll.cid, owner), held.saturating_add(1));
-        if let Some(c) = self.db.collections.get_mut(name) {
+        self.db.collections.update(name, |c| {
             c.count += 1;
             c.bytes = c.bytes.saturating_add(bytes);
             c.next_seq = seq + 1;
-        }
+        });
         let after = self.storage_mark();
         let cost = u128::from(after.saturating_sub(before)) * env::storage_byte_cost().as_yoctonear();
         (seq, cost)
     }
 
     pub(crate) fn set_deposit(&mut self, cid: u32, seq: u64, deposit: u128) {
-        if let Some(doc) = self.db.docs.get_mut(&(cid, seq)) {
-            doc.deposit = deposit;
-        }
+        self.db.docs.update(&(cid, seq), |doc| doc.deposit = deposit);
     }
 
     pub(crate) fn draw_pool(&mut self, cost: u128) {
@@ -646,7 +628,7 @@ impl Contract {
     /// Pin `seq` until `until`. Expired pins are pruned first.
     pub(crate) fn pin(&mut self, cid: u32, seq: u64, seconds: u64) -> Result<u64, &'static str> {
         let now = env::block_timestamp();
-        let mut pins = self.db.pins.get(&cid).cloned().unwrap_or_default();
+        let mut pins = self.db.pins.get(&cid).unwrap_or_default();
         pins.retain(|pinned| {
             *pinned == seq
                 || self
@@ -661,12 +643,13 @@ impl Contract {
             }
             pins.push(seq);
         }
-        let doc = self.db.docs.get_mut(&(cid, seq)).ok_or("doc missing")?;
+        let mut doc = self.db.docs.get(&(cid, seq)).ok_or("doc missing")?;
         let until = doc
             .pinned_until
             .max(now)
             .saturating_add(seconds.saturating_mul(1_000_000_000));
         doc.pinned_until = until;
+        self.db.docs.insert((cid, seq), doc);
         self.db.pins.insert(cid, pins);
         Ok(until)
     }
@@ -692,9 +675,7 @@ impl Contract {
     }
 
     fn unpin(&mut self, cid: u32, seq: u64) {
-        if let Some(pins) = self.db.pins.get_mut(&cid) {
-            pins.retain(|pinned| *pinned != seq);
-        }
+        self.db.pins.update(&cid, |pins| pins.retain(|pinned| *pinned != seq));
     }
 
     /// Walk sequence numbers (section 1, `db_list`). Works for system collections.
@@ -732,8 +713,8 @@ impl Contract {
                         break;
                     }
                     if let Some(doc) = self.db.docs.get(&(coll.cid, seq)) {
-                        if doc.pinned_until > now && matches(doc) {
-                            docs.push(doc_view(name, seq, doc));
+                        if doc.pinned_until > now && matches(&doc) {
+                            docs.push(doc_view(name, seq, &doc));
                         }
                     }
                 }
@@ -754,8 +735,8 @@ impl Contract {
             probes += 1;
             if let Some(doc) = self.db.docs.get(&(coll.cid, seq)) {
                 let shown_above = pinned_first && doc.pinned_until > now;
-                if matches(doc) && !shown_above {
-                    docs.push(doc_view(name, seq, doc));
+                if matches(&doc) && !shown_above {
+                    docs.push(doc_view(name, seq, &doc));
                 }
             }
             cursor = match order {

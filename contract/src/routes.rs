@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use near_sdk::serde_json::{self, Map, Value};
-use near_sdk::store::LookupMap;
+use crate::coll::Map as Stored;
 use near_sdk::{env, near, AccountId};
 
 use crate::db::{doc_id_ok, name_ok, ListQuery, Order, MAX_LIMIT, MAX_NAME_BYTES};
@@ -88,7 +88,7 @@ enum Seg<'a> {
 
 /// Reads stored (on-chain) text files of one release for templates.
 pub(crate) struct FileLoader<'a> {
-    pub chunks: &'a LookupMap<String, Vec<u8>>,
+    pub chunks: &'a Stored<String, Vec<u8>>,
     pub files: &'a [StoredFile],
 }
 
@@ -100,7 +100,7 @@ impl Loader for FileLoader<'_> {
         }
         let mut bytes = Vec::new();
         for hash in &file.chunks {
-            bytes.extend_from_slice(self.chunks.get(hash)?);
+            bytes.extend_from_slice(&self.chunks.get(hash)?);
         }
         String::from_utf8(bytes).ok()
     }
@@ -369,7 +369,7 @@ impl Contract {
         };
         let routes = self.routes.get(&id)?;
         let release = self.releases.get(&id)?;
-        for route in routes {
+        for route in &routes {
             let Some(params) = match_pattern(&route.pattern, &rel) else {
                 continue;
             };
@@ -391,7 +391,7 @@ impl Contract {
             let query = query_values(&request.query);
             return Some(match route.kind {
                 RouteKind::Json => self.json_route(route, &collection, param("id"), &query),
-                _ => self.page_route(&id, release, route, &collection, &params, &query, request),
+                _ => self.page_route(&id, &release, route, &collection, &params, &query, request),
             });
         }
         None

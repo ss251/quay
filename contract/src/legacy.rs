@@ -7,7 +7,7 @@
 //! V2 is the v3 contract without the v3 fields at the end. Its collections keep
 //! their prefixes, so v2 to v3 only appends empty v3 structures.
 
-use near_sdk::store::{LookupMap, Vector};
+use crate::coll::{Map, Seq};
 use near_sdk::near;
 
 use crate::types::{Promotion, Release, Sale};
@@ -30,11 +30,11 @@ pub struct LegacyRelease {
 
 #[near(serializers = [borsh])]
 pub struct LegacyState {
-    pub chunks: LookupMap<String, Vec<u8>>,
-    pub releases: LookupMap<String, LegacyRelease>,
+    pub chunks: Map<String, Vec<u8>>,
+    pub releases: Map<String, LegacyRelease>,
     pub production: Option<String>,
     pub stored_bytes: u64,
-    pub sales: Vector<Sale>,
+    pub sales: Seq<Sale>,
 }
 
 /// Ids to try when `migrate` is called with an empty list.
@@ -45,14 +45,14 @@ pub fn scan_ids() -> Vec<String> {
 /// Version 2 contract state, field for field.
 #[near(serializers = [borsh])]
 pub struct StateV2 {
-    pub chunks: LookupMap<String, Vec<u8>>,
-    pub releases: LookupMap<String, Release>,
+    pub chunks: Map<String, Vec<u8>>,
+    pub releases: Map<String, Release>,
     pub production: Option<String>,
     pub stored_bytes: u64,
-    pub sales: Vector<Sale>,
-    pub release_ids: Vector<String>,
-    pub history: Vector<Promotion>,
+    pub sales: Seq<Sale>,
+    pub release_ids: Seq<String>,
+    pub history: Seq<Promotion>,
     pub previous: Option<String>,
-    pub chunk_refs: LookupMap<String, u32>,
+    pub chunk_refs: Map<String, u32>,
     pub version: u32,
 }

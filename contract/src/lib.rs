@@ -13,6 +13,7 @@
 //! The JSON method list is `docs/contract-interface.md` (v2) and
 //! `docs/fullstack-interface.md` (v3).
 
+mod coll;
 mod cron;
 mod db;
 pub mod exports;
@@ -31,7 +32,7 @@ mod types;
 use legacy::{scan_ids, LegacyState, StateV2};
 use near_sdk::borsh::BorshDeserialize;
 use near_sdk::json_types::{Base64VecU8, U64};
-use near_sdk::store::{LookupMap, Vector};
+use crate::coll::{Map, Seq};
 use near_sdk::{env, near, require, NearToken, PanicOnDefault};
 use routes::{check_routes, FileLoader, RouteIn};
 use types::*;
@@ -43,19 +44,19 @@ const MAX_CID_BYTES: usize = 128;
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct Contract {
-    chunks: LookupMap<String, Vec<u8>>,
-    releases: LookupMap<String, Release>,
+    chunks: Map<String, Vec<u8>>,
+    releases: Map<String, Release>,
     production: Option<String>,
     stored_bytes: u64,
-    sales: Vector<Sale>,
-    release_ids: Vector<String>,
-    history: Vector<Promotion>,
+    sales: Seq<Sale>,
+    release_ids: Seq<String>,
+    history: Seq<Promotion>,
     previous: Option<String>,
-    chunk_refs: LookupMap<String, u32>,
+    chunk_refs: Map<String, u32>,
     version: u32,
     // v3 below. v2 state is the fields above, so `migrate` appends these.
-    routes: LookupMap<String, Vec<RouteIn>>,
-    externals: LookupMap<String, Vec<ExternalFile>>,
+    routes: Map<String, Vec<RouteIn>>,
+    externals: Map<String, Vec<ExternalFile>>,
     db: db::DbState,
     members: members::MemberState,
     pay: pay::PayState,
@@ -66,18 +67,18 @@ pub struct Contract {
 impl Contract {
     pub fn new() -> Self {
         Self {
-            chunks: LookupMap::new(b"c"),
-            releases: LookupMap::new(b"r"),
+            chunks: Map::new(b"c"),
+            releases: Map::new(b"r"),
             production: None,
             stored_bytes: 0,
-            sales: Vector::new(b"s"),
-            release_ids: Vector::new(b"i"),
-            history: Vector::new(b"h"),
+            sales: Seq::new(b"s"),
+            release_ids: Seq::new(b"i"),
+            history: Seq::new(b"h"),
             previous: None,
-            chunk_refs: LookupMap::new(b"n"),
+            chunk_refs: Map::new(b"n"),
             version: STATE_VERSION,
-            routes: LookupMap::new(b"t"),
-            externals: LookupMap::new(b"x"),
+            routes: Map::new(b"t"),
+            externals: Map::new(b"x"),
             db: db::DbState::new(),
             members: members::MemberState::new(),
             pay: pay::PayState::new(),
@@ -340,7 +341,7 @@ impl Contract {
             .releases
             .remove(&id)
             .unwrap_or_else(|| env::panic_str("release missing"));
-        let _removed: Vec<String> = self.release_ids.drain(index..index + 1).collect();
+        self.release_ids.remove_shift(index);
         self.routes.remove(&id);
         self.externals.remove(&id);
         if self.previous.as_deref() == Some(id.as_str()) {
@@ -452,9 +453,9 @@ impl Contract {
     pub fn get_release(&self, id: String) -> Option<ReleaseDetail> {
         let id = check_id_ok(&id)?;
         let release = self.releases.get(&id)?;
-        let externals = self.externals.get(&id).map(Vec::as_slice).unwrap_or(&[]);
-        let routes = self.routes.get(&id).cloned().unwrap_or_default();
-        Some(release.detail(id, externals, routes))
+        let externals = self.externals.get(&id).unwrap_or_default();
+        let routes = self.routes.get(&id).unwrap_or_default();
+        Some(release.detail(id, &externals, routes))
     }
 
     pub fn list_releases(&self, from_index: u32, limit: u32) -> ReleasePage {
@@ -462,8 +463,8 @@ impl Contract {
         let mut releases = Vec::new();
         for index in start..end {
             if let Some(id) = self.release_ids.get(index) {
-                if let Some(release) = self.releases.get(id) {
-                    releases.push(release.summary(id.clone()));
+                if let Some(release) = self.releases.get(&id) {
+                    releases.push(release.summary(id));
                 }
             }
         }
@@ -524,8 +525,8 @@ impl Contract {
             previous: v2.previous,
             chunk_refs: v2.chunk_refs,
             version: STATE_VERSION,
-            routes: LookupMap::new(b"t"),
-            externals: LookupMap::new(b"x"),
+            routes: Map::new(b"t"),
+            externals: Map::new(b"x"),
             db: db::DbState::new(),
             members: members::MemberState::new(),
             pay: pay::PayState::new(),
@@ -549,7 +550,7 @@ impl Contract {
             if loaded.iter().any(|(seen, _): &(String, Release)| seen == &id) {
                 continue;
             }
-            let Some(old) = releases.get(&id).cloned() else {
+            let Some(old) = releases.get(&id) else {
                 continue;
             };
             let mut files = Vec::with_capacity(old.files.len());
@@ -595,18 +596,18 @@ impl Contract {
 
         let production_id = production.clone();
         let mut contract = Self {
-            chunks: LookupMap::new(b"c"),
-            releases: LookupMap::new(b"r"),
+            chunks: Map::new(b"c"),
+            releases: Map::new(b"r"),
             production,
             stored_bytes,
             sales,
-            release_ids: Vector::new(b"i"),
-            history: Vector::new(b"h"),
+            release_ids: Seq::new(b"i"),
+            history: Seq::new(b"h"),
             previous: None,
-            chunk_refs: LookupMap::new(b"n"),
+            chunk_refs: Map::new(b"n"),
             version: STATE_VERSION,
-            routes: LookupMap::new(b"t"),
-            externals: LookupMap::new(b"x"),
+            routes: Map::new(b"t"),
+            externals: Map::new(b"x"),
             db: db::DbState::new(),
             members: members::MemberState::new(),
             pay: pay::PayState::new(),
@@ -635,7 +636,6 @@ impl Contract {
         let next = self
             .chunk_refs
             .get(hash)
-            .copied()
             .unwrap_or(0)
             .checked_add(1)
             .unwrap_or_else(|| env::panic_str("chunk refs exceeded"));
@@ -643,7 +643,7 @@ impl Contract {
     }
 
     fn release_ref(&mut self, hash: &str) -> u64 {
-        let current = self.chunk_refs.get(hash).copied().unwrap_or(0);
+        let current = self.chunk_refs.get(hash).unwrap_or(0);
         if current == 0 {
             env::panic_str("chunk ref missing");
         }
@@ -688,7 +688,7 @@ impl Contract {
             return text_response(404, "release missing");
         };
         let cache = if immutable { CACHE_IMMUTABLE } else { CACHE_FRESH };
-        match resolve(release, path) {
+        match resolve(&release, path) {
             Resolved::File(file) | Resolved::Spa(file) => self.file_response(id, file, 200, cache),
             Resolved::MissingPage(file) => self.file_response(id, file, 404, cache),
             Resolved::Missing => text_response(404, "not found"),
@@ -706,7 +706,7 @@ impl Contract {
             let external = self
                 .externals
                 .get(release_id)
-                .and_then(|list| list.iter().find(|ext| ext.path == file.path));
+                .and_then(|list| list.into_iter().find(|ext| ext.path == file.path));
             return match external {
                 Some(ext) => Web4Response {
                     content_type: Some(file.content_type.clone()),
@@ -724,7 +724,7 @@ impl Contract {
             let Some(chunk) = self.chunks.get(hash) else {
                 return text_response(500, "chunk missing");
             };
-            body.extend_from_slice(chunk);
+            body.extend_from_slice(&chunk);
         }
         Web4Response {
             content_type: Some(file.content_type.clone()),
@@ -825,7 +825,7 @@ fn route(raw: &str) -> Routed {
     }
 }
 
-fn assemble(chunks: &LookupMap<String, Vec<u8>>, hashes: &[String]) -> Vec<u8> {
+fn assemble(chunks: &Map<String, Vec<u8>>, hashes: &[String]) -> Vec<u8> {
     let mut body = Vec::new();
     for hash in hashes {
         let chunk = chunks
@@ -834,7 +834,7 @@ fn assemble(chunks: &LookupMap<String, Vec<u8>>, hashes: &[String]) -> Vec<u8> {
         if body.len() + chunk.len() > MAX_FILE_BYTES {
             env::panic_str("file too large");
         }
-        body.extend_from_slice(chunk);
+        body.extend_from_slice(&chunk);
     }
     if body.is_empty() {
         env::panic_str("empty file");
@@ -1428,9 +1428,9 @@ mod tests {
         let html = b"<p>release 1</p>";
         let hash = sha256_hex(html);
         {
-            let mut chunks: LookupMap<String, Vec<u8>> = LookupMap::new(b"c");
+            let mut chunks: Map<String, Vec<u8>> = Map::new(b"c");
             chunks.insert(hash.clone(), html.to_vec());
-            let mut releases: LookupMap<String, legacy::LegacyRelease> = LookupMap::new(b"r");
+            let mut releases: Map<String, legacy::LegacyRelease> = Map::new(b"r");
             releases.insert(
                 "1".to_string(),
                 legacy::LegacyRelease {
@@ -1448,7 +1448,7 @@ mod tests {
                 releases,
                 production: Some("1".to_string()),
                 stored_bytes: html.len() as u64,
-                sales: Vector::new(b"s"),
+                sales: Seq::new(b"s"),
             };
             env::state_write(&legacy);
         }

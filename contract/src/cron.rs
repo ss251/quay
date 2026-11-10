@@ -8,7 +8,7 @@
 
 use near_sdk::json_types::U64;
 use near_sdk::serde_json;
-use near_sdk::store::IterableMap;
+use crate::coll::IterMap;
 use near_sdk::{env, near, Gas, GasWeight, YieldId};
 
 use crate::db::{name_ok, PaidBy, MAX_NAME_BYTES};
@@ -76,7 +76,7 @@ pub struct CronStatus {
 
 #[near(serializers = [borsh])]
 pub struct CronState {
-    pub jobs: IterableMap<String, Job>,
+    pub jobs: IterMap<String, Job>,
     pub armed: bool,
     /// Bumped on every arm, so a tick from an older chain stops itself.
     pub chain: u64,
@@ -89,7 +89,7 @@ pub struct CronState {
 impl CronState {
     pub fn new() -> Self {
         Self {
-            jobs: IterableMap::new(b"j"),
+            jobs: IterMap::new(b"j"),
             armed: false,
             chain: 0,
             pending: None,
@@ -152,7 +152,7 @@ impl Contract {
                 func: job.func.clone(),
                 input: job.input.clone(),
                 last_run: (job.last_run > 0).then_some(U64(job.last_run)),
-                next_due: U64(next_due(job)),
+                next_due: U64(next_due(&job)),
             })
             .collect()
     }
@@ -213,9 +213,9 @@ impl Contract {
         self.cron.hops += 1;
         self.cron.last_tick = now;
         let job_gas = JOB_REQUEST_GAS.saturating_add(RESULT_GAS);
-        let names: Vec<String> = self.cron.jobs.keys().cloned().collect();
+        let names: Vec<String> = self.cron.jobs.keys().collect();
         for name in names {
-            let Some(job) = self.cron.jobs.get(&name).cloned() else {
+            let Some(job) = self.cron.jobs.get(&name) else {
                 continue;
             };
             if now < next_due(&job) {
@@ -226,7 +226,7 @@ impl Contract {
                 env::log_str(&format!("cron {name} deferred: not enough gas left"));
                 break;
             }
-            let Some(spec) = self.fns.specs.get(&job.func).cloned() else {
+            let Some(spec) = self.fns.specs.get(&job.func) else {
                 env::log_str(&format!("cron {name} skipped: function {} missing", job.func));
                 continue;
             };
@@ -234,9 +234,7 @@ impl Contract {
                 env::log_str(&format!("cron {name} skipped: {reason}"));
                 continue;
             }
-            if let Some(stored) = self.cron.jobs.get_mut(&name) {
-                stored.last_run = now;
-            }
+            self.cron.jobs.update(&name, |stored| stored.last_run = now);
             let site = env::current_account_id();
             let _ = self.launch(Run {
                 name: job.func.clone(),

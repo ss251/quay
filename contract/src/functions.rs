@@ -11,7 +11,7 @@
 
 use near_sdk::json_types::{U128, U64};
 use near_sdk::serde_json::{self, Value};
-use near_sdk::store::IterableMap;
+use crate::coll::IterMap;
 use near_sdk::{env, near, require, AccountId, Gas, GasWeight, NearToken, PromiseError, PromiseIndex};
 
 use crate::db::{name_ok, refund, ListQuery, DocPage, PaidBy, WriteRule, FN_RESULTS, MAX_NAME_BYTES};
@@ -85,7 +85,7 @@ pub struct TriggerRef {
 
 #[near(serializers = [borsh])]
 pub struct FnState {
-    pub specs: IterableMap<String, FunctionSpec>,
+    pub specs: IterMap<String, FunctionSpec>,
     pub outlayer: AccountId,
     pub next_request: u64,
 }
@@ -93,7 +93,7 @@ pub struct FnState {
 impl FnState {
     pub fn new() -> Self {
         Self {
-            specs: IterableMap::new(b"f"),
+            specs: IterMap::new(b"f"),
             outlayer: "outlayer.testnet".parse().unwrap(),
             next_request: 1,
         }
@@ -136,7 +136,7 @@ impl Contract {
     }
 
     pub fn fn_get(&self, name: String) -> Option<FunctionSpec> {
-        self.fns.specs.get(&name).cloned()
+        self.fns.specs.get(&name)
     }
 
     pub fn fn_list(&self) -> Vec<FunctionView> {
@@ -167,7 +167,6 @@ impl Contract {
             .fns
             .specs
             .get(&name)
-            .cloned()
             .unwrap_or_else(|| env::panic_str("function missing"));
         let caller = env::predecessor_account_id();
         let site = env::current_account_id();
@@ -253,7 +252,6 @@ impl Contract {
             .fns
             .specs
             .get(&run.name)
-            .cloned()
             .unwrap_or_else(|| env::panic_str("function missing"));
         let site = env::current_account_id();
         let request = format!("{}-{}", run.name, self.fns.next_request);
@@ -313,7 +311,7 @@ impl Contract {
     /// Run `func` for a doc just added. Paid from the pool; skipped (logged)
     /// when the function is missing or the pool cannot pay.
     pub(crate) fn run_trigger(&mut self, func: &str, collection: &str, id: &str, owner: &AccountId, data: &str) {
-        let Some(spec) = self.fns.specs.get(func).cloned() else {
+        let Some(spec) = self.fns.specs.get(func) else {
             env::log_str(&format!("on_add {func} skipped: function missing"));
             return;
         };
@@ -421,10 +419,10 @@ impl Contract {
     /// Put the output on the doc that triggered the run, and hide it when the
     /// output says `"hide": true` in a moderated collection.
     fn apply_trigger(&mut self, target: &TriggerRef, output: Option<&Value>, text: Option<&str>) {
-        let Some(coll) = self.db.collections.get(&target.collection).cloned() else {
+        let Some(coll) = self.db.collections.get(&target.collection) else {
             return;
         };
-        let Some(seq) = self.db.ids.get(&(coll.cid, target.id.clone())).copied() else {
+        let Some(seq) = self.db.ids.get(&(coll.cid, target.id.clone())) else {
             return;
         };
         let hide = coll.rules.moderated
@@ -433,7 +431,7 @@ impl Contract {
         let new_len = text.map_or(0, str::len) as u128;
         let keep_text = self.db.pool_balance >= new_len * byte_cost;
         let before = self.storage_mark();
-        let Some(doc) = self.db.docs.get_mut(&(coll.cid, seq)) else {
+        let Some(mut doc) = self.db.docs.get(&(coll.cid, seq)) else {
             return;
         };
         if keep_text {
@@ -442,19 +440,20 @@ impl Contract {
         if hide {
             doc.hidden = true;
         }
+        self.db.docs.insert((coll.cid, seq), doc);
         let after = self.storage_mark();
         let byte_cost_delta = |a: u64, b: u64| u128::from(a.saturating_sub(b)) * byte_cost;
         if after > before {
             let taken = self.draw_pool_upto(byte_cost_delta(after, before));
-            if let Some(doc) = self.db.docs.get_mut(&(coll.cid, seq)) {
-                doc.fn_deposit = doc.fn_deposit.saturating_add(taken);
-            }
+            self.db
+                .docs
+                .update(&(coll.cid, seq), |doc| doc.fn_deposit = doc.fn_deposit.saturating_add(taken));
         } else if before > after {
             let mut back = byte_cost_delta(before, after);
-            if let Some(doc) = self.db.docs.get_mut(&(coll.cid, seq)) {
+            self.db.docs.update(&(coll.cid, seq), |doc| {
                 back = back.min(doc.fn_deposit);
                 doc.fn_deposit -= back;
-            }
+            });
             self.return_pool(back);
         }
         if hide {

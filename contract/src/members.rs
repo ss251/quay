@@ -3,7 +3,8 @@
 //! deposit, so the site pays nothing but the member record. The member is
 //! recorded only in the `on_join` callback, after the account exists.
 
-use near_sdk::store::{LookupSet, Vector};
+use crate::coll::Seq;
+use near_sdk::store::LookupSet;
 use near_sdk::{env, near, require, AccountId, Gas, GasWeight, NearToken, PublicKey};
 
 use crate::db::name_ok;
@@ -15,7 +16,7 @@ const MEMBER_PAGE_MAX: u32 = 50;
 
 #[near(serializers = [borsh])]
 pub struct MemberState {
-    pub list: Vector<AccountId>,
+    pub list: Seq<AccountId>,
     pub set: LookupSet<AccountId>,
     pub open: bool,
 }
@@ -23,7 +24,7 @@ pub struct MemberState {
 impl MemberState {
     pub fn new() -> Self {
         Self {
-            list: Vector::new(b"m"),
+            list: Seq::new(b"m"),
             set: LookupSet::new(b"u"),
             open: true,
         }
