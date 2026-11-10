@@ -38,21 +38,30 @@ function footer() {
   return `<footer class="site-footer"><div class="wrap">Testnet only. A release stays at its URL. Production is a pointer.</div></footer>`;
 }
 
-function page({ title, href, body, script }) {
+function page({ title, description, href, body, script }) {
   const depth = href.includes("/") ? 1 : 0;
   const prefix = depth ? "../" : "";
   const extra = script
     ? `\n<script type="module" src="${prefix}${script}"></script>`
     : "";
+  const embed =
+    href === "dashboard/index.html"
+      ? `\n<script>if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");</script>`
+      : "";
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
+<meta name="description" content="${description}">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${description}">
+<meta property="og:image" content="https://quay-esc0v902.testnet.page/assets/preview.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="${prefix}assets/mark.svg" type="image/svg+xml">
 <link rel="stylesheet" href="${prefix}assets/quay.css">
-<script type="module" src="${prefix}assets/quay.js"></script>${extra}
+<script type="module" src="${prefix}assets/quay.js"></script>${embed}${extra}
 </head>
 <body>
 ${header(prefix, href)}
@@ -81,11 +90,15 @@ const cli = escapeHtml(
 const pages = {
   "index.html": page({
     title: "Quay",
+    description:
+      "Publish a folder to a NEAR testnet account. Each release keeps its URL. Production is a pointer you move on purpose.",
     href: "index.html",
     body: readFileSync(join(root, "pages", "home.html"), "utf8"),
   }),
   "docs/index.html": page({
     title: "Quay docs",
+    description:
+      "Install Quay, deploy a folder, and read the command reference generated from quay --help.",
     href: "docs/index.html",
     body: readFileSync(join(root, "pages", "docs.html"), "utf8").replace(
       "{{CLI}}",
@@ -94,14 +107,20 @@ const pages = {
   }),
   "dashboard/index.html": page({
     title: "Quay dashboard",
+    description:
+      "Look up a Quay account, then promote, roll back, or delete with a testnet wallet signature.",
     href: "dashboard/index.html",
     script: "assets/dashboard.js",
     body: readFileSync(join(root, "pages", "dashboard.html"), "utf8"),
   }),
   "404.html": page({
-    title: "Not found",
+    title: "Not found — Quay",
+    description: "That path is not in this Quay release.",
     href: "404.html",
-    body: `<h1>Not found</h1><p class="lede">That path is not in this release.</p><p><a href="index.html">Back to the overview</a></p>`,
+    body: `<h1>Not found</h1>
+<p class="lede">That path is not in this release. A missing file stays missing until you seal a new release that contains it.</p>
+<p>If you just created the account, the gateway may still be issuing the TLS certificate. Wait a minute and try the host again.</p>
+<p><a href="index.html">Overview</a> · <a href="docs/index.html">Docs</a> · <a href="dashboard/index.html">Dashboard</a></p>`,
   }),
 };
 

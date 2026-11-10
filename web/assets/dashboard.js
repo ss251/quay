@@ -163,19 +163,27 @@ function fill(account, current, releases, history) {
         : release.id === current.previous
           ? "previous"
           : "";
+    if (role) row.className = `is-${role}`;
     const cells = [
       release.id,
       when(release.timestamp),
       String(release.file_count),
       bytes(release.bytes),
       release.message || "",
-      role,
     ];
     for (const value of cells) {
       const cell = document.createElement("td");
       cell.textContent = value;
       row.append(cell);
     }
+    const roleCell = document.createElement("td");
+    if (role) {
+      const badge = document.createElement("span");
+      badge.className = `badge ${role}`;
+      badge.textContent = role;
+      roleCell.append(badge);
+    }
+    row.append(roleCell);
     const actions = document.createElement("td");
     actions.className = "cell-actions";
     const link = document.createElement("a");

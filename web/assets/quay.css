@@ -305,6 +305,61 @@ th {
   align-items: center;
 }
 
+.badge {
+  display: inline-block;
+  border: 1px solid var(--water);
+  color: var(--water);
+  padding: 0.05rem 0.45rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+tr.is-production td:first-child {
+  box-shadow: inset 3px 0 0 var(--water);
+}
+
+tr.is-previous td:first-child {
+  box-shadow: inset 3px 0 0 var(--line);
+}
+
+.terminal {
+  margin: 0;
+  background: #14181b;
+  color: #ece6da;
+  border: 1px solid var(--line);
+  padding: 1rem 1.1rem;
+  overflow: auto;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.flow {
+  width: 100%;
+  height: auto;
+  color: var(--ink);
+}
+
+.flow text {
+  fill: currentColor;
+  font-family: var(--sans);
+  font-size: 15px;
+}
+
+.why {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 2rem;
+  max-width: 46rem;
+}
+
+.embed-frame {
+  width: 100%;
+  height: 72rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
 #notice[hidden],
 #error[hidden],
 #empty[hidden],
@@ -363,6 +418,15 @@ dialog::backdrop {
   color: var(--muted);
 }
 
+html.embed .site-header,
+html.embed .site-footer {
+  display: none;
+}
+
+html.embed main {
+  padding-top: 1rem;
+}
+
 .mark-line {
   stroke: currentColor;
   fill: none;
@@ -380,5 +444,11 @@ dialog::backdrop {
   }
   main {
     padding-top: 1.6rem;
+  }
+  .why {
+    grid-template-columns: 1fr;
+  }
+  .embed-frame {
+    height: 78rem;
   }
 }

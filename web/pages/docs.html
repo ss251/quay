@@ -13,7 +13,7 @@
   <p>You need Node 20 or newer. The account is on testnet. The faucet creates it. Keys stay in <code>~/.near-credentials/testnet/</code> and are not written into the project.</p>
   <pre>npm install -g ./cli
 quay init
-quay deploy ./dist -m "first landing"
+quay deploy ./dist -m "harbour office"
 quay promote 1
 quay open</pre>
   <p><code>quay init</code> writes <code>quay.json</code> with the account, the testnet RPC, and the gateway. Later commands read that file from the current directory or a parent.</p>
@@ -58,6 +58,7 @@ quay open</pre>
 </div>
 <div class="measure">
   <p>This is testnet. The faucet is rate-limited and does not spend mainnet NEAR. There is no mainnet deploy path in the CLI.</p>
+  <p>The public gateway issues a TLS certificate the first time a new host is requested. That often takes under a minute, and <code>curl</code> can fail the handshake before it succeeds. <code>quay init</code> and the first <code>quay deploy</code> poll the gateway and print "waiting for the gateway certificate, usually under 2 minutes". If that wait times out, the account and the release are already on chain. Open the URL again in a minute.</p>
   <p>The public site depends on the <code>testnet.page</code> gateway. If the gateway is down, the contract still holds the bytes, and the CLI can still read them by RPC.</p>
   <p>A full-access key can replace the contract wasm. A release is not owner-proof against that key. The publish-only key cannot.</p>
   <p>Dotfiles, <code>node_modules</code>, <code>target</code>, and <code>.git</code> are skipped. A directory release needs <code>index.html</code>.</p>

@@ -1,19 +1,105 @@
 <h1>Publish a site. Move production when you mean to.</h1>
-<p class="lede">Quay stores a folder of files on a NEAR testnet account. Each release keeps its own URL. Production is a pointer you can promote or roll back.</p>
+<p class="lede">Quay stores a folder of files on a NEAR testnet account. Each release keeps its own URL. Production is a pointer you promote or roll back.</p>
 <div class="row">
   <a class="button" href="docs/index.html">Read the docs</a>
   <a class="button quiet" href="dashboard/index.html">Open the dashboard</a>
 </div>
-<h2>Sixty seconds</h2>
+
+<h2>A session</h2>
+<p class="meta">This is the output of a packed install, from a clean folder, against a new testnet account.</p>
+<pre class="terminal">$ quay init
+created quay-i7qkbbp3.testnet
+funded 9.9982 NEAR
+contract 2.0.0
+transaction https://explorer.testnet.near.org/transactions/8uJPJg5fNt6Sp8nuFzg5NgvyBqmyDfgshP9Q6UhcQFm
+gateway https://quay-i7qkbbp3.testnet.page
+next  quay deploy
+
+$ quay deploy ./site -m "harbour office" --yes
+8 files, 6.3 KB new, 0 B reused
+storage estimate 0.0712 NEAR (0.01 NEAR / 1000 bytes, plus trie overhead)
+1/8  404.html  637 bytes
+2/8  assets/index-DfTl37xK.js  781 bytes
+3/8  berth/index.html  925 bytes
+4/8  chart.svg  290 bytes
+5/8  harbour.css  1411 bytes
+6/8  index.html  1104 bytes
+7/8  log/index.html  1063 bytes
+8/8  mark.png  69 bytes
+1  https://quay-i7qkbbp3.testnet.page/r/1/
+reused 0 B
+transaction https://explorer.testnet.near.org/transactions/7Gcpxbytc7e38PQKmcEreEWbbUxhKLxJJqoPmtW4Zu6m
+next  quay promote 1 to make this production
+
+$ quay promote 1 --yes
+1 is production
+https://quay-i7qkbbp3.testnet.page/
+transaction https://explorer.testnet.near.org/transactions/7mTJfzbzDndriv1yp19qwdMmLdLRV1Vn2kEegGkGD3L3
+
+$ quay deploy ./site -m "second board" --yes
+8 files, 1.1 KB new, 5.2 KB reused
+storage estimate 0.0138 NEAR (0.01 NEAR / 1000 bytes, plus trie overhead)
+1/1  index.html  1104 bytes
+2  https://quay-i7qkbbp3.testnet.page/r/2/
+reused 5.2 KB
+transaction https://explorer.testnet.near.org/transactions/981d7EKomzu74xVGLz1TMqMMyPACFoLhZSDN7y5g8wNZ
+next  quay promote 2 to make this production
+
+$ quay promote 2 --yes
+2 is production
+https://quay-i7qkbbp3.testnet.page/
+transaction https://explorer.testnet.near.org/transactions/jJmjCbiszXx55TixVBFoAnaBBoHnHnT3HPdzWPjzBix
+
+$ quay rollback --yes
+1 is production
+https://quay-i7qkbbp3.testnet.page/
+transaction https://explorer.testnet.near.org/transactions/BVd5snJxXBwe2Hp26UB4NdKaPn4AB6C98vpsQLawpwHb</pre>
+
+<h2>The sample, live</h2>
+<p class="measure">The frame is the dashboard opened on <a href="dashboard/index.html?account=quay-65nqd3rn.testnet">quay-65nqd3rn.testnet</a>. Production, the previous release, and the history are read from the contract. No key is in the page.</p>
+<iframe class="embed-frame" title="Dashboard for the harbour sample" src="dashboard/index.html?account=quay-65nqd3rn.testnet&amp;embed=1"></iframe>
+<p><a href="https://quay-65nqd3rn.testnet.page/">Open the sample site</a></p>
+
+<h2>How it works</h2>
+<svg class="flow" viewBox="0 0 720 150" role="img" aria-labelledby="flow-title">
+  <title id="flow-title">Your folder is stored as content-addressed chunks on your NEAR account. The web4 gateway serves / and /r/id.</title>
+  <rect x="8" y="36" width="180" height="78" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="98" y="80" text-anchor="middle">your folder</text>
+  <path d="M196 75 H248" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <path d="M240 69 L248 75 L240 81" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <rect x="256" y="36" width="210" height="78" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="361" y="72" text-anchor="middle">chunks in your</text>
+  <text x="361" y="94" text-anchor="middle">NEAR account</text>
+  <path d="M474 75 H526" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <path d="M518 69 L526 75 L518 81" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <rect x="534" y="36" width="178" height="78" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="623" y="72" text-anchor="middle">web4 gateway</text>
+  <text x="623" y="94" text-anchor="middle">/ and /r/&lt;id&gt;</text>
+</svg>
 <ol class="steps">
-  <li><div><code>npm install -g ./cli</code><p class="meta">From a checkout of this repo. Or run <code>node cli/bin/quay.js</code> without installing.</p></div></li>
-  <li><div><code>quay init</code><p class="meta">Creates a testnet account, deploys the contract, and writes <code>quay.json</code>.</p></div></li>
-  <li><div><code>quay deploy ./dist -m "first landing"</code><p class="meta">Uploads the folder, skips bytes already stored, and prints a preview URL.</p></div></li>
-  <li><div><code>quay promote 1</code><p class="meta">Points the site root at that release. The preview URL does not change.</p></div></li>
+  <li><div><code>quay deploy</code><p class="meta">Splits the folder into chunks of at most 200 KB, addressed by sha256. A file that has not changed is not uploaded again.</p></div></li>
+  <li><div><code>seal</code><p class="meta">Writes the file list, the message, and the byte count. The release id is permanent. Later deploys do not rewrite it.</p></div></li>
+  <li><div><code>web4_get</code><p class="meta">The public gateway asks your account for a path. <code>/</code> follows the production pointer. <code>/r/&lt;id&gt;/</code> serves that release.</p></div></li>
 </ol>
-<h2>What you get</h2>
+
+<h2>What it costs</h2>
 <div class="measure">
-  <p>A release is sealed. You can read it later at <code>/r/&lt;id&gt;/</code>. Promoting does not rewrite the files. Rolling back swaps the pointer with the previous release.</p>
-  <p>A publish-only key can upload. It cannot promote, roll back, or delete. Those calls require 1 yoctoNEAR, which that key cannot attach.</p>
-  <p>Storage costs about 0.01 NEAR per 1000 bytes, locked on the contract account until you delete a release that is not production.</p>
+  <p>NEAR locks 0.01 NEAR per 1,000 bytes of contract state, about 1 NEAR per 100 KB, plus a little for each trie record. Deleting a release that is not production unlocks those bytes on the contract account. The lock is not sent to your other account. The wasm is 216,419 bytes and locks a little over 2 NEAR on its own. That code lock comes back only if the account is deleted.</p>
+  <p>The harbour sample, <a href="https://quay-65nqd3rn.testnet.page/">quay-65nqd3rn.testnet</a>, has four releases. Production is 4 and the previous release is 2. The sealed files are 9,588 bytes. The account's storage lock is 2.3558 NEAR, almost all of it the 216 KB contract. The faucet started that account near 10 NEAR. Gas, plus 0.02 NEAR sent into another contract, left 9.9720 NEAR on it, of which 7.6162 NEAR is free.</p>
+  <p>A packed <code>quay init</code> on a clean folder created <a href="https://quay-i7qkbbp3.testnet.page/">quay-i7qkbbp3.testnet</a> with 9.9982 NEAR. After two site releases, a rollback, a CI preview, and an agent page, the contract reports 7,674 stored bytes. A later rollback signed in the dashboard moved production to release 2. The account then held 10.0134 NEAR, of which 2.3151 NEAR was locked and 7.6983 NEAR was free. Deleting a release that is not production unlocks that release's bytes on the same account.</p>
+</div>
+
+<h2>Why not just upload files</h2>
+<div class="why">
+  <p>A sealed release stays at <code>/r/&lt;id&gt;/</code>. Promoting does not rewrite those files, so a preview URL from last week still opens that build.</p>
+  <p><code>quay rollback</code> is one call. It swaps the production pointer with the previous release. You do not re-upload the old folder.</p>
+  <p>A publish-only key can run <code>quay deploy</code>. It cannot promote, roll back, or delete, because those calls require 1 yoctoNEAR and the key is not allowed to attach a deposit.</p>
+  <p>The bytes sit in your account. Delete a release that is not production and the storage deposit unlocks there. You can read the same bytes by RPC if the gateway is down.</p>
+</div>
+
+<h2>Limits</h2>
+<div class="measure">
+  <p>This is testnet. The faucet is rate-limited. The CLI has no mainnet path and does not spend mainnet NEAR.</p>
+  <p>The public site depends on the <code>testnet.page</code> gateway. A new host has no TLS certificate until that gateway sees the first request. <code>quay init</code> and the first deploy wait, usually under two minutes. If the wait times out, the account is already live. Open the URL again in a minute.</p>
+  <p>Storage is the expensive part. Keep the site small. A full-access key can replace the wasm. A release is not owner-proof against that key.</p>
 </div>
