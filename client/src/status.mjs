@@ -1,7 +1,9 @@
 // Layer status (docs/fullstack-interface.md section 11). Read-only; works in a browser and in Node 20+.
 // One call measures eight layers, each with its own timeout, so one failure never hides the others.
+import { createRpc, DEFAULT_RPC } from "./rpc.mjs";
+
+export { DEFAULT_RPC };
 export const LAYERS = ["site", "gateway", "data", "functions", "routes", "relay", "cron", "keys"];
-export const DEFAULT_RPC = "https://test.rpc.fastnear.com";
 const OUTLAYER = "https://testnet-api.outlayer.ai";
 const MIN_RELAY_YOCTO = 5n * 10n ** 22n; // 0.05 NEAR
 
@@ -34,19 +36,10 @@ export const samplePath = (pattern) => pattern.replace(/:[A-Za-z_]\w*/g, "1").re
 
 // ---- chain reads ----
 // rpc is a URL or a query function (params) => result; the dashboard passes its own fallback client.
-function querier({ rpc = DEFAULT_RPC, fetch: f }) {
+function querier({ rpc, fetch: f }) {
   if (typeof rpc === "function") return rpc;
-  return async (params) => {
-    const res = await f(rpc, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: "quay", method: "query", params: { finality: "final", ...params } }),
-    });
-    const body = await res.json().catch(() => null);
-    if (body?.error) throw new Error(body.error.data || body.error.message || "rpc error");
-    if (!res.ok || !body) throw new Error(`no RPC answered (HTTP ${res.status})`);
-    return body.result;
-  };
+  const client = createRpc({ url: rpc, fetch: f }); // a URL, a list, or nothing for the default failover list
+  return (params) => client.call("query", { finality: "final", ...params });
 }
 
 function reader(query) {
@@ -255,7 +248,7 @@ async function keysLayer({ r, site }) {
 const IMPLS = { site: siteLayer, gateway: gatewayLayer, data: dataLayer, functions: functionsLayer, routes: routesLayer, relay: relayLayer, cron: cronLayer, keys: keysLayer };
 
 /**
- * Measure every layer. Options: site, rpc (URL or a query function), gateway (self-hosted URL),
+ * Measure every layer. Options: site, rpc (URL, list of URLs, or a query function; default is the public failover list), gateway (self-hosted URL),
  * mirror (URL of a Workers or other gateway that serves the site), relay (URL or { outlayer: { owner, project, paymentKey, api } }), fetch, timeoutMs, now (ms, for tests),
  * probe (async ("mirror" | "public") => { ok, ms, reason } used where CORS blocks a fetch).
  */

@@ -90,8 +90,9 @@ test("sandbox: relay server, member join, relayed writes and sign-in against a r
   if (v3) {
     const notes = member.db.collection("notes");
     const id = await notes.add({ text: "hello from a member with zero NEAR" });
-    assert.match(id, /^\d+$/);
+    assert.match(id, /^[A-Za-z0-9_-]+$/); // the contract picks the automatic id
     const doc = await notes.get(id);
+    assert.equal(doc.id, id);
     assert.equal(doc.owner, `alice.${SITE}`);
     assert.equal(doc.data.text, "hello from a member with zero NEAR");
     await notes.update(id, { text: "edited" });

@@ -45,7 +45,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       format: "esm",
       target: "es2022",
       platform: "browser",
-      external: ["near-api-js"], // only the Node explicit-key path imports it, lazily
+      // only the Node explicit-key path imports these, lazily; the browser never loads them
+      external: ["near-api-js", "./failover.mjs"],
       legalComments: "none",
     });
     // The dashboard loads this lazily as assets/status.js (web/build.mjs copies it).

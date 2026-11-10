@@ -10,6 +10,7 @@ import { createProvider } from "./chain.mjs";
 
 import { requireAccount, readKeyFile } from "./config.mjs";
 import { QuayError, usage } from "./errors.mjs";
+import { rpcList } from "./gateway.mjs";
 import { confirm, explorerUrl, owner } from "./shared.mjs";
 import { emit, formatNear, helpText, writeErr, writeOut } from "./text.mjs";
 import { parseNear } from "./units.mjs";
@@ -89,7 +90,8 @@ async function serve(ctx, parsed) {
   const chain =
     ctx.relayChain ??
     (await createNearChain({
-      rpc: ctx.config.rpc,
+      // the same ordered failover list as the gateway: fastnear, intea, drpc
+      rpc: rpcList(flags, ctx.config).urls,
       site,
       relayer,
       secret: relayerKey(ctx, relayer),

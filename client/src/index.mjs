@@ -13,7 +13,7 @@ import {
 } from "./encoding.mjs";
 import { createRpc } from "./rpc.mjs";
 
-export { verifySignIn } from "./verify.mjs";
+// verifySignIn lives at "@quay/client/verify" so pages that never verify do not carry it.
 
 const CONNECT_URL = "https://esm.sh/@hot-labs/near-connect@0.12.0";
 const DEFAULT_GAS = 50_000_000_000_000n;
@@ -95,7 +95,7 @@ export function connect(options) {
   if (!options?.site) throw new QuayError("connect needs { site }", "bad_config");
   const site = options.site;
   const doFetch = options.fetch ?? ((...a) => globalThis.fetch(...a));
-  const rpc = createRpc({ url: options.rpc, fetch: doFetch });
+  const rpc = createRpc({ url: options.rpc, fetch: doFetch });  // no rpc option: ordered failover over the public testnet RPCs
   const storage = options.storage ?? defaultStorage();
   const sessionKey = `quay:${site}:session`;
   const outlayer = options.relay && typeof options.relay === "object" ? options.relay.outlayer : null;
@@ -321,9 +321,10 @@ export function connect(options) {
   }
 
   async function keyWrite(method, args, gas, deposit, receiver = site) {
-    const { Account, JsonRpcProvider } = await import("near-api-js");
+    const { Account } = await import("near-api-js");
+    const { createFailoverProvider } = await import("./failover.mjs");
     const k = options.key;
-    const account = new Account(k.accountId, new JsonRpcProvider({ url: rpc.url }), k.secretKey);
+    const account = new Account(k.accountId, await createFailoverProvider(rpc.urls), k.secretKey);
     const outcome = await account.callFunctionRaw({ contractId: receiver, methodName: method, args, gas, deposit });
     return { hash: outcome?.transaction?.hash, outcome };
   }

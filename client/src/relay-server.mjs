@@ -237,8 +237,9 @@ const GAS_JOIN = 50n * 10n ** 12n;
 
 /** The real chain behind the server: a near-api-js Account for the relayer. Node only. */
 export async function createNearChain({ rpc, site, relayer, secret }) {
-  const { Account, JsonRpcProvider } = await import("near-api-js");
-  const provider = new JsonRpcProvider({ url: rpc });
+  const { Account } = await import("near-api-js");
+  const { createFailoverProvider } = await import("./failover.mjs");
+  const provider = await createFailoverProvider(rpc); // one URL, a list, or nothing for the public failover list
   const account = new Account(relayer, provider, secret);
   return {
     async height() {
