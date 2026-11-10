@@ -3,16 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Harbour</title>
-<link rel="stylesheet" href="./src/style.css">
+<title>Harbour office</title>
+<meta name="description" content="The harbour office sample published with Quay. Release 4.">
+<link rel="stylesheet" href="./harbour.css">
+<link rel="icon" href="./mark.png" type="image/png">
 </head>
 <body>
 <main>
-  <p class="eyebrow">Harbour</p>
-  <h1>A small site published by Quay.</h1>
-  <p>Release <strong id="release">3</strong>. Production can point at an earlier release after a rollback. This preview keeps the files from the deploy that sealed it.</p>
-  <p><img src="./mark.png" width="48" height="48" alt=""></p>
-  <p><a href="./log/">Tide log</a></p>
+  <p class="eyebrow">Harbour office</p>
+  <h1>Tide, berth, and the board.</h1>
+  <nav aria-label="Harbour">
+    <a href="./" aria-current="page">Board</a>
+    <a href="./log/">Tide log</a>
+    <a href="./berth/">Berth 4</a>
+  </nav>
+  <p>Release <strong id="release">4</strong>. This page is the build that was sealed as that release. Production can point at an older release after a rollback. The preview URL for this build does not change.</p>
+  <p><img src="./mark.png" width="48" height="48" alt="A small pier mark"></p>
+  <p class="muted">Published with Quay on NEAR testnet. The files live in the contract account.</p>
 </main>
 <script type="module" src="./src/main.js"></script>
 </body>

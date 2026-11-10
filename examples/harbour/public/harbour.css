@@ -2,6 +2,7 @@
   color-scheme: light dark;
   --paper: #f3efe6;
   --ink: #1c1915;
+  --muted: #3f3a33;
   --water: #0f3c44;
   --line: #d4ccbe;
   --serif: "Iowan Old Style", Palatino, Georgia, serif;
@@ -12,9 +13,14 @@
   :root {
     --paper: #14181b;
     --ink: #ece6da;
+    --muted: #d2c7b6;
     --water: #b7dfde;
     --line: #30383c;
   }
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
@@ -26,28 +32,67 @@ body {
 }
 
 main {
-  width: min(38rem, calc(100% - 2rem));
-  margin: 3rem auto;
+  width: min(40rem, calc(100% - 2rem));
+  margin: 2.5rem auto 4rem;
 }
 
 h1 {
   font-family: var(--serif);
-  font-size: 2.4rem;
+  font-size: clamp(2rem, 6vw, 2.8rem);
   line-height: 1.15;
   font-weight: 560;
+  margin: 0.2rem 0 0.8rem;
 }
 
 a {
   color: var(--water);
 }
 
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+}
+
+nav a {
+  color: var(--ink);
+}
+
 .eyebrow {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 0.78rem;
+  margin: 0;
 }
 
-img {
+.muted {
+  color: var(--muted);
+}
+
+img,
+svg.chart {
   display: block;
+  max-width: 100%;
+  height: auto;
   border: 1px solid var(--line);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.45rem 0.3rem;
+  border-bottom: 1px solid var(--line);
+}
+
+th {
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
