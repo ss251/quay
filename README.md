@@ -1,48 +1,67 @@
 # Quay
 
-Quay is the managed place to host a NEAR app. A publish writes an immutable release, production is a pointer you can move or roll back in one call, and a CI key can publish but is rejected when it calls promote. This is the first NEAR deploy flow with immutable versioned releases, a production pointer, and a deploy-scoped CI key.
+Quay publishes a folder of files to a NEAR testnet account. Each publish is a sealed release with its own URL. Production is a pointer you move with `quay promote` or `quay rollback`. A publish-only key can upload a preview. It cannot move production.
 
-## The problem
+The product site is https://quay-esc0v902.testnet.page/. The dashboard is https://quay-esc0v902.testnet.page/dashboard/. A sample with three releases and one rollback is https://quay-65nqd3rn.testnet.page/. The earlier demo on https://quay-bb.testnet.page/ is still serving.
 
-A NEAR account can hold a contract and serve bytes, but it has one code blob and one state. Replacing the site replaces the public URL. There is no sealed history of what was published, and there is no key that can publish a release without also being able to move production.
+## Install
 
-## What it uses on NEAR
+You need Node 20 or newer, and a checkout of this repo. The package is not on the npm registry.
 
-Testnet only. Account `quay-bb.testnet`.
+```sh
+npm install -g ./cli
+quay init
+quay deploy ./dist -m "first landing"
+quay promote 1
+quay open
+```
 
-- A Rust contract (`near-sdk` 5.30.1) with `put_chunk`, `seal`, `promote`, `web4_get`, `get_production`, `get_release`, `get_budget`, `has_chunk`, and `buy`.
-- Chunks keyed by sha256, 200,000 bytes maximum. Sealing the same bytes again does not store them twice.
-- `promote` attaches exactly 1 yoctoNEAR. A function-call key cannot attach NEAR, so it cannot promote even if its method list were wrong.
-- The publish key may call only `put_chunk` and `seal`. Its public key is `ed25519:5ibCru26UTkfcfhxQe4EKk4b5Mhpwh78zjKNGaEXzgxT`. Added in [7vNr7FXmUMpbSuX2YATgYw3MrFSErrnfGqSqdFDwtxm6](https://explorer.testnet.near.org/transactions/7vNr7FXmUMpbSuX2YATgYw3MrFSErrnfGqSqdFDwtxm6).
-- `put_chunk`, `seal`, and `promote` accept a call only when the predecessor is `quay-bb.testnet`. One yoctoNEAR from another account cannot move production. `buy` stays public.
-- `web4_get` answers the public gateway. Production is `/` and `/index.html`. A release is `/r/<id>`, `/r/<id>/`, and `/r/<id>/index.html`.
-- NEP-297 events `release_sealed`, `promoted`, and `purchased` (`standard` `quay`, `version` `1.0.0`).
-- `buy` takes testnet NEAR into the site account and records the buyer. It does not move the production pointer.
+`quay init` asks the testnet faucet for an account, deploys the contract, and writes `quay.json`. Keys stay in `~/.near-credentials/testnet/`. From a checkout you can skip the install and run `node cli/bin/quay.js`.
 
-The contract wasm was deployed and initialized with `new` in [3PJ5vXuwsrMebY9bgSxuSVUnc5hYFqohHxMqiygESiUu](https://explorer.testnet.near.org/transactions/3PJ5vXuwsrMebY9bgSxuSVUnc5hYFqohHxMqiygESiUu). That wasm was 177,295 bytes. Account storage rose by 177,368 bytes, which locks 1.77368 NEAR at the protocol rate of 0.01 NEAR per 1,000 bytes. A later code-only deploy kept the state: [FJEpxzffwhyFcHHTfxezs5PUobXqhPJUuZfMTMjvfZaD](https://explorer.testnet.near.org/transactions/FJEpxzffwhyFcHHTfxezs5PUobXqhPJUuZfMTMjvfZaD). `agent.quay-bb.testnet` then called `promote` with 1 yoctoNEAR and the contract panicked `only this account`: [GgWVBft3oR9jDUj8UWtrCFLLEh3XB9qa5z7ExgL7VoW3](https://explorer.testnet.near.org/transactions/GgWVBft3oR9jDUj8UWtrCFLLEh3XB9qa5z7ExgL7VoW3). Production stayed `"2"`.
+`quay --help` lists every command. The same text is on the docs page, generated from that help.
 
-A full-access key can still deploy different wasm over this contract. Releases are immutable for the publish key. They are not owner-proof.
+## Sixty seconds
 
-## Network
+1. `quay init` creates the account and the contract.
+2. `quay deploy ./dist -m "first landing"` uploads the folder, skips bytes already stored, and prints a preview URL such as `https://<name>.testnet.page/r/1/`.
+3. `quay promote 1` points the host root at that release. The preview URL does not change.
+4. `quay rollback` swaps production with the previous release.
 
-| | |
+A directory needs `index.html`. Put `404.html` in the folder for unknown paths. `--spa` serves `index.html` for those paths instead. The CLI prints a storage estimate before it spends. On a terminal it asks you to continue. `--yes` skips the question. `--dry-run` stops after the estimate.
+
+## What a release costs
+
+NEAR locks 0.01 NEAR per 1,000 bytes of stored state, about 1 NEAR per 100 KB, plus a little for each trie record. Deleting a release that is not production unlocks those bytes on the contract account. The lock is not transferred to you. The contract wasm is 216,419 bytes and locks a little over 2 NEAR by itself.
+
+The two accounts funded for this repo came from the faucet at about 10 NEAR each. Gas burned about 0.01 NEAR in total. Storage still locked is about 2.56 NEAR on `quay-esc0v902.testnet` (contract plus the product site) and about 2.27 NEAR on `quay-65nqd3rn.testnet` (contract plus the sample).
+
+## CI
+
+```sh
+quay keys create --ci
+```
+
+The secret is printed once. Store it as the GitHub Actions secret `QUAY_CI_KEY`, and the account id as `QUAY_ACCOUNT`. The composite action is `action/action.yml`. The example workflow is `examples/harbour/.github/workflows/preview.yml`. A job that uses that key can deploy. `quay promote` exits 3 before it sends. On chain, a relayed promote is refused: https://explorer.testnet.near.org/transactions/8efXfntramSDtXuWpA87kAWpsMwYQPo7QUzwPo6AuM4G
+
+## Layout
+
+| Path | What it is |
 | --- | --- |
-| Network | testnet |
-| Account | `quay-bb.testnet` |
-| Gateway | https://quay-bb.testnet.page |
-| Production | https://quay-bb.testnet.page/ |
-| Release 1 | https://quay-bb.testnet.page/r/1 |
-| Release 2 | https://quay-bb.testnet.page/r/2 |
+| `contract/` | The Rust contract. Interface in `docs/contract-interface.md`. |
+| `cli/` | The `quay-near` package. Vendored wasm in `cli/vendor/quay.wasm`. |
+| `web/` | Landing page, docs, and dashboard. `node web/build.mjs` writes `web/dist`. |
+| `examples/harbour/` | The Vite sample. |
+| `examples/agent/` | A script that calls the CLI as a library. |
+| `examples/original-demo/` | The pages sealed on `quay-bb.testnet`. |
+| `action/` | The GitHub Actions preview action. |
 
-Read-only `near` commands use `network-config testnet` and end in `now`. Quay's chunk lookup uses `QUAY_RPC`. The default in `quay.json` is `https://test.rpc.fastnear.com`. `https://rpc.testnet.near.org` still answers and is severely rate-limited.
-
-A host with an extra label, such as `https://r1.quay-bb.testnet.page/`, fails the TLS handshake. The certificate covers one label. Releases are paths.
+`sh scripts/build.sh` builds the site and the sample. `sh scripts/test.sh` runs the contract tests, the CLI tests, and the sandbox suite. `sh scripts/judge.sh` checks the live sites and does not need a key.
 
 ## Judge steps
 
-Needs `cargo`, `curl`, `shasum`, and `near` (near-cli-rs) on `PATH`. No secret, no key, and no wallet.
+No key. You need `cargo`, `curl`, `node`, `shasum`, and `near` (near-cli-rs) on `PATH`. The same checks are `sh scripts/judge.sh`.
 
-You can run the same checks with `sh scripts/judge.sh`.
+The v1 site stays up. Do these and see the old demo, then the product.
 
 1. Run the contract tests.
 
@@ -52,7 +71,7 @@ You can run the same checks with `sh scripts/judge.sh`.
 
    See `sealed_release_bytes_stick` and `publish_key_cannot_promote` pass.
 
-2. Open production.
+2. Open the v1 production page.
 
    ```sh
    curl -fsS https://quay-bb.testnet.page/
@@ -60,71 +79,76 @@ You can run the same checks with `sh scripts/judge.sh`.
 
    See `production: release`. The response `cache-control` is `public, max-age=0, must-revalidate`.
 
-3. Open release 1 and hash the body.
+3. Open v1 release 1 and hash the body.
 
    ```sh
-   curl -fsS https://quay-bb.testnet.page/r/1
    curl -fsS https://quay-bb.testnet.page/r/1 | shasum -a 256
    ```
 
-   See `release 1`. See `041da882874158377a29812cbb3da2a77e689ec650af7a20313021ef13b6f297`, the same digest as `releases/1.sha256`. That response is cached `public, max-age=31536000, immutable`.
+   See `release 1`. See `041da882874158377a29812cbb3da2a77e689ec650af7a20313021ef13b6f297`, the same digest as `examples/original-demo/releases/1.sha256`. That response is cached `public, max-age=31536000, immutable`.
 
-4. Read the production pointer.
+4. Read the v1 production pointer.
 
    ```sh
    near contract call-function as-read-only quay-bb.testnet get_production json-args '{}' network-config testnet now
    ```
 
-   See `"2"`. The page in step 2 says `production: release 2`.
+   See `"2"`.
 
-5. Open the rejected promote.
+5. Open the v1 rejected promote.
 
    https://explorer.testnet.near.org/transactions/9HNfzPWK5GMzfQQ7J5U9fTJGv4wtmieqkZMGE3sQ5esG
 
-   See a delegate action signed by `ed25519:5ibCru26UTkfcfhxQe4EKk4b5Mhpwh78zjKNGaEXzgxT` calling `promote` with `{"id":"1"}`. The receipt fails with `DelegateActionAccessKeyError` and `MethodNameMismatch` for method `promote`.
+   See a delegate action signed by `ed25519:5ibCru26UTkfcfhxQe4EKk4b5Mhpwh78zjKNGaEXzgxT` calling `promote`. The receipt fails with `MethodNameMismatch`.
 
-   A direct transaction from that key is dropped before it is included. `broadcast_tx_commit` returns `INVALID_TRANSACTION` / `MethodNameMismatch` and no explorer page. The transaction above is a relay of the same signed promote, which is why it has a page. The unit test is the second lock: `promote` panics unless the attached deposit is exactly 1 yoctoNEAR.
+6. Open the product site.
 
-## What is live
+   ```sh
+   curl -fsS https://quay-esc0v902.testnet.page/
+   curl -fsS https://quay-esc0v902.testnet.page/docs/
+   curl -fsS https://quay-esc0v902.testnet.page/dashboard/
+   ```
 
-Production was moved to release 2 in [5zZvwp45vB3Rq4BLFTpqxQyvWrhAwS8qv8UFtrDcZmPJ](https://explorer.testnet.near.org/transactions/5zZvwp45vB3Rq4BLFTpqxQyvWrhAwS8qv8UFtrDcZmPJ). Release 1 is still at `/r/1`.
+   See "Move production when you mean to" on the home page, `quay deploy` in the docs, and the dashboard. The site was sealed in [8cw5GJDwYGPkfXVDPV2D5pv1i3EwcfKAzjMGgkh7g4YW](https://explorer.testnet.near.org/transactions/8cw5GJDwYGPkfXVDPV2D5pv1i3EwcfKAzjMGgkh7g4YW) and promoted in [7yA3L73W6HVbjKUR1BuZdU1TVRG7GKxsNUE83NKRJGsR](https://explorer.testnet.near.org/transactions/7yA3L73W6HVbjKUR1BuZdU1TVRG7GKxsNUE83NKRJGsR).
 
-`agent.quay-bb.testnet` called `buy` with 0.1 testnet NEAR in [CmH5fw2nXM8p3BQ1FwLzRbeMG1HRuKocFQMQ4P7qTDgD](https://explorer.testnet.near.org/transactions/CmH5fw2nXM8p3BQ1FwLzRbeMG1HRuKocFQMQ4P7qTDgD). The site balance moved from 8.990273 NEAR to 9.090273 NEAR. The event records buyer `agent.quay-bb.testnet` and `100000000000000000000000` yoctoNEAR.
+7. Open the sample. Production is release 2 after a rollback. Releases 1 and 3 are still at their URLs.
 
-```sh
-near contract call-function as-read-only quay-bb.testnet get_sales json-args '{}' network-config testnet now
-```
+   ```sh
+   curl -fsS https://quay-65nqd3rn.testnet.page/
+   curl -fsS https://quay-65nqd3rn.testnet.page/r/1/
+   curl -fsS https://quay-65nqd3rn.testnet.page/r/3/
+   ```
 
-Release 1 is 1,762 bytes and raised account storage by 2,175 bytes. After releases 1, 2, and 3, `get_budget` reported `stored_bytes` 6461, the sum of those three payloads (1762 + 3758 + 941). Sealing the same 941 bytes again as release 4 left `stored_bytes` at 6461. `/r/3` and `/r/4` are the same bytes. Their digest is `releases/3.sha256`.
+   See `id="release">2` on production, `1` on `/r/1/`, and `3` on `/r/3/`. The rollback transaction is [ED8gqjTUsZSsB31TbV2sHAz4wfX1LvUPYQnpSsfH1ixz](https://explorer.testnet.near.org/transactions/ED8gqjTUsZSsB31TbV2sHAz4wfX1LvUPYQnpSsfH1ixz).
 
-The page script reads `get_production` from `https://rpc.testnet.near.org`. The visible line is already `production: release 2`, so a rate limit on that endpoint does not change step 2.
+8. Read the sample status. No key.
 
-## Owner commands
+   ```sh
+   curl -fsS https://test.rpc.fastnear.com -H 'content-type: application/json' \
+     -d '{"jsonrpc":"2.0","id":"1","method":"query","params":{"request_type":"call_function","account_id":"quay-65nqd3rn.testnet","method_name":"get_status","args_base64":"e30=","finality":"final"}}'
+   ```
 
-These need a key in the local credentials folder. They are not judge steps. The publish key file is `~/.near-credentials/testnet/quay-bb.testnet.publish.json`. Nothing in this repo is a key.
+   The result bytes decode to JSON with `"version":"2.0.0"`, `"production":"2"`, and `"previous":"3"`.
 
-Environment names, all optional: `QUAY_ACCOUNT`, `QUAY_NETWORK`, `QUAY_RPC`, `QUAY_PUBLISH_KEY_FILE`, `NEAR_BIN`.
+9. Open the v2 publish-only refusal.
 
-```sh
-node cli/quay.mjs publish site/index.html
-node cli/quay.mjs promote 2
-```
+   https://explorer.testnet.near.org/transactions/8efXfntramSDtXuWpA87kAWpsMwYQPo7QUzwPo6AuM4G
 
-`publish` takes a file or a directory. A file is stored as `index.html`. `promote` always uses the full-access key and attaches 1 yoctoNEAR. `--full-access` publishes with that key instead of the publish key.
+   The signer is the publish-only key `ed25519:DaAfMdDQ8hdVNvCu75Z7su3uZpoapwFDJjMrL4B3TMvx` on `quay-65nqd3rn.testnet`. The call is `promote` with id `ci-prove`. The receipt fails because that key's method list is `put_chunk` and `seal`.
 
-`scripts/agent.mjs` is the agent path. `agent.quay-bb.testnet` sent 0.05 NEAR to the site in [5erHLtXCYfhoHerE5RBMVaX8p96qcbij2FUAJVY1rvdp](https://explorer.testnet.near.org/transactions/5erHLtXCYfhoHerE5RBMVaX8p96qcbij2FUAJVY1rvdp), then the publish key sealed https://quay-bb.testnet.page/r/3. The same key's direct `promote` was rejected before broadcast.
+The v1 contract was deployed in [3PJ5vXuwsrMebY9bgSxuSVUnc5hYFqohHxMqiygESiUu](https://explorer.testnet.near.org/transactions/3PJ5vXuwsrMebY9bgSxuSVUnc5hYFqohHxMqiygESiUu) and kept across a later code deploy in [FJEpxzffwhyFcHHTfxezs5PUobXqhPJUuZfMTMjvfZaD](https://explorer.testnet.near.org/transactions/FJEpxzffwhyFcHHTfxezs5PUobXqhPJUuZfMTMjvfZaD). An outsider promote panicked `only this account` in [GgWVBft3oR9jDUj8UWtrCFLLEh3XB9qa5z7ExgL7VoW3](https://explorer.testnet.near.org/transactions/GgWVBft3oR9jDUj8UWtrCFLLEh3XB9qa5z7ExgL7VoW3). Production on that account was moved to release 2 in [5zZvwp45vB3Rq4BLFTpqxQyvWrhAwS8qv8UFtrDcZmPJ](https://explorer.testnet.near.org/transactions/5zZvwp45vB3Rq4BLFTpqxQyvWrhAwS8qv8UFtrDcZmPJ). It is still `"2"`.
+
+## Limits
+
+Testnet only. The CLI refuses any other network. The public pages depend on the `testnet.page` gateway. An extra host label, such as `www.<account>.testnet.page`, fails TLS. A full-access key can replace the wasm. Releases are not owner-proof against that key. The payload cap is 2,000,000 bytes. Details, including the chunk and file limits, are on the docs page.
+
+`migrate` can read the v1 state shape. It was not run on `quay-bb.testnet`. That account keeps the v1 wasm so the old URLs stay stable.
+
+The dashboard signs promote, rollback, and delete with the wallet's `signAndSendTransaction`. This pass checked lookup, empty, and error states in a browser. It did not complete a wallet popup.
 
 ## Built with NEAR's official tooling
 
-This pass used the official skills `near-smart-contracts`, `near-contract-audit`, `near-cli-rs`, `near-dapp`, `near-api-js`, and `near-kit` from `near/agent-skills`, installed in this worktree only. NEAR Docs MCP at `https://docs.near.org/mcp` (`search_near_docs`, `query_docs_filesystem_near_docs`) supplied the access-key, one-yoctoNEAR, storage-staking, and security-checklist pages. Commands were checked against near-cli-rs 0.31.1. The skill text stops at 0.30.x, so each command is the full form that binary accepts.
-
-Left as they are, on purpose:
-
-- `put_chunk` does not take a storage deposit. A function-call key cannot attach NEAR. The account is pre-funded, `stored_bytes` stops at 800,000, and another account cannot write.
-- `buy` keeps the attached NEAR. The payment is the sale, not a refundable storage deposit. The minimum is 0.01 NEAR.
-- There is no state-migration method. Replacing the wasm is what a full-access key can already do.
-- The sealed dashboard reads `get_production` with the public JSON-RPC `query` call. It does not embed a wallet or `near-api-js`. `near-dapp` sign-in is for an app the visitor writes to. This page is a read-only web4 document.
-- `get_budget` returns `u64`. The values stay under 2^53.
+The contract is near-sdk 5.30.1. The CLI uses near-api-js 7.4.0. Sandbox tests use near-sandbox 0.4.0 and near-api 0.8.7, which is what the current `near-smart-contracts` skill uses for a local node. The dashboard loads `@hot-labs/near-connect` 0.12.0 from esm.sh and does not put a key in the page. Skills installed in this worktree: `near-smart-contracts`, `near-contract-audit`, `near-cli-rs`, `near-dapp`, `near-api-js`, and `near-kit`. Contract questions were checked against NEAR Docs at `https://docs.near.org/mcp`. The v1 judge step still uses near-cli-rs. The product CLI does not.
 
 ## Disclosure
 
