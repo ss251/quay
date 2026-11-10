@@ -4,7 +4,7 @@ Status on 2026-11-10 23:30 UTC: site, routes, data, members, sign-in, both relay
 
 - Site: https://harbour-board.ss251.workers.dev/ (Workers mirror, primary), https://harbour-board.testnet.page/ (public gateway) or `quay gateway --account harbour-board.testnet`
 - Account: `harbour-board.testnet` (v3 contract, 3.0.1 since 2026-11-10), relayer `relay.harbour-board.testnet`, buyer `buyer.harbour-board.testnet`
-- Members: maren, dunstan, priya, tobias, halvard and promo-bot were seeded; e2e-4eb351a1 and two `tg-…` members came from the browser checks. Nine on 2026-11-10, all `<name>.harbour-board.testnet`, created through the relays with no NEAR. Joining is open, so `list_members` may show more.
+- Members: maren, dunstan, priya, tobias, halvard and promo-bot were seeded; e2e-4eb351a1 came from the browser check of `/new/`; the two `tg-…` members were made by the separate Telegram sign-in work (its own `telegram-auth` OutLayer project), not by this branch. Nine on 2026-11-10, all `<name>.harbour-board.testnet`, created through the relays with no NEAR. Joining is open, so `list_members` may show more.
 
 ## Transactions
 

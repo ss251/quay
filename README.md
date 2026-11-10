@@ -181,7 +181,7 @@ view() {
 
 **Routes (live).** The contract fills templates sealed in the release, so a page is complete HTML without JavaScript. Proven: https://harbour-board.ss251.workers.dev/ lists posts with the digest, `/posts/5` renders one, `/api/posts` is JSON, and the hidden spam post is a 404 at `/posts/9`. Check: `curl -fsS https://harbour-board.ss251.workers.dev/api/posts`, then `view get_release` with the id from `get_status` to see the sealed routes.
 
-**Members (live).** `quay members list|open|close`. A member is `<name>.harbour-board.testnet`, created with no NEAR. At least nine exist: six seeded, three from browser checks of the live `/new/` page. Proven through both relays below. Check: `view list_members '{"from_index":0,"limit":50}'`.
+**Members (live).** `quay members list|open|close`. A member is `<name>.harbour-board.testnet`, created with no NEAR. At least nine exist: six seeded, one from a browser check of the live `/new/` page, and two `tg-…` members from the separate Telegram sign-in work on the same account. Proven through both relays below. Check: `view list_members '{"from_index":0,"limit":50}'`.
 
 **Sign-in (live, one wallet).** Members joined and posted from the live `/new/` page in a headless browser, signing with a key that stays in the browser. Wallet sign-in through near-connect worked with one connector, NEAR CLI: it signed a NEP-413 message for `walletchk-he8kli.harbour-board.testnet`, the Board accepted it, and `verifySignIn` returned `ok` while a changed message and a wrong site were refused. Intear's testnet index was empty and Meteor blocks headless browsers, so those wallets are not shown. Details in `examples/board/LIVE.md`.
 
