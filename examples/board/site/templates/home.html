@@ -12,9 +12,13 @@
 <section class="card digest" id="digest" aria-labelledby="digest-h">
 <h2 id="digest-h">Harbour digest</h2>
 {{#each lists.digest}}
+{{#if data.ok}}
 <p><strong>{{data.output.title}}</strong></p>
 <p>{{data.output.text}}</p>
 <p class="meta">Written <time>{{created | date}}</time> {{#if data.output.scheduled}}by the hourly digest job.{{else}}by the digest function, run by hand.{{/if}}</p>
+{{else}}
+<p class="muted">The last digest run, at <time>{{created | date}}</time>, failed: {{data.error}}. A digest shows here again after a run succeeds.</p>
+{{/if}}
 {{else}}
 <p class="muted">No digest yet. The digest function writes one when it runs.</p>
 {{/each}}

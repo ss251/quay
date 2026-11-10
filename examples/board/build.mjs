@@ -43,5 +43,5 @@ writeFileSync(
   `${JSON.stringify(config)}\n`,
 );
 console.log(
-  `site/assets/quay.js and config.json written for ${config.site}${config.relay ? ` (relay ${config.relay})` : " (no relay set: copy board.example.json to board.json)"}`,
+  `site/assets/quay.js and config.json written for ${config.site}${config.relay ? ` (relay ${typeof config.relay === "string" ? config.relay : "OutLayer function"})` : " (no relay set: copy board.example.json to board.json)"}`,
 );
