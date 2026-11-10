@@ -1,16 +1,18 @@
 //! Quay: immutable releases, one production pointer, served by `web4_get`.
 //!
-//! A function-call key may call `put_chunk` and `seal`. `promote` and `buy`
-//! require an attached deposit, which that key cannot send. A full-access key
-//! can still replace this Wasm. Releases are not owner-proof.
+//! A function-call key may call `put_chunk` and `seal`. Those methods, and
+//! `promote`, accept only this account as predecessor. `promote` also requires
+//! 1 yoctoNEAR, which a function-call key cannot attach. `buy` is public.
+//! A full-access key can still replace this Wasm. Releases are not owner-proof.
 
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::store::{LookupMap, Vector};
-use near_sdk::{env, near, AccountId, PanicOnDefault};
+use near_sdk::{env, near, require, AccountId, PanicOnDefault};
 
 const MAX_CHUNK_BYTES: u64 = 200_000;
 const MAX_STORED_BYTES: u64 = 800_000;
 const MAX_FILE_BYTES: usize = 400_000;
+const MAX_CHUNKS_PER_FILE: usize = 4;
 const MAX_FILES: usize = 16;
 const MAX_SALES: u32 = 128;
 const INDEX_PATH: &str = "index.html";
@@ -104,6 +106,7 @@ impl Contract {
 
     /// Store one content-addressed chunk. An existing hash is not written again.
     pub fn put_chunk(&mut self, sha256: String, data: Base64VecU8) {
+        assert_self();
         let sha256 = normalize_sha256(&sha256);
         let bytes = data.0;
         let len = bytes.len() as u64;
@@ -130,6 +133,7 @@ impl Contract {
 
     /// Seal a release. The same id cannot be sealed again.
     pub fn seal(&mut self, id: String, files: Vec<FileIn>) {
+        assert_self();
         let id = check_id(&id);
         if self.releases.contains_key(&id) {
             env::panic_str("release already sealed");
@@ -149,6 +153,9 @@ impl Contract {
             let content_type = check_content_type(&file.content_type);
             if file.chunks.is_empty() {
                 env::panic_str("file needs a chunk");
+            }
+            if file.chunks.len() > MAX_CHUNKS_PER_FILE {
+                env::panic_str("too many chunks");
             }
             let mut assembled = Vec::new();
             let mut hashes = Vec::with_capacity(file.chunks.len());
@@ -189,10 +196,12 @@ impl Contract {
 
     /// Point production at a sealed release.
     ///
-    /// Requires exactly 1 yoctoNEAR. A function-call key cannot attach NEAR,
-    /// so a publish-only key cannot promote.
+    /// Requires exactly 1 yoctoNEAR, and the predecessor must be this account.
+    /// A function-call key cannot attach NEAR, so it cannot promote. One yocto
+    /// from another account cannot promote either.
     #[payable]
     pub fn promote(&mut self, id: String) {
+        assert_self();
         near_sdk::assert_one_yocto();
         let id = check_id(&id);
         if !self.releases.contains_key(&id) {
@@ -348,6 +357,13 @@ fn route(raw: &str) -> Routed {
     }
 }
 
+fn assert_self() {
+    require!(
+        env::predecessor_account_id() == env::current_account_id(),
+        "only this account"
+    );
+}
+
 fn emit(event: &str, data: &near_sdk::serde_json::Value) {
     let line = near_sdk::serde_json::json!({
         "standard": "quay",
@@ -446,14 +462,26 @@ mod tests {
     }
 
     fn set_ctx(deposit_yocto: u128) {
+        set_ctx_as("quay-bb.testnet", deposit_yocto);
+    }
+
+    fn set_ctx_as(predecessor: &str, deposit_yocto: u128) {
+        let predecessor: AccountId = predecessor.parse().unwrap();
         let mut builder = VMContextBuilder::new();
         builder
             .current_account_id("quay-bb.testnet".parse().unwrap())
-            .signer_account_id("quay-bb.testnet".parse().unwrap())
-            .predecessor_account_id("buyer.testnet".parse().unwrap())
+            .signer_account_id(predecessor.clone())
+            .predecessor_account_id(predecessor)
             .attached_deposit(NearToken::from_yoctonear(deposit_yocto))
             .prepaid_gas(Gas::from_tgas(300));
-        testing_env!(builder.build());
+        // The five-argument form keeps the storage written by the previous context.
+        testing_env!(
+            builder.build(),
+            near_sdk::test_vm_config(),
+            near_sdk::RuntimeFeesConfig::test(),
+            Default::default(),
+            Default::default(),
+        );
     }
 
     fn file_in(bytes: &[u8]) -> (String, FileIn) {
@@ -565,8 +593,30 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "only this account")]
+    fn outsider_cannot_promote() {
+        set_ctx(0);
+        let mut contract = Contract::new();
+        seal_html(&mut contract, "1", b"<p>release 1</p>");
+        set_ctx_as("buyer.testnet", 1);
+        contract.promote("1".to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "too many chunks")]
+    fn rejects_too_many_chunks() {
+        set_ctx(0);
+        let mut contract = Contract::new();
+        let html = b"<p>x</p>";
+        let (hash, mut file) = file_in(html);
+        contract.put_chunk(hash, html.to_vec().into());
+        file.chunks = vec![file.chunks[0].clone(); MAX_CHUNKS_PER_FILE + 1];
+        contract.seal("1".to_string(), vec![file]);
+    }
+
+    #[test]
     fn buy_records_the_predecessor() {
-        set_ctx(MIN_BUY_YOCTO);
+        set_ctx_as("buyer.testnet", MIN_BUY_YOCTO);
         let mut contract = Contract::new();
         contract.buy(Some("hello".to_string()));
         let sales = contract.get_sales();
