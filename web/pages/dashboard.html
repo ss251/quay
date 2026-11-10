@@ -16,6 +16,10 @@
   </div>
   <nav class="tabs app-wrap" id="tabs" aria-label="Account views" hidden>
     <a href="?tab=overview" data-tab="overview" aria-current="page">Overview</a>
+    <a href="?tab=data" data-tab="data">Data</a>
+    <a href="?tab=functions" data-tab="functions">Functions</a>
+    <a href="?tab=routes" data-tab="routes">Routes</a>
+    <a href="?tab=keys" data-tab="keys">Keys &amp; Relay</a>
     <a href="?tab=releases" data-tab="releases">Releases</a>
     <a href="?tab=history" data-tab="history">History</a>
     <a href="?tab=storage" data-tab="storage">Storage</a>
@@ -52,7 +56,7 @@
     <div class="page-head">
       <div>
         <h1><span id="acct-title"></span> <span class="chip chip-outline" id="contract-chip"></span></h1>
-        <a class="host" id="host-link" href="#">{{i:globe sm}}<span id="host-text"></span>{{i:ext sm}}</a> <span class="chip" id="gw-chip" hidden></span>
+        <a class="host" id="host-link" href="#">{{i:globe sm}}<span id="host-text"></span>{{i:ext sm}}</a> <a class="host faint" id="host-public" href="#" title="The public gateway" style="margin-left:12px" hidden>{{i:globe sm}}<span></span></a> <span class="chip" id="gw-chip" hidden></span>
       </div>
       <div class="tools">
         <button class="btn btn-sm" type="button" id="copy-host" aria-label="Copy host">{{i:copy sm}}Copy host</button>
@@ -61,6 +65,11 @@
     </div>
 
     <div class="notice" id="notice" hidden>{{i:lock}}<span class="grow" id="notice-text"></span><span id="notice-action"></span></div>
+
+    <section class="card" aria-labelledby="layers-h" data-in="overview" style="margin-bottom:20px">
+      <div class="card-head"><h2 id="layers-h">Layers</h2><span class="muted" style="font-size:12.5px" id="layers-note"></span></div>
+      <ul class="layers" id="layers"></ul>
+    </section>
 
     <div class="overview" data-in="overview storage">
       <section class="card" aria-labelledby="prod-h" data-in="overview">
@@ -97,6 +106,11 @@
         </section>
       </div>
     </div>
+
+    <div class="vstack" id="tab-data" data-in="data"></div>
+    <div class="vstack" id="tab-functions" data-in="functions"></div>
+    <div class="vstack" id="tab-routes" data-in="routes"></div>
+    <div class="vstack" id="tab-keys" data-in="keys"></div>
 
     <div data-in="overview releases">
       <div class="list-head"><h2>Releases <span id="rel-count"></span></h2><span class="muted note" style="font-size:13px">Newest first</span></div>

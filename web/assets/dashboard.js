@@ -14,7 +14,20 @@ const GAS = "30000000000000";
 const EXPLORER = "https://explorer.testnet.near.org/transactions/";
 // The built page carries the icon sprite inline.
 const SPRITE = "";
-const TABS = ["overview", "releases", "history", "storage"];
+const TABS = [
+  "overview",
+  "data",
+  "functions",
+  "routes",
+  "keys",
+  "releases",
+  "history",
+  "storage",
+];
+// web/hosts.json, inlined by web/build.mjs: { mirrors: {account: origin}, public: "https://{name}.testnet.page", local }.
+const HOSTS = {};
+// The account this product site is published on; a page loaded over http(s) is served by a gateway for it.
+const PRODUCT = "quay-esc0v902.testnet";
 
 const $ = (id) => document.getElementById(id);
 const views = ["empty", "loading", "error", "ready"];
@@ -96,11 +109,28 @@ function iso(ns) {
     return "";
   }
 }
+// Where an account is served: this page's own origin when it is the product
+// site (or the account's mirror), else the account's mirror, else testnet.page.
+function publicOrigin(account) {
+  return (HOSTS.public || "https://{name}.testnet.page").replace(
+    "{name}",
+    account.replace(/\.testnet$/, ""),
+  );
+}
+function hostFor(account) {
+  const mirror = HOSTS.mirrors?.[account];
+  if (
+    /^https?:$/.test(location.protocol) &&
+    (account === PRODUCT || (mirror && location.origin === mirror))
+  )
+    return location.origin;
+  return mirror || publicOrigin(account);
+}
 function host(account) {
-  return `${account.replace(/\.testnet$/, "")}.testnet.page`;
+  return new URL(hostFor(account)).host;
 }
 function preview(account, id) {
-  return id ? `https://${host(account)}/r/${id}/` : `https://${host(account)}/`;
+  return `${hostFor(account)}/${id ? `r/${id}/` : ""}`;
 }
 function accountFrom(raw) {
   const text = raw
@@ -110,6 +140,8 @@ function accountFrom(raw) {
     .replace(/\/.*$/, "");
   if (text.endsWith(".testnet.page"))
     return `${text.slice(0, -".testnet.page".length)}.testnet`;
+  for (const [account, origin] of Object.entries(HOSTS.mirrors || {}))
+    if (new URL(origin).host === text) return account;
   return text;
 }
 
@@ -241,12 +273,12 @@ function renderGateway() {
     : `testnet.page: ${gateway.reason}`;
   chip.replaceChildren(
     h("span", { class: gateway.ok ? "dot dot-live" : "dot" }),
-    gateway.ok ? `Gateway up · ${gateway.ms} ms` : "Gateway down",
+    gateway.ok ? `testnet.page up · ${gateway.ms} ms` : "testnet.page down",
   );
   const command = `quay gateway --account ${viewed || "<name>.testnet"}`;
   $("gw-copy").dataset.copy = command;
   $("gw-text").replaceChildren(
-    `The public testnet.page gateway is down (${gateway.reason}). The preview and production links may not load; this page still reads the chain directly. To see the site, run `,
+    `The public testnet.page gateway is down (${gateway.reason}). ${HOSTS.mirrors?.[viewed] ? "Links use the mirror, which is a separate host. " : "The preview and production links may not load. "}This page still reads the chain directly. To see the site locally, run `,
     h("code", { text: command }),
     " and open ",
     h("a", { href: "http://127.0.0.1:8787/", text: "127.0.0.1:8787" }),
@@ -535,8 +567,12 @@ function render() {
   $("contract-chip").textContent = `Contract ${status.version}`;
   $("host-text").textContent = host(account);
   $("host-link").href = preview(account);
+  const pub = publicOrigin(account);
+  $("host-public").hidden = pub === hostFor(account);
+  $("host-public").href = `${pub}/`;
+  $("host-public").querySelector("span").textContent = new URL(pub).host;
   $("visit-prod").href = preview(account);
-  $("copy-host").dataset.copy = `https://${host(account)}/`;
+  $("copy-host").dataset.copy = `${hostFor(account)}/`;
   renderGateway();
 
   // production card
@@ -703,11 +739,984 @@ function applyTab() {
     url.searchParams.set("tab", a.dataset.tab);
     a.href = url.search;
   }
+  // The status module loads only for the views that show it.
+  if ((tab === "overview" || tab === "keys") && layersFor !== viewed)
+    loadLayers();
+  ensureTab(tab);
+}
+
+// ---------- full-stack views ----------
+// Every read goes straight to RPC. A method the contract does not have means
+// the layer is off (a contract before v3), not an error.
+const OFF_TEXT =
+  "This contract is before v3, so this layer is off. A new account from quay init has it.";
+let tabState = {};
+let layersFor = null;
+let layersP = null;
+let statusP = null;
+
+async function viewOpt(account, method, args) {
+  const res = await rpc({
+    request_type: "call_function",
+    account_id: account,
+    method_name: method,
+    args_base64: btoa(JSON.stringify(args ?? {})),
+  });
+  if (res?.error) {
+    if (
+      /MethodNotFound|MethodResolveError|CodeDoesNotExist|not deployed/i.test(
+        res.error,
+      )
+    )
+      return undefined;
+    throw new Error(res.error);
+  }
+  const text = new TextDecoder().decode(Uint8Array.from(res?.result ?? []));
+  return text ? JSON.parse(text) : null;
+}
+function rows(value, key) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === "object") {
+    if (key && Array.isArray(value[key])) return value[key];
+    return Object.entries(value).map(([name, spec]) => ({ name, ...spec }));
+  }
+  return [];
+}
+function short(value, max) {
+  const text =
+    typeof value === "string" ? value : (JSON.stringify(value) ?? "");
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+function samplePath(route, ids) {
+  const first = ids[route.collection];
+  const path = route.pattern
+    .replace(/:([A-Za-z_]\w*)/g, (_, name) =>
+      name === "collection"
+        ? route.collection === "*"
+          ? "posts"
+          : route.collection
+        : first || "1",
+    )
+    .replace(/\/?\*\w*$/, "/");
+  return path || "/";
+}
+
+function card(title, note, ...body) {
+  return h(
+    "section",
+    { class: "card" },
+    h(
+      "div",
+      { class: "card-head" },
+      h("h2", { text: title }),
+      note
+        ? h("span", { class: "muted", style: "font-size:12.5px", text: note })
+        : null,
+    ),
+    body,
+  );
+}
+function skeleton(lines = 3) {
+  return h(
+    "div",
+    { class: "card", "aria-busy": "true" },
+    h(
+      "div",
+      { style: "display:grid;gap:14px;padding:18px 16px" },
+      Array.from({ length: lines }, (_, i) =>
+        h("div", { class: "skel", style: `width:${92 - i * 14}%` }),
+      ),
+    ),
+  );
+}
+function stateBox(kind, title, text, cmd) {
+  return h(
+    "div",
+    { class: "empty" },
+    h("span", { class: "ic" }, icon(kind === "off" ? "lock" : "db")),
+    h("b", { text: title }),
+    h("p", { text }),
+    cmd ? h("span", { class: "cmd", text: `$ ${cmd}` }) : null,
+  );
+}
+function offCard(title, how) {
+  return card(
+    title,
+    "off",
+    stateBox("off", `${title} is off`, `${OFF_TEXT} ${how || ""}`.trim()),
+  );
+}
+function errorBox(error, retry) {
+  return h(
+    "div",
+    { class: "card err-card", role: "alert" },
+    icon("alert"),
+    h(
+      "div",
+      null,
+      h("h2", { style: "font-size:15px", text: "Could not read this view" }),
+      h("p", {
+        class: "muted",
+        style: "font-size:13.5px;margin-top:4px",
+        text: String(error?.message || error),
+      }),
+      h("button", {
+        class: "btn btn-sm",
+        type: "button",
+        style: "margin-top:12px",
+        onclick: retry,
+        text: "Try again",
+      }),
+    ),
+  );
+}
+function table(head, body) {
+  return h(
+    "div",
+    { class: "tbl-wrap" },
+    h(
+      "table",
+      { class: "tbl" },
+      h(
+        "thead",
+        null,
+        h(
+          "tr",
+          null,
+          head.map((t) => h("th", { text: t })),
+        ),
+      ),
+      h(
+        "tbody",
+        null,
+        body.map((cells) =>
+          h(
+            "tr",
+            null,
+            cells.map((c) => h("td", null, c)),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+const chip = (text, kind) =>
+  h("span", { class: `chip${kind ? ` chip-${kind}` : ""}`, text });
+const mono = (text) => h("span", { class: "mono", text });
+const link = (href, text) =>
+  h("a", { class: "link", href, text, target: "_blank", rel: "noopener" });
+const price = (p) =>
+  [
+    p.price_yocto ? nearFromYocto(p.price_yocto) : null,
+    p.price_token ? `${p.price_token} token units` : null,
+  ]
+    .filter(Boolean)
+    .join(" or ") || "free";
+
+// ----- status API and the Layers strip -----
+function statusModule() {
+  statusP ??= import("./status.js");
+  return statusP;
+}
+// A reachability probe for a host this page cannot read (CORS): resolves when
+// the host answers at all.
+function reach(origin) {
+  const started = performance.now();
+  const ms = () => Math.round(performance.now() - started);
+  const same = origin === location.origin;
+  return fetch(`${origin}/`, {
+    mode: same ? "cors" : "no-cors",
+    cache: "no-store",
+    signal: AbortSignal.timeout(5000),
+  })
+    .then((res) =>
+      res.type === "opaque" || res.ok
+        ? { ok: true, ms: ms() }
+        : { ok: false, ms: ms(), reason: `HTTP ${res.status}` },
+    )
+    .catch(() => ({ ok: false, ms: ms(), reason: "no answer in 5 s" }));
+}
+function relayOption() {
+  return new URL(location.href).searchParams.get("relay") || undefined;
+}
+// window.quay.status(account, options) is the layer status API of
+// docs/fullstack-interface.md section 11, for pages and canvases that embed this.
+async function layerStatus(account, options = {}) {
+  const { layerStatus: measure } = await statusModule();
+  const mirror = HOSTS.mirrors?.[account];
+  return measure({
+    site: account,
+    rpc: (params) => rpc(params),
+    mirror,
+    relay: relayOption(),
+    probe: (kind) => (kind === "mirror" ? reach(mirror) : checkGateway()),
+    ...options,
+  });
+}
+window.quay = { status: layerStatus, hostFor };
+
+const LAYER_NAMES = {
+  site: "Site",
+  gateway: "Gateway",
+  data: "Data",
+  functions: "Functions",
+  routes: "Routes",
+  relay: "Relay",
+  cron: "Cron",
+  keys: "Keys",
+};
+function layerRow(name, layer) {
+  const dot = {
+    ok: "dot dot-live",
+    warn: "dot dot-warn",
+    down: "dot dot-down",
+  }[layer?.state];
+  const first = layer?.links?.[0];
+  return h(
+    "li",
+    { "data-state": layer?.state || "loading" },
+    h("span", { class: dot || "dot", title: layer?.state || "reading" }),
+    h("span", { class: "nm", text: LAYER_NAMES[name] }),
+    h(
+      "span",
+      { class: "sm" },
+      layer
+        ? layer.summary
+        : h("span", { class: "skel", style: "display:block;width:60%" }),
+      layer?.error && layer.state !== "ok" && layer.state !== "off"
+        ? h("span", { class: "faint", text: ` ${layer.error}` })
+        : null,
+    ),
+    first
+      ? h("a", {
+          class: "link",
+          href: first.href,
+          target: "_blank",
+          rel: "noopener",
+          text: first.label,
+        })
+      : h("span", { class: "chip", text: layer ? layer.state : "reading" }),
+  );
+}
+function loadLayers() {
+  const account = viewed;
+  layersFor = account;
+  $("layers").replaceChildren(
+    ...Object.keys(LAYER_NAMES).map((name) => layerRow(name)),
+  );
+  $("layers-note").textContent = "reading";
+  layersP = layerStatus(account)
+    .then((result) => {
+      if (viewed !== account) return null;
+      $("layers").replaceChildren(
+        ...Object.keys(LAYER_NAMES).map((name) =>
+          layerRow(name, result.layers[name]),
+        ),
+      );
+      $("layers-note").textContent =
+        `measured ${result.measured_at.slice(11, 16)} UTC`;
+      return result;
+    })
+    .catch((error) => {
+      if (viewed !== account) return null;
+      $("layers").replaceChildren(
+        h(
+          "li",
+          null,
+          h("span", { class: "dot dot-down" }),
+          h("span", { class: "nm", text: "Status" }),
+          h("span", { class: "sm", text: String(error?.message || error) }),
+          h("button", {
+            class: "btn btn-sm",
+            type: "button",
+            onclick: loadLayers,
+            text: "Try again",
+          }),
+        ),
+      );
+      $("layers-note").textContent = "failed";
+      return null;
+    });
+}
+
+// ----- tabs -----
+async function loadDataTab(account, box) {
+  const list = await viewOpt(account, "list_collections");
+  if (list === undefined) return box.replaceChildren(offCard("Data"));
+  const cols = rows(list);
+  const pool = (await viewOpt(account, "get_pool")) ?? {
+    balance: "0",
+    reserved: "0",
+  };
+  const poolCard = card(
+    "Storage pool",
+    "pays for site-paid docs",
+    h(
+      "div",
+      { class: "card-body" },
+      h(
+        "dl",
+        { class: "kv" },
+        h("dt", { text: "Available" }),
+        h("dd", { class: "num", text: nearFromYocto(pool.balance) }),
+        h("dt", { text: "Held by docs" }),
+        h("dd", { class: "num", text: nearFromYocto(pool.reserved) }),
+        h("dt", { text: "Add NEAR" }),
+        h("dd", { class: "mono", text: "quay db fund 1" }),
+      ),
+    ),
+  );
+  if (!cols.length)
+    return box.replaceChildren(
+      card(
+        "Collections",
+        null,
+        stateBox(
+          "empty",
+          "No collections yet",
+          "A collection holds JSON docs that members or visitors can add.",
+          "quay db collection set posts --write members",
+        ),
+      ),
+      poolCard,
+    );
+  const browse = { name: cols[0].name, from: null, stack: [] };
+  const docsBox = h("div", null);
+  const colsBox = h("div", null);
+  const select = (name) => {
+    browse.name = name;
+    browse.from = null;
+    browse.stack = [];
+    drawCollections();
+    drawDocs();
+  };
+  function drawCollections() {
+    colsBox.replaceChildren(
+      card(
+        "Collections",
+        `${cols.length} of 32`,
+        table(
+          ["Name", "Write", "Payer", "Docs", "Bytes", "Rules"],
+          cols.map((c) => [
+            h("button", {
+              class: `btn btn-sm${c.name === browse.name ? "" : " btn-quiet"}`,
+              type: "button",
+              "aria-pressed": String(c.name === browse.name),
+              onclick: () => select(c.name),
+              text: c.name,
+            }),
+            c.write,
+            c.payer,
+            h("span", { class: "num", text: nf.format(Number(c.count)) }),
+            h("span", { class: "num", text: nf.format(Number(c.bytes)) }),
+            h(
+              "span",
+              { class: "chips" },
+              c.moderated ? chip("moderated") : null,
+              c.on_add ? chip(`on_add ${c.on_add}`, "info") : null,
+              c.max_docs_per_account
+                ? chip(`${c.max_docs_per_account}/account`)
+                : null,
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+  async function drawDocs() {
+    const col = cols.find((c) => c.name === browse.name);
+    docsBox.replaceChildren(skeleton(4));
+    try {
+      const page = await viewOpt(account, "db_list", {
+        collection: browse.name,
+        query: {
+          limit: 10,
+          order: "desc",
+          include_hidden: true,
+          ...(browse.from ? { from: browse.from } : {}),
+        },
+      });
+      if (viewed !== account || browse.name !== col.name) return;
+      const docs = page?.docs ?? [];
+      const body = docs.length
+        ? table(
+            col.moderated
+              ? ["Id", "Owner", "Data", "Added", "", ""]
+              : ["Id", "Owner", "Data", "Added", ""],
+            docs.map((d) => [
+              mono(d.id),
+              mono(d.owner),
+              h("span", {
+                class: "mono",
+                title: JSON.stringify(d.data),
+                text: short(d.data, 90),
+              }),
+              h("span", {
+                class: "when",
+                title: iso(d.created),
+                text: when(d.created),
+              }),
+              h(
+                "span",
+                { class: "chips" },
+                d.hidden ? chip("hidden", "warn") : null,
+                d.pinned_until ? chip("pinned", "info") : null,
+                d.fn ? chip("fn", "outline") : null,
+              ),
+              ...(col.moderated
+                ? [
+                    h(
+                      "button",
+                      {
+                        class: "btn btn-sm",
+                        type: "button",
+                        disabled: !isOwner() || Boolean(busy),
+                        title: isOwner()
+                          ? null
+                          : `Sign in as ${viewed} to moderate`,
+                        onclick: () => hideDoc(col.name, d, drawDocs),
+                      },
+                      d.hidden ? "Unhide" : "Hide",
+                    ),
+                  ]
+                : []),
+            ]),
+          )
+        : stateBox(
+            "empty",
+            `${browse.name} has no docs`,
+            "Docs added by members or visitors show up here.",
+            `quay db add ${browse.name} '{"title":"First"}'`,
+          );
+      docsBox.replaceChildren(
+        card(
+          `Documents in ${browse.name}`,
+          "newest first, hidden included",
+          body,
+          h(
+            "div",
+            { class: "pager" },
+            h("button", {
+              class: "btn btn-sm",
+              type: "button",
+              disabled: !browse.stack.length,
+              text: "Newer",
+              onclick: () => {
+                browse.from = browse.stack.pop() ?? null;
+                drawDocs();
+              },
+            }),
+            h("button", {
+              class: "btn btn-sm",
+              type: "button",
+              disabled: page?.next == null,
+              text: "Older",
+              onclick: () => {
+                browse.stack.push(browse.from);
+                browse.from = page.next;
+                drawDocs();
+              },
+            }),
+          ),
+        ),
+      );
+    } catch (error) {
+      docsBox.replaceChildren(errorBox(error, drawDocs));
+    }
+  }
+  drawCollections();
+  box.replaceChildren(colsBox, docsBox, poolCard);
+  drawDocs();
+}
+
+async function hideDoc(collection, doc, refresh) {
+  if (!isOwner() || busy) return;
+  const hidden = !doc.hidden;
+  const verb = hidden ? "Hide" : "Unhide";
+  if (
+    !(await ask(
+      `${verb} doc ${doc.id}?`,
+      hidden
+        ? `It leaves lists and routes of ${collection} until you unhide it. Its data stays on chain.`
+        : `It shows in lists and routes of ${collection} again.`,
+      verb,
+    ))
+  )
+    return;
+  busy = { action: "hide", id: doc.id };
+  try {
+    const wallet = await connector.wallet();
+    const result = await wallet.signAndSendTransaction({
+      signerId: walletAccount,
+      receiverId: viewed,
+      actions: [
+        {
+          type: "FunctionCall",
+          params: {
+            methodName: "db_hide",
+            args: { collection, id: doc.id, hidden },
+            gas: GAS,
+            deposit: "1",
+          },
+        },
+      ],
+    });
+    busy = null;
+    await refresh();
+    const hash = txHash(result);
+    toast(
+      "ok",
+      `${verb === "Hide" ? "Hid" : "Unhid"} doc ${doc.id}`,
+      null,
+      hash ? EXPLORER + hash : null,
+    );
+  } catch (error) {
+    busy = null;
+    await refresh();
+    toast(
+      "bad",
+      "The wallet did not send it",
+      error?.message || "The request was closed.",
+    );
+  }
+}
+
+async function loadFunctionsTab(account, box) {
+  const [fl, cs] = await Promise.all([
+    viewOpt(account, "fn_list"),
+    viewOpt(account, "cron_status"),
+  ]);
+  if (fl === undefined && cs === undefined)
+    return box.replaceChildren(offCard("Functions"), offCard("Cron"));
+  const cards = [];
+  if (fl === undefined) cards.push(offCard("Functions"));
+  else {
+    const fns = rows(fl);
+    cards.push(
+      card(
+        "Registered functions",
+        `${fns.length} of 16`,
+        fns.length
+          ? table(
+              ["Name", "Project", "Who calls", "Payer", "Per run", "Secrets"],
+              fns.map((f) => [
+                mono(f.name),
+                mono(f.project || ""),
+                f.call,
+                f.payer,
+                f.deposit ? nearFromYocto(f.deposit) : "0",
+                f.secrets ? "yes" : "no",
+              ]),
+            )
+          : stateBox(
+              "empty",
+              "No functions yet",
+              "A function is a Rust wasm that runs on OutLayer when a visitor or a trigger calls it.",
+              "quay functions deploy preview",
+            ),
+      ),
+    );
+    let page = null;
+    try {
+      page = await viewOpt(account, "fn_results", {
+        query: { limit: 10, order: "desc" },
+      });
+      if (page === undefined)
+        page = await viewOpt(account, "db_list", {
+          collection: "_fn",
+          query: { limit: 10, order: "desc" },
+        });
+    } catch {
+      page = null;
+    }
+    const runs = rows(page, "docs");
+    cards.push(
+      card(
+        "Recent runs",
+        "newest first",
+        runs.length
+          ? table(
+              ["Run", "Result", "Output", "When"],
+              runs.map((d) => {
+                const r = d.data ?? d;
+                const out = r.output;
+                const att =
+                  out && typeof out === "object"
+                    ? out.attestation_url || out.attestation
+                    : null;
+                return [
+                  h(
+                    "div",
+                    null,
+                    mono(d.id || r.name || ""),
+                    h("div", {
+                      class: "faint",
+                      style: "font-size:12px",
+                      text: r.caller || "",
+                    }),
+                  ),
+                  r.ok === false ? chip("failed", "warn") : chip("ok", "live"),
+                  h(
+                    "details",
+                    null,
+                    h("summary", {
+                      class: "mono",
+                      text: short(out ?? "", 60) || "empty",
+                    }),
+                    h("pre", {
+                      class: "mono out",
+                      text: short(
+                        typeof out === "string"
+                          ? out
+                          : JSON.stringify(out, null, 1),
+                        2000,
+                      ),
+                    }),
+                    typeof att === "string" && /^https:/.test(att)
+                      ? link(att, "Attestation")
+                      : null,
+                  ),
+                  h("span", {
+                    class: "when",
+                    title: iso(r.at ?? d.created),
+                    text: when(r.at ?? d.created),
+                  }),
+                ];
+              }),
+            )
+          : stateBox(
+              "empty",
+              "No runs yet",
+              "Results appear after the first call or trigger.",
+              "quay functions invoke preview '{}'",
+            ),
+      ),
+    );
+  }
+  if (cs === undefined) cards.push(offCard("Cron"));
+  else {
+    const jobs = rows(await viewOpt(account, "cron_list"), "jobs");
+    cards.push(
+      card(
+        "Scheduled jobs",
+        cs?.armed ? "chain armed" : "chain stopped",
+        h(
+          "div",
+          { class: "card-body chips" },
+          chip(cs?.armed ? "Armed" : "Stopped", cs?.armed ? "live" : "warn"),
+          chip(`${cs?.hops ?? 0} hops`),
+          chip(
+            cs?.last_tick && cs.last_tick !== "0"
+              ? `last tick ${when(cs.last_tick, true)}`
+              : "no tick yet",
+          ),
+        ),
+        jobs.length
+          ? table(
+              ["Job", "Every", "Function", "Last run", "Next due"],
+              jobs.map((j) => [
+                mono(j.name),
+                `${j.every_minutes} min`,
+                mono(j.fn),
+                j.last_run ? when(j.last_run) : "never",
+                j.next_due ? when(j.next_due) : "unknown",
+              ]),
+            )
+          : stateBox(
+              "empty",
+              "No scheduled jobs",
+              "A job runs a function every few minutes while the chain is armed. The chain stops after about 14 hours of gas.",
+              'quay cron add "every 30m" digest',
+            ),
+      ),
+    );
+  }
+  box.replaceChildren(...cards);
+}
+
+async function loadRoutesTab(account, box) {
+  const prodId = data.status.production;
+  if (!prodId)
+    return box.replaceChildren(
+      card(
+        "Routes",
+        null,
+        stateBox(
+          "empty",
+          "Nothing is in production",
+          "Routes come with a release.",
+          "quay up",
+        ),
+      ),
+    );
+  const rel = await viewOpt(account, "get_release", { id: prodId });
+  if (rel === undefined) return box.replaceChildren(offCard("Routes"));
+  const routes = rel?.routes ?? [];
+  if (!routes.length)
+    return box.replaceChildren(
+      card(
+        "Routes",
+        `release ${prodId}`,
+        stateBox(
+          "empty",
+          "This release has no routes",
+          "Routes turn db docs into pages and JSON. They are sealed with the release and roll back with it.",
+          'add "routes" to quay.json, then quay up',
+        ),
+      ),
+    );
+  const files = new Set((rel.files ?? []).map((f) => f.path));
+  // One real doc id per collection, so a sample link opens a page that exists.
+  const ids = {};
+  await Promise.all(
+    [
+      ...new Set(routes.map((r) => r.collection).filter((c) => c && c !== "*")),
+    ].map(async (c) => {
+      try {
+        const page = await viewOpt(account, "db_list", {
+          collection: c,
+          query: { limit: 1, order: "desc" },
+        });
+        ids[c] = page?.docs?.[0]?.id;
+      } catch {}
+    }),
+  );
+  box.replaceChildren(
+    card(
+      "Routes",
+      `release ${prodId}, ${routes.length} of 16`,
+      table(
+        ["Pattern", "Kind", "Collection", "Template", "Sample"],
+        routes.map((r) => {
+          const path = samplePath(r, ids);
+          return [
+            mono(r.pattern),
+            chip(r.kind, r.kind === "json" ? "info" : null),
+            mono(r.collection),
+            r.template
+              ? h(
+                  "span",
+                  null,
+                  mono(r.template),
+                  files.has(r.template) ? null : chip("missing", "warn"),
+                )
+              : "none",
+            h("a", {
+              class: "link mono",
+              href: `${hostFor(account)}${path}`,
+              target: "_blank",
+              rel: "noopener",
+              text: path,
+            }),
+          ];
+        }),
+      ),
+    ),
+    h("p", {
+      class: "muted note",
+      style: "font-size:13px",
+      text: "Routes are checked before files, in this order. Docs and rules are live state; routes and templates roll back with the release.",
+    }),
+  );
+}
+
+async function loadKeysTab(account, box) {
+  const [open, members, products, receipts] = await Promise.all([
+    viewOpt(account, "get_members_open"),
+    viewOpt(account, "list_members", { from_index: 0, limit: 50 }),
+    viewOpt(account, "list_products"),
+    viewOpt(account, "list_receipts", { query: { limit: 10, order: "desc" } }),
+  ]);
+  const cards = [
+    card(
+      "Access keys",
+      "read from chain",
+      h(
+        "ul",
+        { class: "keys" },
+        data.keys.map((k) => keyItem(k, account)),
+      ),
+    ),
+  ];
+  if (members === undefined) cards.push(offCard("Members"));
+  else {
+    const list = members?.members ?? [];
+    cards.push(
+      card(
+        "Members",
+        `${members?.next != null ? "50+" : list.length} · ${open === false ? "closed" : "open to anyone"}`,
+        list.length
+          ? h(
+              "ul",
+              { class: "keys" },
+              list
+                .slice(0, 10)
+                .map((m) =>
+                  h(
+                    "li",
+                    null,
+                    icon("key"),
+                    h("div", { class: "kd", text: m }),
+                    h("span"),
+                  ),
+                ),
+              list.length > 10 || members.next != null
+                ? h(
+                    "li",
+                    null,
+                    h("span"),
+                    h("div", {
+                      class: "muted",
+                      text: `${members.next != null ? "At least " : ""}${list.length} members; the first 10 are shown.`,
+                    }),
+                    h("span"),
+                  )
+                : null,
+            )
+          : stateBox(
+              "empty",
+              "No members yet",
+              "A member is an account <name>.<site> made by join, with no NEAR needed.",
+              "quay members list",
+            ),
+      ),
+    );
+  }
+  // relay health comes from the shared status read
+  const relayBox = h("div", null, skeleton(2));
+  cards.push(relayBox);
+  if (products === undefined) cards.push(offCard("Payments"));
+  else {
+    const list = rows(products);
+    cards.push(
+      card(
+        "Products",
+        `${list.length} of 32`,
+        list.length
+          ? table(
+              ["Id", "Name", "Price", "Grant"],
+              list.map((p) => [
+                mono(p.id || p.name),
+                p.name,
+                price(p),
+                p.grant === "pin"
+                  ? `pin ${Math.round((p.pin_seconds || 0) / 3600)} h`
+                  : p.grant,
+              ]),
+            )
+          : stateBox(
+              "empty",
+              "No products yet",
+              "A product sells a pin or a receipt for NEAR or a token.",
+              "quay products set pin",
+            ),
+      ),
+    );
+    const recs = rows(receipts, "receipts");
+    cards.push(
+      card(
+        "Recent receipts",
+        "newest first",
+        recs.length
+          ? table(
+              ["Buyer", "Product", "Ref", "Amount", "When"],
+              recs.map((x) => {
+                const r = x.data ?? x;
+                return [
+                  mono(r.buyer || ""),
+                  r.product,
+                  mono(r.ref || ""),
+                  r.token && r.token !== "near"
+                    ? `${r.amount} of ${r.token}`
+                    : r.amount
+                      ? nearFromYocto(r.amount)
+                      : "",
+                  when(r.at ?? x.created),
+                ];
+              }),
+            )
+          : stateBox(
+              "empty",
+              "No receipts yet",
+              "A receipt is recorded each time someone pays.",
+              "quay receipts",
+            ),
+      ),
+    );
+  }
+  box.replaceChildren(...cards);
+  const result = await layersP;
+  if (viewed !== account) return;
+  const l = result?.layers?.relay;
+  relayBox.replaceChildren(
+    card(
+      "Relay",
+      l ? l.state : "not measured",
+      l && l.state !== "off"
+        ? h(
+            "div",
+            { class: "card-body" },
+            h("p", { style: "font-size:14px", text: l.summary }),
+            l.error
+              ? h("p", {
+                  class: "muted",
+                  style: "font-size:13px;margin-top:4px",
+                  text: l.error,
+                })
+              : null,
+            h(
+              "dl",
+              { class: "kv", style: "margin-top:12px" },
+              Object.entries(l.metrics).flatMap(([k, v]) => [
+                h("dt", { text: k.replaceAll("_", " ") }),
+                h("dd", { class: "num", text: String(v) }),
+              ]),
+            ),
+            h("p", {
+              class: "muted",
+              style: "font-size:12.5px;margin-top:12px",
+              text: "To check a relay URL, add ?relay=<url> to this page's address.",
+            }),
+          )
+        : stateBox(
+            "off",
+            "No relay for this site",
+            l?.summary || "Members need a relayer to write with zero NEAR.",
+            "quay relay create",
+          ),
+    ),
+  );
+}
+
+const TAB_LOADERS = {
+  data: loadDataTab,
+  functions: loadFunctionsTab,
+  routes: loadRoutesTab,
+  keys: loadKeysTab,
+};
+function ensureTab(tab) {
+  const loader = TAB_LOADERS[tab];
+  if (!loader || tabState[tab] || !data) return;
+  const account = viewed;
+  const box = $(`tab-${tab}`);
+  tabState[tab] = true;
+  box.replaceChildren(skeleton(4));
+  loader(account, box).catch((error) => {
+    if (viewed !== account) return;
+    tabState[tab] = false;
+    box.replaceChildren(errorBox(error, () => ensureTab(tab)));
+  });
+}
+function resetTabs() {
+  tabState = {};
+  ensureTab(currentTab());
 }
 
 // ---------- loading ----------
 async function load(account, quiet) {
   viewed = account;
+  tabState = {};
+  layersFor = null;
   $("crumb-name").textContent = account;
   checkGateway();
   if (!quiet) show("loading");
@@ -771,6 +1780,7 @@ async function ensureWallet() {
   connector.on("wallet:signOut", () => {
     walletAccount = null;
     render();
+    resetTabs();
   });
   return connector;
 }
@@ -784,6 +1794,7 @@ async function signIn(button) {
     const accounts = await wallet.getAccounts();
     walletAccount = accounts[0]?.accountId ?? null;
     render();
+    resetTabs();
     if (walletAccount)
       toast(
         "ok",
@@ -985,6 +1996,7 @@ $("sign-out").addEventListener("click", async () => {
   } catch {}
   walletAccount = null;
   render();
+  resetTabs();
   toast("ok", "Signed out", "The page can still read every account.");
 });
 $("tabs").addEventListener("click", (event) => {
