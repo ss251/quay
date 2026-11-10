@@ -267,6 +267,31 @@ impl Contract {
         U64(freed)
     }
 
+    /// Removes a chunk that no release references. A publish-only key cannot call
+    /// this: it requires 1 yoctoNEAR. Bytes uploaded and then never sealed stay
+    /// until the account owner drops them.
+    #[payable]
+    pub fn drop_chunk(&mut self, sha256: String) {
+        assert_self();
+        near_sdk::assert_one_yocto();
+        let sha256 = normalize_sha256(&sha256);
+        if self.chunk_refs.contains_key(&sha256) {
+            env::panic_str("chunk is in use");
+        }
+        let chunk = self
+            .chunks
+            .remove(&sha256)
+            .unwrap_or_else(|| env::panic_str("chunk missing"));
+        self.stored_bytes = self.stored_bytes.saturating_sub(chunk.len() as u64);
+        emit(
+            "chunk_dropped",
+            &near_sdk::serde_json::json!({
+                "sha256": sha256,
+                "bytes_freed": chunk.len(),
+            }),
+        );
+    }
+
     #[payable]
     pub fn buy(&mut self, memo: Option<String>) {
         let deposit = env::attached_deposit();
@@ -612,9 +637,13 @@ fn find_file<'a>(release: &'a Release, path: &str) -> Option<&'a StoredFile> {
     release.files.iter().find(|file| file.path == path)
 }
 
+fn bad_part(part: &str) -> bool {
+    part.is_empty() || part == "." || part == ".."
+}
+
 fn route(raw: &str) -> Routed {
     let path = raw.split('?').next().unwrap_or("");
-    if path.contains("..") || path.contains('\\') || path.contains("//") {
+    if path.contains('\\') || path.contains("//") {
         return Routed::Missing;
     }
     let path = if path.is_empty() { "/" } else { path };
@@ -638,7 +667,7 @@ fn route(raw: &str) -> Routed {
                 let file = file.trim_end_matches('/');
                 if file.is_empty() || file == INDEX_PATH {
                     INDEX_PATH.to_string()
-                } else if file.split('/').any(|part| part.is_empty() || part == ".") {
+                } else if file.split('/').any(bad_part) {
                     return Routed::Missing;
                 } else {
                     file.to_string()
@@ -650,7 +679,7 @@ fn route(raw: &str) -> Routed {
             path: file,
         };
     }
-    if trimmed.split('/').any(|part| part.is_empty() || part == ".") {
+    if trimmed.split('/').any(bad_part) {
         return Routed::Missing;
     }
     Routed::Production {
@@ -1078,6 +1107,69 @@ mod tests {
         assert_eq!(contract.get_budget().stored_bytes.0, used);
         assert_eq!(contract.delete("2".to_string()).0, html.len() as u64);
         assert_eq!(contract.get_budget().stored_bytes.0, 0);
+    }
+
+    #[test]
+    fn drop_chunk_returns_unreferenced_bytes() {
+        set_ctx(0);
+        let mut contract = Contract::new();
+        let html = b"<p>orphan</p>";
+        let hash = sha256_hex(html);
+        contract.put_chunk(hash.clone(), html.to_vec().into());
+        assert_eq!(contract.get_budget().stored_bytes.0, html.len() as u64);
+        set_ctx(1);
+        contract.drop_chunk(hash.clone());
+        assert!(!contract.has_chunk(hash));
+        assert_eq!(contract.get_budget().stored_bytes.0, 0);
+        let logs = get_logs();
+        assert!(logs.iter().any(|line| line.contains("chunk_dropped")));
+    }
+
+    #[test]
+    #[should_panic(expected = "chunk is in use")]
+    fn cannot_drop_a_sealed_chunk() {
+        set_ctx(0);
+        let mut contract = Contract::new();
+        seal_html(&mut contract, "1", b"<p>kept</p>");
+        set_ctx(1);
+        contract.drop_chunk(sha256_hex(b"<p>kept</p>"));
+    }
+
+    #[test]
+    fn a_dotted_file_name_is_served_and_a_parent_segment_is_not() {
+        set_ctx(0);
+        let mut contract = Contract::new();
+        let bytes = b"ok";
+        let hash = sha256_hex(bytes);
+        contract.put_chunk(hash.clone(), bytes.to_vec().into());
+        contract.seal(
+            "1".to_string(),
+            vec![
+                FileIn {
+                    path: "index.html".to_string(),
+                    chunks: vec![hash.clone()],
+                    content_type: "text/html".to_string(),
+                },
+                FileIn {
+                    path: "a..b.txt".to_string(),
+                    chunks: vec![hash],
+                    content_type: "text/plain".to_string(),
+                },
+            ],
+            "dots".to_string(),
+            false,
+        );
+        set_ctx(1);
+        contract.promote("1".to_string());
+        let file = contract.web4_get(Web4Request {
+            path: "/a..b.txt".to_string(),
+        });
+        assert_eq!(file.status, Some(200));
+        assert_eq!(body_of(&file), bytes);
+        let escape = contract.web4_get(Web4Request {
+            path: "/r/1/../2".to_string(),
+        });
+        assert_eq!(escape.status, Some(404));
     }
 
     #[test]

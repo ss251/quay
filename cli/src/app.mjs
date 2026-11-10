@@ -167,27 +167,51 @@ export async function deploy(ctx, parsed) {
     return;
   }
   const chunkHashes = [];
-  for (let index = 0; index < plan.uploads.length; index += 1) {
-    const upload = plan.uploads[index];
-    writeErr(ctx, `${index + 1}/${plan.uploads.length}  ${upload.path}  ${upload.data.length} bytes`);
-    const sent = await ctx.chain.putChunk(upload.sha256, upload.data);
-    chunkHashes.push(sent.hash);
+  const uploaded = [];
+  let sealed;
+  try {
+    for (let index = 0; index < plan.uploads.length; index += 1) {
+      const upload = plan.uploads[index];
+      writeErr(ctx, `${index + 1}/${plan.uploads.length}  ${upload.path}  ${upload.data.length} bytes`);
+      const sent = await ctx.chain.putChunk(upload.sha256, upload.data);
+      chunkHashes.push(sent.hash);
+      uploaded.push(upload.sha256);
+    }
+    sealed = await ctx.chain.seal(
+      id,
+      plan.planned.map((file) => ({
+        path: file.path,
+        chunks: file.chunks,
+        content_type: file.contentType,
+      })),
+      message,
+      spa,
+    );
+  } catch (error) {
+    await dropAbandoned(ctx, uploaded);
+    throw error;
   }
-  const sealed = await ctx.chain.seal(
-    id,
-    plan.planned.map((file) => ({
-      path: file.path,
-      chunks: file.chunks,
-      content_type: file.contentType,
-    })),
-    message,
-    spa,
-  );
   emit(
     ctx,
     { ...summary, message, spa, transaction: sealed.hash, chunk_transactions: chunkHashes },
     `${paint(ctx.color, "36", id)}  ${summary.url}\nreused ${formatBytes(summary.reused_bytes)}`,
   );
+}
+
+async function dropAbandoned(ctx, hashes) {
+  if (hashes.length === 0) return;
+  if (ctx.signer?.limited) {
+    writeErr(ctx, "Those new chunks stay stored. A publish-only key cannot drop them.");
+    return;
+  }
+  for (const sha256 of hashes) {
+    try {
+      await ctx.chain.dropChunk(sha256);
+      writeErr(ctx, `dropped unused chunk ${sha256.slice(0, 12)}`);
+    } catch (error) {
+      writeErr(ctx, `could not drop ${sha256.slice(0, 12)}: ${error.message ?? error}`);
+    }
+  }
 }
 
 export async function promote(ctx, parsed) {

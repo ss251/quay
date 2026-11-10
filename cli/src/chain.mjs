@@ -73,6 +73,9 @@ export function createChain({ accountId, rpc, secret }) {
     async deleteRelease(id) {
       return send("delete", { id }, { deposit: 1n });
     },
+    async dropChunk(sha256) {
+      return send("drop_chunk", { sha256 }, { deposit: 1n });
+    },
     async deployAndInit(wasm) {
       try {
         const outcome = await account.signAndSendTransaction({
@@ -167,4 +170,19 @@ export function readWasm(path) {
 
 export function emptyCodeHash(hash) {
   return hash === "11111111111111111111111111111111";
+}
+
+export async function fundContract({ payerId, secret, rpc, contractId, yocto, memo }) {
+  const provider = createProvider(rpc);
+  const account = accountFromSecret(payerId, provider, secret);
+  try {
+    const outcome = await account.signAndSendTransaction({
+      receiverId: contractId,
+      waitUntil: "EXECUTED",
+      actions: [actions.functionCall("buy", memo ? { memo } : {}, GAS_CALL, yocto)],
+    });
+    return { hash: transactionHashOf(outcome) };
+  } catch (error) {
+    throw classifyChainError(error);
+  }
 }

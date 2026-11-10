@@ -37,7 +37,7 @@ Quay method arguments and views use snake_case JSON. Amounts and timestamps that
 
 ### `migrate(ids: Vec<String>)`
 
-`#[init(ignore_state)]` and `#[private]`. Reads v1 state, rewrites each listed release into v2, and rebuilds chunk reference counts. Pass `[]` to scan ids `"1"` through `"128"`. A second call on v2 state returns that state unchanged. Migrated releases get timestamp `0`, an empty message, and `spa: false`. The previous production pointer starts empty. One history row is recorded when v1 had a production release.
+`#[init(ignore_state)]`. The predecessor must be this account (`assert_self`, panic `only this account`). Reads v1 state, rewrites each listed release into v2, and rebuilds chunk reference counts. Pass `[]` to scan ids `"1"` through `"128"`. A second call on v2 state returns that state unchanged. Migrated releases get timestamp `0`, an empty message, and `spa: false`. The previous production pointer starts empty. One history row is recorded when v1 had a production release.
 
 ### `publish_methods() -> Vec<String>`
 
@@ -70,6 +70,12 @@ Emits `rolled_back`. Returns the id that is production after the call.
 Same caller and deposit rules as `promote`. Refuses the current production id. If `id` is the rollback target, the previous pointer is cleared. Returns the payload bytes freed.
 
 Emits `release_deleted`.
+
+### `drop_chunk(sha256)`
+
+`#[payable]`. Predecessor must be this account, and the attached deposit must be exactly 1 yoctoNEAR. Removes a chunk that no release references and subtracts its length from `stored_bytes`. A chunk that was uploaded and never sealed stays until this call. A publish-only key cannot attach the deposit, so it cannot drop chunks. Refuses a chunk that a release still uses, and a hash that is not stored.
+
+Emits `chunk_dropped`.
 
 ### `buy(memo)`
 
@@ -125,6 +131,7 @@ EVENT_JSON:{"standard":"quay","version":"2.0.0","event":"<name>","data":[{ ... }
 | `promoted` | `id`, `previous` |
 | `rolled_back` | `id`, `previous` |
 | `release_deleted` | `id`, `bytes_freed` |
+| `chunk_dropped` | `sha256`, `bytes_freed` |
 | `purchased` | `buyer`, `yocto` |
 
 ## `web4_get`
@@ -138,7 +145,7 @@ Request JSON uses camelCase. The field that is read is `path`. Query strings are
 | `/r/<id>`, `/r/<id>/`, `/r/<id>/index.html` | That release's `index.html` |
 | `/r/<id>/<path>` | That file in that release |
 
-A path that names a directory serves `<dir>/index.html` when that file was sealed. `..`, backslash, and empty segments are not found.
+A path that names a directory serves `<dir>/index.html` when that file was sealed. A `..` segment, a `.` segment, a backslash, and an empty segment are not found. A file name may contain `..` in the middle, such as `a..b.txt`.
 
 When no file matches:
 

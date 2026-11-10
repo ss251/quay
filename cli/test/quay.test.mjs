@@ -121,6 +121,52 @@ test("deploy skips chunks the contract already has", async () => {
   assert.match(io.text(), /https:\/\/quay-demo\.testnet\.page\/r\/1\//);
 });
 
+test("a failed seal drops the chunks just uploaded", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "quay-drop-"));
+  writeFileSync(join(dir, "index.html"), "<p>one</p>");
+  const dropped = [];
+  const io = streams();
+  await assert.rejects(
+    () =>
+      deploy(
+        {
+          ...io,
+          json: false,
+          yes: true,
+          dryRun: false,
+          spa: false,
+          color: false,
+          isTTY: false,
+          config: { account: "quay-demo.testnet", gateway: "https://quay-demo.testnet.page", rpc: "https://test.rpc.fastnear.com" },
+          signer: { secret: "local", limited: false, publicKey: "ed25519:abc" },
+          chain: {
+            async view(method) {
+              if (method === "list_releases") return { releases: [], next: null };
+              if (method === "get_status") return { stored_bytes: "0", max_bytes: "2000000" };
+              return null;
+            },
+            async hasChunk() {
+              return false;
+            },
+            async putChunk(hash) {
+              return { hash };
+            },
+            async seal() {
+              throw new Error("seal failed");
+            },
+            async dropChunk(hash) {
+              dropped.push(hash);
+              return { hash: "drop-tx" };
+            },
+          },
+        },
+        { rest: [dir], flags: { message: "note" } },
+      ),
+    /seal failed/,
+  );
+  assert.equal(dropped.length, 1);
+});
+
 test("a publish-only key cannot promote", async () => {
   let called = false;
   await assert.rejects(
