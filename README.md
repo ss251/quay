@@ -35,7 +35,7 @@ A directory needs `index.html`. Put `404.html` in the folder for unknown paths. 
 
 NEAR locks 0.01 NEAR per 1,000 bytes of stored state, about 1 NEAR per 100 KB, plus a little for each trie record. Deleting a release that is not production unlocks those bytes on the contract account. The lock is not transferred to you. The contract wasm is 216,419 bytes and locks a little over 2 NEAR by itself.
 
-After the current product deploy, `quay-esc0v902.testnet` holds 9.9745 NEAR, of which 7.1136 is locked and 2.8610 is free. It keeps eight releases: the old design (4), three earlier builds of the new one (5 to 7), and production (8). `quay delete 5` and `quay delete 6` would unlock most of what those previews hold. The harbour sample holds 9.9698 NEAR, of which 2.4704 is locked and 7.4994 is free. Its sealed files are 17,717 bytes. The packed-CLI account holds 10.0134 NEAR, of which 2.3151 is locked and 7.6983 is free, and the contract reports 7,674 stored bytes.
+After the current product deploy, `quay-esc0v902.testnet` holds 9.9724 NEAR, of which 7.4776 is locked and 2.4948 is free. It keeps nine releases: the old design (4), four earlier builds of the new one (5 to 8), and production (9). Deleting 5 to 7 with `quay delete` would unlock most of what those previews hold. The harbour sample holds 9.9698 NEAR, of which 2.4704 is locked and 7.4994 is free. Its sealed files are 17,717 bytes. The packed-CLI account holds 10.0134 NEAR, of which 2.3151 is locked and 7.6983 is free, and the contract reports 7,674 stored bytes.
 
 ## CI
 
@@ -91,7 +91,7 @@ No key. You need `cargo`, `curl`, `node`, and `shasum` on `PATH`. The same check
    curl -fsS https://quay-esc0v902.testnet.page/dashboard/?account=quay-65nqd3rn.testnet
    ```
 
-   See "Move production on purpose", `quay deploy`, and "Try the sample". The live release, 8, was sealed in [F8VJLAzBRstwf6eD4jqLrvTdYvAgAbp3dfxY55UgzqTz](https://explorer.testnet.near.org/transactions/F8VJLAzBRstwf6eD4jqLrvTdYvAgAbp3dfxY55UgzqTz) and promoted in [BezLDagrS7aSoMpdrvnzjyowc7JZ9yU89J133tJiUfYC](https://explorer.testnet.near.org/transactions/BezLDagrS7aSoMpdrvnzjyowc7JZ9yU89J133tJiUfYC). The previous design is still release 4, at https://quay-esc0v902.testnet.page/r/4/.
+   See "Move production on purpose", `quay deploy`, and "Try the sample". The live release, 9, was sealed in [GegcmRL3wurnmnQGqZk7bAqK5mKizR5b5fP611CKRxTg](https://explorer.testnet.near.org/transactions/GegcmRL3wurnmnQGqZk7bAqK5mKizR5b5fP611CKRxTg) and promoted in [CvfPW9CGFDA1JdMk5nGgW9PmBJi1PpXxmZbJRW4cvnPw](https://explorer.testnet.near.org/transactions/CvfPW9CGFDA1JdMk5nGgW9PmBJi1PpXxmZbJRW4cvnPw). The previous design is still release 4, at https://quay-esc0v902.testnet.page/r/4/.
 
 3. Open the sample. Production is release 5. The previous pointer is 4. Releases 1 to 4 stay at their URLs.
 

@@ -2140,6 +2140,9 @@ html.embed .toasts {
   .hide-s {
     display: none !important;
   }
+  .wallet > span:not(.avatar) {
+    display: none;
+  }
   .hero {
     padding-top: 56px;
   }
