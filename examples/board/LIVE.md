@@ -142,3 +142,18 @@ Limits of this claim: the signing ran in my terminal (the NEAR CLI connector is 
 | production 5 | https://explorer.testnet.near.org/transactions/BuSshpmhzccho2agS96H54EFEJvUwbdyW6s4WKhD7QRY |
 | relay function redeployed with the review fixes (sender key and nonce checked before spending, atomic budgets, one-label members): project / secrets | https://explorer.testnet.near.org/transactions/8KHUMSKvMJ7Yb5wD3x13zTT5zsUgYkKNjpGcBBjdTc2P / https://explorer.testnet.near.org/transactions/Dv4umJt17VSUrmRto2p9orJevnCqGtmAViaKRMb2owFw |
 | check: throwaway collection `relaycheck` created; maren added a doc through the OutLayer relay (20 s) and removed it (14 s); collection dropped | https://explorer.testnet.near.org/transactions/5RhXKgZQRgC7FWGxTpoxoPqHaX9vLLpBHSTok6ksJS8G / https://explorer.testnet.near.org/transactions/7hM4N4FPhLKK3gr2QfGLtEmr9Fkr7uUjLcEtYfYpfeMC |
+
+## FastData KV (gas-only public data, 2026-11-12)
+
+`quay.db.collection("guestbook", { backend: "fastdata" })` writes `__fastdata_kv` on the site account; the FastNEAR indexer records it under the caller. See docs/fullstack-interface.md section 1b for the trust notes (no rules, `owner` is the only identity, reads depend on FastNEAR).
+
+| Step | Link |
+| --- | --- |
+| direct write from `harbour-board.testnet` to receiver `harbour-board.testnet`, 5 Tgas: the receipt failed with `MethodNotFound` and the indexer recorded it | https://explorer.testnet.near.org/transactions/CqQpsM53zyHaxA9hNs7JNWp84TPnduvg2YQTJ15JVJ48 |
+| the same with 1 gas: the receipt failed with `Exceeded the prepaid gas`, and the indexer recorded it too | https://explorer.testnet.near.org/transactions/6m3f8qo4giHmGVhPwBzN7DwUdz3HVwRxHzPRcVScYtew |
+| member `maren.harbour-board.testnet` (zero NEAR) wrote guestbook entry `zd3ot1u1o233l2w`, a delegate paid by `relay.harbour-board.testnet` through the **Node relay** | https://explorer.testnet.near.org/transactions/9jBJbchzA5kqwuZvJygdoSVNTokS7vjdZ5xRiiUKayE |
+
+- Which relay: the board's **OutLayer relay refused it** (`relay_refused: method __fastdata_kv is not relayed`): its method allowlist is fixed in its config. The write went through `quay relay serve --account harbour-board.testnet --fastdata --port 8788` (loopback, relayer key from `~/.near-credentials`), which was stopped afterwards. Adding `__fastdata_kv` to the OutLayer relay needs a redeploy with that method in its list.
+- Read back through the client: `col.get("zd3ot1u1o233l2w", { owner: "maren.harbour-board.testnet" })` and `col.list({ limit: 5 })` returned the entry with `owner` = `maren.harbour-board.testnet`, block height 277121561. The raw read is `GET https://kv.test.fastnear.com/v0/latest/harbour-board.testnet/maren.harbour-board.testnet/quay/guestbook/zd3ot1u1o233l2w`.
+- Two probe keys, `quay/probe/1794345088610` and `quay/probe5t/1794345108481`, were written by the owner during the check; they are harmless leftovers under `quay/probe*`.
+- Cost: the relayer's 0.3564 NEAR balance before, one 5 Tgas relay after (gas only).
