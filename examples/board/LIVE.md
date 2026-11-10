@@ -1,10 +1,10 @@
 # Harbour Board live on testnet
 
-Status on 2026-11-10: site, functions, collection, payments, members, routes, cron job and OutLayer relay are live. Seeding is partial (3 of 14 notices), pins and the arming of cron are not done. See "Not done".
+Status on 2026-11-10 23:30 UTC: site, routes, data, members, sign-in, both relays, functions, payments, the large file and cron are live. The schedule was armed at 23:14 UTC and its first successful digest ran at 23:22 UTC (see "Cron armed"). One arm of 1 PGas lasts about 6 hours with the hourly job, then `quay cron arm` must be sent again. The sections below are in the order the work happened, so earlier ones describe states that later ones fixed.
 
 - Site: https://harbour-board.ss251.workers.dev/ (Workers mirror, primary), https://harbour-board.testnet.page/ (public gateway) or `quay gateway --account harbour-board.testnet`
-- Account: `harbour-board.testnet` (v3 contract 3.0.0), relayer `relay.harbour-board.testnet`, buyer `buyer.harbour-board.testnet`
-- Members that exist: maren, dunstan, priya, tobias, halvard, promo-bot (all `<name>.harbour-board.testnet`, created through the OutLayer relay, no NEAR)
+- Account: `harbour-board.testnet` (v3 contract, 3.0.1 since 2026-11-10), relayer `relay.harbour-board.testnet`, buyer `buyer.harbour-board.testnet`
+- Members: maren, dunstan, priya, tobias, halvard and promo-bot were seeded; e2e-4eb351a1 and two `tg-…` members came from the browser checks. Nine on 2026-11-10, all `<name>.harbour-board.testnet`, created through the relays with no NEAR. Joining is open, so `list_members` may show more.
 
 ## Transactions
 
@@ -57,7 +57,7 @@ site 4.181 (about 0.23 liquid), relayer 0.376, buyer 0.157, pool 0.514 free and 
 
 ## Not done
 
-- Cron is not armed (needs about 1.1 NEAR liquid; the site has about 0.23).
+- Cron was not armed at this point (it needed about 1.1 NEAR liquid; the site had about 0.23). Done later, see "Cron armed".
 
 ## Later fixes (2026-11-10)
 
@@ -74,7 +74,7 @@ site 4.181 (about 0.23 liquid), relayer 0.376, buyer 0.157, pool 0.514 free and 
 | mistake: `quay functions rm relay` (meant to drop a stray contract entry) also deleted the relay's OutLayer secrets and project | https://explorer.testnet.near.org/transactions/4RRb9RbC9wN6krLyLaDRa2P5rDvtSCCRZkSD8Y6EGzXk / https://explorer.testnet.near.org/transactions/3d3XPTPrxYqSZuGRg9aSq8NjDcQW9U5Nf2L16QyDKoZL |
 | fixed minutes later: `quay relay deploy` re-created the project and re-stored RELAY_KEY; health answered with the existing payment key | https://explorer.testnet.near.org/transactions/9rnqpKHJYq2JB9Yc9pDNFJH1xRUWbZKX8gcLwwuWwVwT / https://explorer.testnet.near.org/transactions/AJe1CeRKu6s1ZSQgw7iaEhm3RKh7xhwyJbCrgZUorVYh |
 
-## Browser check (2026-11-11)
+## Browser check (2026-11-10)
 
 A new isolated headless Chrome (`chrome-devtools-axi`, its own profile, closed afterwards) drove the live page https://harbour-board.testnet.page/new/. Testnet only, no wallet, no NEAR on the member side.
 
@@ -143,7 +143,7 @@ Limits of this claim: the signing ran in my terminal (the NEAR CLI connector is 
 | relay function redeployed with the review fixes (sender key and nonce checked before spending, atomic budgets, one-label members): project / secrets | https://explorer.testnet.near.org/transactions/8KHUMSKvMJ7Yb5wD3x13zTT5zsUgYkKNjpGcBBjdTc2P / https://explorer.testnet.near.org/transactions/Dv4umJt17VSUrmRto2p9orJevnCqGtmAViaKRMb2owFw |
 | check: throwaway collection `relaycheck` created; maren added a doc through the OutLayer relay (20 s) and removed it (14 s); collection dropped | https://explorer.testnet.near.org/transactions/5RhXKgZQRgC7FWGxTpoxoPqHaX9vLLpBHSTok6ksJS8G / https://explorer.testnet.near.org/transactions/7hM4N4FPhLKK3gr2QfGLtEmr9Fkr7uUjLcEtYfYpfeMC |
 
-## FastData KV (gas-only public data, 2026-11-12)
+## FastData KV (gas-only public data, 2026-11-10)
 
 `quay.db.collection("guestbook", { backend: "fastdata" })` writes `__fastdata_kv` on the site account; the FastNEAR indexer records it under the caller. See docs/fullstack-interface.md section 1b for the trust notes (no rules, `owner` is the only identity, reads depend on FastNEAR).
 
@@ -157,3 +157,29 @@ Limits of this claim: the signing ran in my terminal (the NEAR CLI connector is 
 - Read back through the client: `col.get("zd3ot1u1o233l2w", { owner: "maren.harbour-board.testnet" })` and `col.list({ limit: 5 })` returned the entry with `owner` = `maren.harbour-board.testnet`, block height 277121561. The raw read is `GET https://kv.test.fastnear.com/v0/latest/harbour-board.testnet/maren.harbour-board.testnet/quay/guestbook/zd3ot1u1o233l2w`.
 - Two probe keys, `quay/probe/1794345088610` and `quay/probe5t/1794345108481`, were written by the owner during the check; they are harmless leftovers under `quay/probe*`.
 - Cost: the relayer's 0.3564 NEAR balance before, one 5 Tgas relay after (gas only).
+
+## Cron armed (2026-11-10)
+
+The faucet reopened at 23:12 UTC. A new faucet account, `qfund-1ktajy8t.testnet`, funded the site, the relayer and the product site.
+
+| Step | Link |
+| --- | --- |
+| 4 NEAR to the site | https://explorer.testnet.near.org/transactions/8pRU5Joa3AtwQHtPZuEKgoFbHvAeahTH9jgvDJNo1Z2M |
+| 1.5 NEAR to the relayer | https://explorer.testnet.near.org/transactions/7FM7xHaJQrMjSjq2ddrhyhCaYu542CkbdnCdHox6Ud5K |
+| `quay up`: digest function with the `scheduled` flag (upload / project / fn_set) | https://explorer.testnet.near.org/transactions/65pidNrv6Eb9NvkdH2nRG9nQnpA8SH5sPtA1n7VNLPmg / https://explorer.testnet.near.org/transactions/9NzBWwZhJe1GjLanjkHyoh5Vx84EzYCg3CSTfx6agcHS / https://explorer.testnet.near.org/transactions/3kVtxhBNufKnrnSDanmpYqvVrmuVSg6Dymvu5ffsCX5P |
+| release 6 (client bundle with extras, `quay-site.json`) / production 6 / cron_set with input `{"run":"schedule"}` | https://explorer.testnet.near.org/transactions/AGAxoZcfQqtwTFMQga1o9SKWqYuinqq64NX6PJFqm3WT / https://explorer.testnet.near.org/transactions/BfGJVhmvkUGuVQE1dpLqbWPJMZTSi8GvgTnrh2YbxSZP / https://explorer.testnet.near.org/transactions/642PuD8Tz6gjQUKZpQTNNfbfiwiAFTctXffVykovmsS8 |
+| `quay cron arm` (1 PGas). Every tick and job run of this chain is a receipt of this transaction | https://explorer.testnet.near.org/transactions/GJSg1cdT9cpVw1Qugp6nProfWK5ynLViNfdQ3wKeweGG |
+
+**First scheduled run failed (bug, fixed).** The first tick (23:16 UTC) ran the job, but the contract gave OutLayer's `request_execution` only 45 Tgas and it failed with `Exceeded the prepaid gas`; `fn_on_result` stored `digest-27` as `ok: false, error: "request failed"` and returned the deposit to the pool. The home page then showed that failed run under "Written … by the digest function, run by hand", with no digest text. That was wrong twice over: it was a scheduled run, and it was not a digest.
+
+Measured from `qfund-1ktajy8t.testnet` calling `outlayer.testnet` directly: 50 Tgas fails, 60 Tgas runs ([ETgNLQTm](https://explorer.testnet.near.org/transactions/ETgNLQTm8BAaJgVi17uea1qnd6iJe8E7vzYFwyW9sp4K)). OutLayer keeps about 50 Tgas for its own callback.
+
+| Fix | Link |
+| --- | --- |
+| contract 3.0.1: a cron job gives OutLayer 80 Tgas (state kept, the armed chain carried on) | https://explorer.testnet.near.org/transactions/G5EUhktorfvAATvr21R8sZ57Q88N5XVEuFyN5JoUtxpw |
+| job removed and set again so it was due at the next tick (its `last_run` reset) | https://explorer.testnet.near.org/transactions/8TvobsiY7XDxBtcmP8vezVMfaq4T577eGGMguyHqy1VM / https://explorer.testnet.near.org/transactions/8pmQ3ZLit7entxTpVVoPye1kXUSaMhngfqy4wvz2RRE6 |
+| release 7: a failed run shows as "The last digest run … failed: …", never as a digest / production 7 | https://explorer.testnet.near.org/transactions/DrGVTiLyDNC1Mer9nkks55NCcuf9XvfLwsWL2pUZXSVz / https://explorer.testnet.near.org/transactions/G82qz1qKMiTaeMwAiEgefutWtvCFCMs73B9JLx9Ybmfx |
+
+**Scheduled run proven.** At 23:22 UTC the fourth tick ran `digest` with 80 Tgas; OutLayer's callback got 75 Tgas and returned the digest, and `fn_on_result` stored `_fn/digest-28` with `ok: true` and `output.scheduled: true`. The home page reads "Written 2026-11-10 23:22 UTC by the hourly digest job." All of it is in the receipts of the arm transaction above. Check without a key: `view cron_status '{}'` (armed, hops, last tick) and `view db_list '{"collection":"_fn","query":{"limit":1,"order":"desc"}}'`.
+
+**How long it lasts.** The chain started with 997 Tgas. A hop takes about 2.25 Tgas every 2 minutes, and each job run takes 95 Tgas from the chain (80 for OutLayer, 15 for the result) whether it uses it or not. With one hourly job that is about 6 hours per arm, so the schedule needs `quay cron arm` again after that. Each arm reserves about 1 NEAR while it runs and refunds the unused gas.
