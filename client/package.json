@@ -1,0 +1,26 @@
+{
+  "name": "@quay/client",
+  "version": "3.0.0",
+  "description": "Quay full-stack client: db reads and writes, sign-in, member sessions.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./verify": "./src/verify.mjs",
+    "./relay-core": "./src/relay-core.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@noble/ed25519": "3.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "near-api-js": "7.4.0"
+  }
+}
