@@ -25,12 +25,29 @@ body {
   line-height: 1.5;
 }
 
-main { width: min(38rem, calc(100% - 2rem)); margin: 3rem auto; }
+main {
+  width: min(38rem, calc(100% - 2rem));
+  margin: 3rem auto;
+}
 
-h1 { font-family: var(--serif); font-size: 2.4rem; line-height: 1.15; font-weight: 560; }
+h1 {
+  font-family: var(--serif);
+  font-size: 2.4rem;
+  line-height: 1.15;
+  font-weight: 560;
+}
 
-a { color: var(--water); }
+a {
+  color: var(--water);
+}
 
-.eyebrow { letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.78rem; }
+.eyebrow {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+}
 
-img { display: block; border: 1px solid var(--line); }
+img {
+  display: block;
+  border: 1px solid var(--line);
+}

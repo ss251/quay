@@ -56,8 +56,12 @@ function when(nanoseconds) {
 }
 
 function accountFrom(raw) {
-  const text = raw.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-  if (text.endsWith(".testnet.page")) return text.slice(0, -".testnet.page".length) + ".testnet";
+  const text = raw
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "");
+  if (text.endsWith(".testnet.page"))
+    return `${text.slice(0, -".testnet.page".length)}.testnet`;
   return text;
 }
 
@@ -91,7 +95,10 @@ async function listAll(account, method, field) {
   const rows = [];
   let from = 0;
   for (;;) {
-    const page = await callView(account, method, { from_index: from, limit: 20 });
+    const page = await callView(account, method, {
+      from_index: from,
+      limit: 20,
+    });
     rows.push(...(page?.[field] ?? []));
     if (page?.next == null) return rows;
     from = page.next;
@@ -150,8 +157,20 @@ function fill(account, current, releases, history) {
   }
   for (const release of releases) {
     const row = document.createElement("tr");
-    const role = release.id === current.production ? "production" : release.id === current.previous ? "previous" : "";
-    const cells = [release.id, when(release.timestamp), String(release.file_count), bytes(release.bytes), release.message || "", role];
+    const role =
+      release.id === current.production
+        ? "production"
+        : release.id === current.previous
+          ? "previous"
+          : "";
+    const cells = [
+      release.id,
+      when(release.timestamp),
+      String(release.file_count),
+      bytes(release.bytes),
+      release.message || "",
+      role,
+    ];
     for (const value of cells) {
       const cell = document.createElement("td");
       cell.textContent = value;
@@ -182,7 +201,12 @@ function fill(account, current, releases, history) {
   }
   for (const entry of history) {
     const row = document.createElement("tr");
-    for (const value of [when(entry.timestamp), entry.kind, entry.release_id, entry.previous_id ?? ""]) {
+    for (const value of [
+      when(entry.timestamp),
+      entry.kind,
+      entry.release_id,
+      entry.previous_id ?? "",
+    ]) {
       const cell = document.createElement("td");
       cell.textContent = value;
       row.append(cell);
@@ -210,7 +234,8 @@ async function load(account) {
   show("loading");
   try {
     const current = await callView(account, "get_status", {});
-    if (!current?.version) throw new Error("This account did not answer as a Quay contract.");
+    if (!current?.version)
+      throw new Error("This account did not answer as a Quay contract.");
     const [releases, history] = await Promise.all([
       listAll(account, "list_releases", "releases"),
       listAll(account, "list_history", "entries"),
@@ -236,10 +261,16 @@ form.addEventListener("submit", (event) => {
 
 async function ensureWallet() {
   if (connector) return connector;
-  const { NearConnector } = await import("https://esm.sh/@hot-labs/near-connect@0.12.0");
+  const { NearConnector } = await import(
+    "https://esm.sh/@hot-labs/near-connect@0.12.0"
+  );
   connector = new NearConnector({
     network: "testnet",
-    features: { testnet: true, signAndSendTransaction: true, signInWithoutAddKey: true },
+    features: {
+      testnet: true,
+      signAndSendTransaction: true,
+      signInWithoutAddKey: true,
+    },
   });
   connector.on("wallet:signOut", () => {
     walletAccount = null;
@@ -293,11 +324,12 @@ result.addEventListener("click", async (event) => {
   if (walletAccount !== viewed) return;
   const action = button.dataset.action;
   const id = button.dataset.id;
-  const question = action === "delete"
-    ? `Delete release ${id}? Its storage unlocks on the contract account.`
-    : action === "rollback"
-      ? `Roll production back to ${status?.previous}?`
-      : `Make release ${id} the production site?`;
+  const question =
+    action === "delete"
+      ? `Delete release ${id}? Its storage unlocks on the contract account.`
+      : action === "rollback"
+        ? `Roll production back to ${status?.previous}?`
+        : `Make release ${id} the production site?`;
   const ok = await ask(question);
   if (!ok) return;
   button.disabled = true;
@@ -308,10 +340,12 @@ result.addEventListener("click", async (event) => {
     await wallet.signAndSendTransaction({
       signerId: walletAccount,
       receiverId: viewed,
-      actions: [{
-        type: "FunctionCall",
-        params: { methodName, args, gas: GAS, deposit: "1" },
-      }],
+      actions: [
+        {
+          type: "FunctionCall",
+          params: { methodName, args, gas: GAS, deposit: "1" },
+        },
+      ],
     });
     await load(viewed);
   } catch (error) {

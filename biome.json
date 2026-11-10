@@ -1,7 +1,22 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.2.6/schema.json",
   "files": {
-    "includes": ["cli/**", "web/**", "examples/**", "action/**", "package.json", "biome.json"]
+    "includes": [
+      "cli/**",
+      "web/**",
+      "examples/**",
+      "action/**",
+      "package.json",
+      "biome.json",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/target"
+    ]
+  },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
   },
   "formatter": {
     "indentStyle": "space",

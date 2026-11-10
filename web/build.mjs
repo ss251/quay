@@ -1,4 +1,10 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync, cpSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  cpSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,7 +41,9 @@ function footer() {
 function page({ title, href, body, script }) {
   const depth = href.includes("/") ? 1 : 0;
   const prefix = depth ? "../" : "";
-  const extra = script ? `\n<script type="module" src="${prefix}${script}"></script>` : "";
+  const extra = script
+    ? `\n<script type="module" src="${prefix}${script}"></script>`
+    : "";
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -58,10 +66,17 @@ ${footer()}
 }
 
 function escapeHtml(text) {
-  return text.replace(/[&<>]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[char]);
+  return text.replace(
+    /[&<>]/g,
+    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[char],
+  );
 }
 
-const cli = escapeHtml([helpText(), ...COMMANDS.map((command) => helpText(command.name))].join("\n\n"));
+const cli = escapeHtml(
+  [helpText(), ...COMMANDS.map((command) => helpText(command.name))].join(
+    "\n\n",
+  ),
+);
 
 const pages = {
   "index.html": page({
@@ -72,7 +87,10 @@ const pages = {
   "docs/index.html": page({
     title: "Quay docs",
     href: "docs/index.html",
-    body: readFileSync(join(root, "pages", "docs.html"), "utf8").replace("{{CLI}}", cli),
+    body: readFileSync(join(root, "pages", "docs.html"), "utf8").replace(
+      "{{CLI}}",
+      cli,
+    ),
   }),
   "dashboard/index.html": page({
     title: "Quay dashboard",
