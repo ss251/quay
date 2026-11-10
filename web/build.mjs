@@ -70,7 +70,7 @@ function siteNav(prefix, current) {
   return `<a class="skip" href="#content">Skip to content</a>
 <header class="site-nav"><div class="container">
 <a class="brand" href="${prefix}index.html">${mark()}Quay</a>
-<nav aria-label="Site">${link("docs/index.html", "Docs")}${link("dashboard/index.html", "Dashboard")}<a class="hide-s" href="https://quay-65nqd3rn.testnet.page/">Sample</a></nav>
+<nav aria-label="Site">${link("docs/index.html", "Docs")}${link("dashboard/index.html", "Dashboard", "hide-s")}<a class="hide-s" href="https://quay-65nqd3rn.testnet.page/">Sample</a></nav>
 <div class="nav-end"><span class="net hide-s"><span class="dot dot-live"></span>Testnet</span>
 <button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme">{{i:moon}}<svg class="icon i-sun" aria-hidden="true"><use href="${prefix}assets/icons.svg#i-sun"/></svg></button>
 <a class="btn btn-sm btn-primary" href="${prefix}dashboard/index.html">Open dashboard</a></div>

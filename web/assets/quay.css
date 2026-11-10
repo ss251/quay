@@ -1945,6 +1945,7 @@ html.embed .toasts {
 }
 .prose {
   max-width: 720px;
+  min-width: 0;
 }
 .prose h1 {
   font-size: 34px;
@@ -1973,6 +1974,7 @@ html.embed .toasts {
   margin-top: 14px;
 }
 .prose code {
+  overflow-wrap: anywhere;
   padding: 1px 5px;
   border-radius: 4px;
   background: var(--surface-3);
@@ -2151,6 +2153,8 @@ html.embed .toasts {
   }
   .shot-clip {
     max-height: none;
+    padding-inline: 0;
+    margin-inline: 0;
   }
   .shot .term {
     position: relative;
