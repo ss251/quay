@@ -4,7 +4,7 @@
 //! recorded only in the `on_join` callback, after the account exists.
 
 use near_sdk::store::{LookupSet, Vector};
-use near_sdk::{env, near, require, AccountId, Gas, Promise, PublicKey};
+use near_sdk::{env, near, require, AccountId, Gas, GasWeight, NearToken, PublicKey};
 
 use crate::db::name_ok;
 use crate::{assert_self, emit, page_bounds_max, Contract, ContractExt};
@@ -40,7 +40,8 @@ pub struct MemberPage {
 impl Contract {
     /// Create `<name>.<this account>` with `public_key` as its only full-access
     /// key. No NEAR is transferred.
-    pub fn join(&mut self, name: String, public_key: PublicKey) -> Promise {
+    /// The transaction result is `on_join`'s: `true` once recorded.
+    pub fn join(&mut self, name: String, public_key: PublicKey) {
         let site = env::current_account_id();
         require!(
             self.members.open || env::predecessor_account_id() == site,
@@ -50,15 +51,20 @@ impl Contract {
         if self.members.set.contains(&account) {
             env::panic_str("already a member");
         }
-        Promise::new(account.clone())
-            .create_account()
-            .add_full_access_key(public_key)
-            .then(
-                Self::ext(site)
-                    .with_static_gas(ON_JOIN_GAS)
-                    .with_unused_gas_weight(0)
-                    .on_join(account),
-            )
+        let create = env::promise_batch_create(&account);
+        env::promise_batch_action_create_account(create);
+        env::promise_batch_action_add_key_with_full_access(create, &public_key, 0);
+        let callback = env::promise_batch_then(create, &site);
+        let args = near_sdk::serde_json::json!({ "account": account }).to_string();
+        env::promise_batch_action_function_call_weight(
+            callback,
+            "on_join",
+            args.as_bytes(),
+            NearToken::from_yoctonear(0),
+            ON_JOIN_GAS,
+            GasWeight(0),
+        );
+        env::promise_return(callback);
     }
 
     /// Records the member when the account was created. Never panics.

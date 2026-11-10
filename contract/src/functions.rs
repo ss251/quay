@@ -12,7 +12,7 @@
 use near_sdk::json_types::{U128, U64};
 use near_sdk::serde_json::{self, Value};
 use near_sdk::store::IterableMap;
-use near_sdk::{env, near, require, AccountId, Gas, GasWeight, NearToken, Promise, PromiseError};
+use near_sdk::{env, near, require, AccountId, Gas, GasWeight, NearToken, PromiseError, PromiseIndex};
 
 use crate::db::{name_ok, refund, ListQuery, DocPage, PaidBy, WriteRule, FN_RESULTS, MAX_NAME_BYTES};
 use crate::{assert_self, emit, Contract, ContractExt};
@@ -169,7 +169,7 @@ impl Contract {
     /// Run a function on OutLayer. The transaction result is the function's
     /// output JSON (null when it failed).
     #[payable]
-    pub fn fn_call(&mut self, name: String, input: String) -> Promise {
+    pub fn fn_call(&mut self, name: String, input: String) {
         let spec = self
             .fns
             .specs
@@ -204,7 +204,7 @@ impl Contract {
                 (site, spec.deposit.0, PaidBy::Pool)
             }
         };
-        self.launch(Run {
+        let result = self.launch(Run {
             name,
             input,
             caller,
@@ -213,7 +213,8 @@ impl Contract {
             paid_by,
             trigger: None,
             gas: None,
-        })
+        });
+        env::promise_return(result);
     }
 
     /// Stores the result. Never panics: a failure is recorded, not raised.
@@ -254,7 +255,8 @@ impl Contract {
 
 impl Contract {
     /// Send `request_execution` and chain `fn_on_result`.
-    pub(crate) fn launch(&mut self, run: Run) -> Promise {
+    /// Returns the index of the `fn_on_result` promise.
+    pub(crate) fn launch(&mut self, run: Run) -> PromiseIndex {
         let spec = self
             .fns
             .specs
@@ -295,20 +297,25 @@ impl Contract {
             "fn_called",
             &serde_json::json!({ "name": run.name, "request": request, "caller": run.caller }),
         );
-        Promise::new(self.fns.outlayer.clone())
-            .function_call_weight(
-                "request_execution".to_string(),
-                args.to_string().into_bytes(),
-                NearToken::from_yoctonear(run.deposit),
-                gas,
-                weight,
-            )
-            .then(Promise::new(site).function_call(
-                "fn_on_result".to_string(),
-                callback.to_string().into_bytes(),
-                NearToken::from_yoctonear(0),
-                RESULT_GAS,
-            ))
+        let request_index = env::promise_batch_create(&self.fns.outlayer);
+        env::promise_batch_action_function_call_weight(
+            request_index,
+            "request_execution",
+            args.to_string().as_bytes(),
+            NearToken::from_yoctonear(run.deposit),
+            gas,
+            weight,
+        );
+        let result_index = env::promise_batch_then(request_index, &site);
+        env::promise_batch_action_function_call_weight(
+            result_index,
+            "fn_on_result",
+            callback.to_string().as_bytes(),
+            NearToken::from_yoctonear(0),
+            RESULT_GAS,
+            GasWeight(0),
+        );
+        result_index
     }
 
     /// Run `func` for a doc just added. Paid from the pool; skipped (logged)
@@ -329,7 +336,7 @@ impl Contract {
             "data": serde_json::from_str::<Value>(data).unwrap_or(Value::Null),
         })
         .to_string();
-        self.launch(Run {
+        let _ = self.launch(Run {
             name: func.to_string(),
             input,
             caller: owner.clone(),
@@ -341,8 +348,7 @@ impl Contract {
                 id: id.to_string(),
             }),
             gas: None,
-        })
-        .detach();
+        });
     }
 
     /// Spend `amount` of pool NEAR on a run (it leaves the pool for good).

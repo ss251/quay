@@ -9,7 +9,7 @@
 use near_sdk::json_types::{U128, U64};
 use near_sdk::serde_json::{self, Value};
 use near_sdk::store::{IterableMap, LookupMap};
-use near_sdk::{env, near, require, AccountId, NearToken, Promise};
+use near_sdk::{env, near, require, AccountId, NearToken};
 
 use crate::{assert_self, emit, Contract, ContractExt};
 
@@ -782,9 +782,10 @@ impl Contract {
 
 pub(crate) fn refund(to: &AccountId, amount: u128) {
     if amount > 0 && to != &env::current_account_id() {
-        Promise::new(to.clone())
-            .transfer(NearToken::from_yoctonear(amount))
-            .detach();
+        // Low-level promise API: the high-level `Promise` links code this
+        // contract never uses (global contracts, hashing).
+        let index = env::promise_batch_create(to);
+        env::promise_batch_action_transfer(index, NearToken::from_yoctonear(amount));
     }
 }
 

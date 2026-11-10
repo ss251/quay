@@ -243,7 +243,7 @@ impl Contract {
                 stored.last_run = now;
             }
             let site = env::current_account_id();
-            self.launch(Run {
+            let _ = self.launch(Run {
                 name: job.func.clone(),
                 input: job.input.clone(),
                 caller: site.clone(),
@@ -252,8 +252,7 @@ impl Contract {
                 paid_by: PaidBy::Pool,
                 trigger: None,
                 gas: Some(JOB_REQUEST_GAS),
-            })
-            .detach();
+            });
             emit("cron_ran", &serde_json::json!({ "name": name, "fn": job.func }));
         }
         let left = env::prepaid_gas().saturating_sub(env::used_gas());
