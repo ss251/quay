@@ -20,6 +20,16 @@ const DEFAULT_GAS = 50_000_000_000_000n;
 const DELEGATE_TTL = 120n;
 const MAX_GAS = 300_000_000_000_000n;
 const DOC_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const CONFIRM_MS = 90_000; // how long a relayed write is followed on chain
+const POLL_MS = 1_500;
+
+/** A client-made doc id: a letter, then 9 base36 characters. A retry with the same id cannot add a second doc. */
+export function newDocId() {
+  const b = randomBytes(10);
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  const chars = `0123456789${letters}`;
+  return letters[b[0] % 26] + [...b.slice(1)].map((x) => chars[x % 36]).join("");
+}
 
 export class QuayError extends Error {
   constructor(message, code = "quay_error") {
@@ -74,10 +84,12 @@ function failureOf(outcome) {
 }
 
 /**
- * connect({ site, rpc?, relay?, relayer?, fetch?, storage?, key?, wallet?, now?, gas? })
+ * connect({ site, rpc?, relay?, relayer?, fetch?, storage?, key?, wallet?, now?, gas?, confirmMs?, pollMs?, sleep? })
  *  - relay: base URL of the relayer (serves /relay and /join), or { outlayer: { owner, project: "relay", paymentKey, api } }
  *  - key: { accountId, secretKey } explicit key, Node scripts and tests (near-api-js must be installed)
  *  - wallet: a near-connect module `{ NearConnector }` to use instead of loading it from esm.sh
+ *  - confirmMs: how long a relayed write (and a pending OutLayer call) is followed before
+ *    `relay_timeout` (default 90 s). A `relay_timeout` means "sent, outcome unknown": look it up, do not resend.
  */
 export function connect(options) {
   if (!options?.site) throw new QuayError("connect needs { site }", "bad_config");
@@ -93,6 +105,9 @@ export function connect(options) {
   const relayerId = options.relayer ?? `relay.${site}`;
   const defaultGas = BigInt(options.gas ?? DEFAULT_GAS);
   const now = options.now ?? (() => Date.now());
+  const confirmMs = options.confirmMs ?? CONFIRM_MS;
+  const pollMs = options.pollMs ?? POLL_MS;
+  const sleep = options.sleep ?? ((ms) => new Promise((done) => setTimeout(done, ms)));
 
   const state = { mode: null, account: null, proof: null, connector: null, wallet: null };
 
@@ -122,26 +137,55 @@ export function connect(options) {
   // ----- writes -----
   const failMessage = (json, fallback) => (json?.error ? (json.reason ? `${json.error}: ${json.reason}` : json.error) : fallback);
 
+  const timeoutError = (what, detail) =>
+    new QuayError(`${what} did not settle within ${Math.round(confirmMs / 1000)} s${detail ? ` (${detail})` : ""}. It may still complete: look it up before sending it again.`, "relay_timeout");
+
+  // A call that outran OutLayer's synchronous window (408) or that the API restarted
+  // (status "pending") is still running and is charged once: poll it, never resend it.
+  async function pollCall(base, paymentKey, callId, label) {
+    const deadline = Date.now() + confirmMs;
+    while (Date.now() < deadline) {
+      await sleep(pollMs);
+      let env = null;
+      try {
+        const res = await doFetch(`${base}/calls/${callId}`, { headers: { "x-payment-key": paymentKey } });
+        env = await res.json();
+      } catch {
+        continue;
+      }
+      if (env?.status && env.status !== "pending") return env;
+    }
+    throw timeoutError(`outlayer ${label}`, `call ${callId}`);
+  }
+
   // One OutLayer call: POST {api}/call/{owner}/{project}, answer envelope {call_id, status, output}.
   async function outlayerCall({ owner, project, paymentKey, api = "https://testnet-api.outlayer.ai", secretsAccount = owner }, input, label) {
     if (!owner || !paymentKey) throw new QuayError("OutLayer needs { owner, paymentKey }", "bad_config");
-    const res = await doFetch(`${String(api).replace(/\/+$/, "")}/call/${owner}/${project}`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-payment-key": paymentKey },
-      body: JSON.stringify({ input, secrets_ref: { profile: "default", account_id: secretsAccount } }),
-    });
+    const base = String(api).replace(/\/+$/, "");
+    let res;
+    try {
+      res = await doFetch(`${base}/call/${owner}/${project}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-payment-key": paymentKey },
+        body: JSON.stringify({ input, secrets_ref: { profile: "default", account_id: secretsAccount } }),
+      });
+    } catch (error) {
+      throw timeoutError(`outlayer ${label}`, error?.name === "TimeoutError" || error?.name === "AbortError" ? "the request was aborted" : error?.message);
+    }
     let env = null;
     try {
       env = await res.json();
     } catch {}
-    if (!res.ok) throw new QuayError(failMessage(env, `outlayer ${label} failed with HTTP ${res.status}`), "relay_refused");
+    const callId = env?.call_id;
+    if (callId && (res.status === 408 || env?.status === "pending")) env = await pollCall(base, paymentKey, callId, label);
+    else if (!res.ok) throw new QuayError(failMessage(env, `outlayer ${label} failed with HTTP ${res.status}`), "relay_refused");
     let out = env?.output;
     if (typeof out === "string") {
       try {
         out = JSON.parse(out);
       } catch {}
     }
-    if (out && typeof out === "object" && out.error) throw new QuayError(failMessage(out), "relay_refused");
+    if (out && typeof out === "object" && out.error) throw Object.assign(new QuayError(failMessage(out), "relay_refused"), { reason: out.code ?? null });
     if (out == null)
       throw new QuayError(`outlayer ${label} ${env?.status === "failed" ? "failed" : "returned no output"}${env?.error ? `: ${env.error}` : ""}`, "relay_refused");
     return out;
@@ -187,8 +231,82 @@ export function connect(options) {
       publicKey: pk,
     };
     const signed = await signDelegate(delegate, s.secretKey);
-    const out = await postRelay("/relay", { signed_delegate: base64Encode(encodeSignedDelegate(signed)) });
+    const body = { signed_delegate: base64Encode(encodeSignedDelegate(signed)) };
+    const deadline = Date.now() + confirmMs;
+    let out;
+    for (;;) {
+      try {
+        out = await postRelay("/relay", body);
+        break;
+      } catch (error) {
+        // relayer_busy: nothing was sent, its balance is held by relays still running.
+        // The same signed delegate is safe to send again (one nonce, one landing).
+        if (error.reason !== "relayer_busy" || Date.now() >= deadline) throw error;
+        await sleep(pollMs * 2);
+      }
+    }
+    if (!out?.hash) throw new QuayError("the relayer returned no transaction hash", "relay_refused");
     return { hash: out.hash, outcome: null, relayed: true };
+  }
+
+  /**
+   * Follow a relayed transaction until every receipt ran (the relayer returns once it is
+   * included). Node timeouts and not-yet-known hashes are retried until the deadline.
+   */
+  async function confirmTx(hash, { deadline = Date.now() + confirmMs, stop = () => false, waitUntil = "EXECUTED_OPTIMISTIC" } = {}) {
+    while (!stop()) {
+      try {
+        return await rpc.call("EXPERIMENTAL_tx_status", { tx_hash: hash, sender_account_id: relayerId, wait_until: waitUntil });
+      } catch (error) {
+        if (!/TIMEOUT|UNKNOWN_TRANSACTION|HTTP 5\d\d|fetch failed/i.test(error?.message ?? "")) throw error;
+      }
+      if (Date.now() >= deadline) throw timeoutError("the relayed transaction", hash);
+      await sleep(pollMs);
+    }
+    return null;
+  }
+
+  /**
+   * A relayed db_add is done when the doc can be read: an on_add trigger can keep the
+   * transaction open for another OutLayer run, but the doc exists one block after inclusion.
+   * A failed add ends its transaction at once, so the transaction answer reports failures.
+   */
+  async function awaitDoc(collection, id, hash) {
+    const deadline = Date.now() + confirmMs;
+    let settled = false;
+    const landed = async () => {
+      try {
+        return Boolean(await view("db_get", { collection, id }));
+      } catch {
+        return false;
+      }
+    };
+    return new Promise((resolve, reject) => {
+      let open = 2;
+      let lastError = null;
+      const finish = (fn, value) => {
+        if (settled) return;
+        settled = true;
+        fn(value);
+      };
+      const gaveUp = (error) => {
+        lastError = lastError ?? error;
+        if (--open === 0) finish(reject, lastError);
+      };
+      confirmTx(hash, { deadline, stop: () => settled }).then((outcome) => {
+        if (!outcome) return;
+        const bad = failureOf(outcome);
+        if (bad) finish(reject, new QuayError(`db_add failed: ${bad}`, "call_failed"));
+        else finish(resolve, id);
+      }, gaveUp);
+      (async () => {
+        while (!settled && Date.now() < deadline) {
+          if (await landed()) return finish(resolve, id);
+          await sleep(pollMs);
+        }
+        if (!settled) gaveUp(timeoutError("the relayed db_add", `${collection}/${id}, ${hash}`));
+      })();
+    });
   }
 
   async function walletWrite(method, args, gas, deposit, receiver = site) {
@@ -211,7 +329,7 @@ export function connect(options) {
   }
 
   /** Send a write. Returns { hash, outcome, relayed }. */
-  async function write(method, args, { deposit = 0n, gas = defaultGas, receiver = site } = {}) {
+  async function write(method, args, { deposit = 0n, gas = defaultGas, receiver = site, confirm = true } = {}) {
     const dep = toYocto(deposit);
     let result;
     if (options.key) result = await keyWrite(method, args, gas, dep, receiver);
@@ -222,6 +340,7 @@ export function connect(options) {
           "deposit_needs_wallet",
         );
       result = await relayWrite(method, args, gas);
+      if (confirm) result.outcome = await confirmTx(result.hash);
     } else if (state.mode === "wallet") result = await walletWrite(method, args, gas, dep, receiver);
     else throw new QuayError("sign in first: quay.auth.signIn()", "not_signed_in");
     const bad = failureOf(result.outcome);
@@ -232,13 +351,9 @@ export function connect(options) {
   /** The call's return value. { final: true } waits for the whole promise chain and reads the transaction result. */
   async function resultOf(method, written, { final = false } = {}) {
     let outcome = written.outcome;
-    if (!outcome) {
+    if (!outcome || (final && written.relayed)) {
       // relayed: read the transaction from the chain
-      outcome = await rpc.call("EXPERIMENTAL_tx_status", {
-        tx_hash: written.hash,
-        sender_account_id: relayerId,
-        wait_until: final ? "FINAL" : "EXECUTED_OPTIMISTIC",
-      });
+      outcome = await confirmTx(written.hash, { waitUntil: final ? "FINAL" : "EXECUTED_OPTIMISTIC" });
       const bad = failureOf(outcome);
       if (bad) throw new QuayError(`${method} failed: ${bad}`, "call_failed");
     }
@@ -273,6 +388,20 @@ export function connect(options) {
             if (!DOC_ID.test(String(id)) || /^\d+$/.test(String(id)))
               throw new QuayError("a doc id is 1 to 64 characters of A-Z a-z 0-9 _ - and may not be all digits (digits are automatic ids)", "bad_id");
             args.id = String(id);
+          }
+          if (state.mode === "member" && !options.key && toYocto(deposit ?? 0n) === 0n) {
+            // Relayed: the id is chosen here so a retry cannot add the post twice.
+            args.id = args.id ?? newDocId();
+            let written;
+            try {
+              written = await write("db_add", args, { gas: await addGas(name), confirm: false });
+            } catch (error) {
+              // The relay call itself timed out: the add may still land under this id.
+              if (error.code === "relay_timeout" && (await view("db_get", { collection: name, id: args.id }).catch(() => null))) return args.id;
+              if (error.code === "relay_timeout") error.message += ` The doc id is ${name}/${args.id}; adding it again with { id } cannot duplicate it.`;
+              throw error;
+            }
+            return awaitDoc(name, args.id, written.hash);
           }
           const written = await write("db_add", args, { deposit, gas: await addGas(name) });
           if (id != null) return String(id);
@@ -417,7 +546,7 @@ export function connect(options) {
       const spec = await view("fn_get", { name });
       if (!spec) throw new QuayError(`unknown function ${name}`, "unknown_function");
       const deposit = spec.payer === "site" ? 0n : toYocto(spec.deposit ?? "5000000000000000000000");
-      const written = await write("fn_call", { name, input: JSON.stringify(input ?? {}) }, { deposit, gas: MAX_GAS });
+      const written = await write("fn_call", { name, input: JSON.stringify(input ?? {}) }, { deposit, gas: MAX_GAS, confirm: false });
       const out = await resultOf("fn_call", written, { final: true });
       if (typeof out === "string") {
         try {

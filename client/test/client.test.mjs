@@ -238,7 +238,7 @@ test("member writes become delegates the relay core accepts", async () => {
   const quay = connect({ site: SITE, fetch: r.fetch, storage: mem(), relay: "https://relay.example" });
   await quay.auth.signIn({ mode: "member", name: "alice" });
   const id = await quay.db.collection("posts").add({ title: "hello" });
-  assert.equal(id, "7", "id comes from the inner receipt");
+  assert.match(id, /^[a-z][a-z0-9]{9}$/, "a relayed add picks its own id, so a retry cannot duplicate");
   assert.equal(r.state.relayed.length, 1);
   const verdict = await checkDelegate(r.state.relayed[0], { site: SITE, store: memoryStore() }, { ms: Date.now(), height: 5000 });
   assert.equal(verdict.ok, true, verdict.reason);
@@ -249,7 +249,7 @@ test("member writes become delegates the relay core accepts", async () => {
   assert.equal(dec.delegate.maxBlockHeight, 5120n);
   assert.equal(dec.delegate.actions[0].methodName, "db_add");
   assert.equal(dec.delegate.actions[0].deposit, 0n);
-  assert.deepEqual(JSON.parse(new TextDecoder().decode(dec.delegate.actions[0].args)), { collection: "posts", data: '{"title":"hello"}' });
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(dec.delegate.actions[0].args)), { collection: "posts", data: '{"title":"hello"}', id });
   assert.equal(await verifySignedDelegate(dec.delegate, dec.signature), true);
 });
 
