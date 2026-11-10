@@ -752,6 +752,16 @@ var init_encoding = __esm({
 });
 
 // src/rpc.mjs
+var rpc_exports = {};
+__export(rpc_exports, {
+  DEFAULT_RPC: () => DEFAULT_RPC,
+  DEFAULT_RPC_URLS: () => DEFAULT_RPC_URLS,
+  RpcError: () => RpcError,
+  createRpc: () => createRpc,
+  isFullAccess: () => isFullAccess,
+  isRetryable: () => isRetryable,
+  rpcUrls: () => rpcUrls
+});
 function rpcUrls(value) {
   const list = (Array.isArray(value) ? value : String(value ?? "").split(",")).map((u) => String(u).trim()).filter((u) => u && !/\/\/rpc\.testnet\.near\.org/.test(u));
   return list.length ? [...new Set(list)] : [...DEFAULT_RPC_URLS];
@@ -762,11 +772,108 @@ function isRetryable(e) {
     `${e?.name} ${e?.type} ${e?.code} ${e?.message} ${e?.cause?.message ?? ""}`
   );
 }
-var DEFAULT_RPC_URLS, DEFAULT_RPC;
+function createRpc({ url, urls, fetch: f, now = Date.now, cooldownMs = COOLDOWN_MS } = {}) {
+  const list = rpcUrls(urls ?? url);
+  const doFetch = f ?? ((...a) => globalThis.fetch(...a));
+  const down = /* @__PURE__ */ new Map();
+  let id = 0;
+  async function attempt(endpoint, method, params) {
+    let res;
+    try {
+      res = await doFetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params })
+      });
+    } catch (e) {
+      throw Object.assign(new RpcError(`rpc ${method}: ${e?.message ?? "network error"}`), { retryable: true });
+    }
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+    }
+    if (!res.ok) {
+      const retry = res.status === 429 || res.status === 408 || res.status >= 500 || body && RATE_LIMIT.test(JSON.stringify(body));
+      throw Object.assign(new RpcError(`rpc ${method} failed with HTTP ${res.status}`, body), { retryable: retry });
+    }
+    if (!body) throw Object.assign(new RpcError(`rpc ${method}: the answer is not JSON`), { retryable: true });
+    if (body.error) {
+      const cause = body.error.cause?.name;
+      const retry = body.error.code === -429 || RATE_LIMIT.test(JSON.stringify(body.error)) || cause === "TIMEOUT_ERROR";
+      throw Object.assign(new RpcError(`rpc ${method}: ${cause ?? body.error.data ?? body.error.message ?? "error"}`, body.error), { retryable: retry });
+    }
+    return body.result;
+  }
+  async function call(method, params) {
+    const t = now();
+    const up = list.filter((u) => (down.get(u) ?? 0) <= t);
+    const order = up.length ? up : list;
+    const reasons = [];
+    for (const endpoint of order) {
+      try {
+        return await attempt(endpoint, method, params);
+      } catch (e) {
+        if (!e.retryable) throw e;
+        down.set(endpoint, now() + cooldownMs);
+        reasons.push(`${new URL(endpoint).host}: ${e.message}`);
+      }
+    }
+    throw new RpcError(`every RPC endpoint failed (${reasons.join("; ")})`, { reasons });
+  }
+  return {
+    url: list[0],
+    urls: list,
+    call,
+    /** call_function on a view method; args is an object, the result is parsed JSON. */
+    async view(accountId, methodName, args = {}) {
+      const result = await call("query", {
+        request_type: "call_function",
+        finality: "optimistic",
+        account_id: accountId,
+        method_name: methodName,
+        args_base64: btoa(JSON.stringify(args))
+      });
+      if (result.error) throw new RpcError(`${methodName}: ${result.error}`, result);
+      const text = new TextDecoder().decode(Uint8Array.from(result.result));
+      return text === "" ? null : JSON.parse(text);
+    },
+    /** Returns the access key view, or null when the key is not on the account. */
+    async accessKey(accountId, publicKey, finality = "optimistic") {
+      try {
+        const res = await call("query", {
+          request_type: "view_access_key",
+          finality,
+          account_id: accountId,
+          public_key: publicKey
+        });
+        if (res?.error) return /does not exist/.test(res.error) ? null : Promise.reject(new RpcError(`view_access_key: ${res.error}`));
+        return res;
+      } catch (e) {
+        if (e instanceof RpcError && /UNKNOWN_ACCESS_KEY|UNKNOWN_ACCOUNT/.test(e.message)) return null;
+        throw e;
+      }
+    },
+    async block(finality = "final") {
+      return (await call("block", { finality })).header;
+    }
+  };
+}
+var DEFAULT_RPC_URLS, DEFAULT_RPC, COOLDOWN_MS, RpcError, RATE_LIMIT, isFullAccess;
 var init_rpc = __esm({
   "src/rpc.mjs"() {
     DEFAULT_RPC_URLS = ["https://test.rpc.fastnear.com", "https://testnet-rpc.intea.rs", "https://near-testnet.drpc.org"];
     DEFAULT_RPC = DEFAULT_RPC_URLS[0];
+    COOLDOWN_MS = 3e4;
+    RpcError = class extends Error {
+      constructor(message, detail) {
+        super(message);
+        this.name = "RpcError";
+        this.detail = detail;
+      }
+    };
+    RATE_LIMIT = /rate.?limit|too many requests|\b429\b|deprecated/i;
+    isFullAccess = (key) => key?.permission === "FullAccess";
   }
 });
 
@@ -885,6 +992,11 @@ function memoryStore() {
   };
 }
 var hourBucket = (ms) => Math.floor(ms / 36e5);
+function isMemberOf(sender, site) {
+  if (!sender.endsWith(`.${site}`)) return false;
+  const name = sender.slice(0, -(site.length + 1));
+  return name.length > 0 && !name.includes(".");
+}
 var dayBucket = (ms) => new Date(ms).toISOString().slice(0, 10);
 async function checkDelegate(input, policy, now) {
   const p = { ...DEFAULT_POLICY, ...policy };
@@ -914,8 +1026,7 @@ async function checkDelegate(input, policy, now) {
     gas += a.gas;
   }
   if (gas > BigInt(p.maxGas)) return reject("gas_too_high", `gas ${gas} exceeds the limit of ${p.maxGas}`);
-  const isMember = d.senderId.endsWith(`.${p.site}`);
-  if (p.memberOnly && !isMember) return reject("sender_not_member", `sender must be a member of ${p.site}`);
+  if (p.memberOnly && !isMemberOf(d.senderId, p.site)) return reject("sender_not_member", `sender must be a member of ${p.site}`);
   if (d.receiverId === p.site) {
     for (const a of d.actions)
       if (!p.methods.includes(a.methodName)) return reject("method_not_allowed", `method ${a.methodName} is not relayed`);
@@ -929,6 +1040,16 @@ async function checkDelegate(input, policy, now) {
   if (d.maxBlockHeight <= height) return reject("expired", "delegate has expired");
   if (d.maxBlockHeight > height + BigInt(p.maxBlockHeightAhead))
     return reject("expiry_too_far", `max_block_height is more than ${p.maxBlockHeightAhead} blocks ahead`);
+  if (typeof p.accessKey === "function") {
+    let key;
+    try {
+      key = await p.accessKey(d.senderId, d.publicKey);
+    } catch (e) {
+      return reject("rpc", `could not read the sender's key: ${String(e?.message ?? e).slice(0, 200)}`);
+    }
+    if (!key) return reject("unknown_key", `the delegate's key is not a key of ${d.senderId}`);
+    if (d.nonce <= BigInt(key.nonce ?? 0)) return reject("nonce_used", "the delegate's nonce is already used; sign a new one");
+  }
   const hourKey = `acct:${d.senderId}:${hourBucket(now.ms)}`;
   const dayKey = `tgas:${dayBucket(now.ms)}`;
   const tgas = Number(gas / 1000000000000n) + (gas % 1000000000000n ? 1 : 0);
@@ -942,9 +1063,18 @@ async function checkDelegate(input, policy, now) {
     gas,
     digest: hex(await sha256(bytes)),
     bytes,
+    // add, then compare the total: two requests that both passed the reads above cannot both spend
     async commit() {
-      await p.store.add(hourKey, 1);
-      await p.store.add(dayKey, tgas);
+      if (await p.store.add(hourKey, 1) > p.perAccountPerHour) {
+        await p.store.add(hourKey, -1);
+        return reject("account_rate_limit", `${d.senderId} reached ${p.perAccountPerHour} relays this hour`);
+      }
+      if (await p.store.add(dayKey, tgas) > p.dailyTgas) {
+        await p.store.add(dayKey, -tgas);
+        await p.store.add(hourKey, -1);
+        return reject("daily_budget", "daily gas budget is used up");
+      }
+      return { ok: true };
     }
   };
 }
@@ -1010,7 +1140,7 @@ var HttpError = class extends Error {
     this.reason = reason;
   }
 };
-var STATUS = { account_rate_limit: 429, daily_budget: 429, malformed: 400 };
+var STATUS = { account_rate_limit: 429, daily_budget: 429, malformed: 400, rpc: 502 };
 function createRelayServer(options) {
   const { site, relayer, chain } = options;
   if (!site || !relayer || !chain) throw new Error("createRelayServer needs { site, relayer, chain }");
@@ -1020,7 +1150,8 @@ function createRelayServer(options) {
 `));
   const now = o.now ?? Date.now;
   const origins = o.origins ?? defaultOrigins(site);
-  const policy = { ...DEFAULT_POLICY, ...o.policy ?? {}, site, store };
+  const accessKey = typeof chain.accessKey === "function" ? (account, pk) => chain.accessKey(account, pk) : void 0;
+  const policy = { ...DEFAULT_POLICY, ...o.policy ?? {}, site, store, ...accessKey ? { accessKey } : {} };
   let tail = Promise.resolve();
   const serial = (fn) => {
     const run = tail.then(fn, fn);
@@ -1052,7 +1183,7 @@ function createRelayServer(options) {
   }
   function clientIp(req) {
     if (o.trustProxy) {
-      const fwd = String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim();
+      const fwd = String(req.headers["x-forwarded-for"] ?? "").split(",").at(-1).trim();
       if (fwd) return fwd;
     }
     return req.socket.remoteAddress ?? "unknown";
@@ -1067,6 +1198,11 @@ function createRelayServer(options) {
       log(`reject ${verdict.code}`);
       throw new HttpError(STATUS[verdict.code] ?? 422, verdict.code, verdict.reason);
     }
+    const charged = await verdict.commit();
+    if (!charged.ok) {
+      log(`reject ${charged.code}`);
+      throw new HttpError(STATUS[charged.code] ?? 422, charged.code, charged.reason);
+    }
     let sent;
     try {
       sent = await serial(() => chain.relay(verdict.bytes));
@@ -1074,7 +1210,6 @@ function createRelayServer(options) {
       log(`failed ${verdict.sender} ${verdict.digest} ${e.code ?? "error"}`);
       throw new HttpError(502, e.code ?? "relay_failed", e.message);
     }
-    await verdict.commit();
     cached.at = 0;
     log(`relay ${sent.hash} ${verdict.sender} ${verdict.receiver} ${verdict.gas}`);
     return { hash: sent.hash };
@@ -1096,8 +1231,15 @@ function createRelayServer(options) {
     if (await store.get(ipKey) >= o.joinPerIpPerDay) throw new HttpError(429, "join_rate_limit", "this address has joined enough accounts today");
     if (await store.get(dayKey) >= o.joinsPerDay) throw new HttpError(429, "join_daily_limit", "this site reached its daily join limit");
     if (await balance() < BigInt(o.minBalance)) throw new HttpError(503, "relayer_empty", "the relayer balance is too low to send");
-    await store.add(ipKey, 1);
-    await store.add(dayKey, 1);
+    if (await store.add(ipKey, 1) > o.joinPerIpPerDay) {
+      await store.add(ipKey, -1);
+      throw new HttpError(429, "join_rate_limit", "this address has joined enough accounts today");
+    }
+    if (await store.add(dayKey, 1) > o.joinsPerDay) {
+      await store.add(dayKey, -1);
+      await store.add(ipKey, -1);
+      throw new HttpError(429, "join_daily_limit", "this site reached its daily join limit");
+    }
     let sent;
     try {
       sent = await serial(() => chain.join(name, publicKey));
@@ -1195,9 +1337,13 @@ var GAS_JOIN = 50n * 10n ** 12n;
 async function createNearChain({ rpc, site, relayer, secret }) {
   const { Account } = await import("near-api-js");
   const { createFailoverProvider: createFailoverProvider2 } = await Promise.resolve().then(() => (init_failover(), failover_exports));
+  const { createRpc: createRpc2 } = await Promise.resolve().then(() => (init_rpc(), rpc_exports));
   const provider = await createFailoverProvider2(rpc);
   const account = new Account(relayer, provider, secret);
+  const reads = createRpc2({ url: provider.urls ?? rpc });
   return {
+    // the sender's key at final: a replayed delegate is refused once its first copy is final
+    accessKey: (accountId, publicKey) => reads.accessKey(accountId, publicKey, "final"),
     async height() {
       return BigInt((await provider.viewBlock({ finality: "final" })).header.height);
     },

@@ -37,7 +37,7 @@ class HttpError extends Error {
     this.reason = reason;
   }
 }
-const STATUS = { account_rate_limit: 429, daily_budget: 429, malformed: 400 };
+const STATUS = { account_rate_limit: 429, daily_budget: 429, malformed: 400, rpc: 502 };
 
 /**
  * chain: { height(): bigint|number, balance(): yocto string|bigint, join(name, publicKey): {hash}, relay(bytes): {hash} }
@@ -51,7 +51,9 @@ export function createRelayServer(options) {
   const log = o.log ?? ((line) => process.stderr.write(`${line}\n`));
   const now = o.now ?? Date.now;
   const origins = o.origins ?? defaultOrigins(site);
-  const policy = { ...DEFAULT_POLICY, ...(o.policy ?? {}), site, store };
+  // chain.accessKey lets checkDelegate refuse a key that is not on the sender, or a used nonce
+  const accessKey = typeof chain.accessKey === "function" ? (account, pk) => chain.accessKey(account, pk) : undefined;
+  const policy = { ...DEFAULT_POLICY, ...(o.policy ?? {}), site, store, ...(accessKey ? { accessKey } : {}) };
 
   // One relayer account signs everything, so transactions go out one at a time (nonces).
   let tail = Promise.resolve();
@@ -87,7 +89,8 @@ export function createRelayServer(options) {
 
   function clientIp(req) {
     if (o.trustProxy) {
-      const fwd = String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim();
+      // the proxy appends the peer it saw; every entry before it is whatever the client wrote
+      const fwd = String(req.headers["x-forwarded-for"] ?? "").split(",").at(-1).trim();
       if (fwd) return fwd;
     }
     return req.socket.remoteAddress ?? "unknown";
@@ -103,6 +106,12 @@ export function createRelayServer(options) {
       log(`reject ${verdict.code}`);
       throw new HttpError(STATUS[verdict.code] ?? 422, verdict.code, verdict.reason);
     }
+    // Charge before sending: a relay that fails on chain still cost the relayer gas.
+    const charged = await verdict.commit();
+    if (!charged.ok) {
+      log(`reject ${charged.code}`);
+      throw new HttpError(STATUS[charged.code] ?? 422, charged.code, charged.reason);
+    }
     let sent;
     try {
       sent = await serial(() => chain.relay(verdict.bytes));
@@ -110,7 +119,6 @@ export function createRelayServer(options) {
       log(`failed ${verdict.sender} ${verdict.digest} ${e.code ?? "error"}`);
       throw new HttpError(502, e.code ?? "relay_failed", e.message);
     }
-    await verdict.commit();
     cached.at = 0;
     log(`relay ${sent.hash} ${verdict.sender} ${verdict.receiver} ${verdict.gas}`);
     return { hash: sent.hash };
@@ -133,8 +141,16 @@ export function createRelayServer(options) {
     if ((await store.get(ipKey)) >= o.joinPerIpPerDay) throw new HttpError(429, "join_rate_limit", "this address has joined enough accounts today");
     if ((await store.get(dayKey)) >= o.joinsPerDay) throw new HttpError(429, "join_daily_limit", "this site reached its daily join limit");
     if ((await balance()) < BigInt(o.minBalance)) throw new HttpError(503, "relayer_empty", "the relayer balance is too low to send");
-    await store.add(ipKey, 1);
-    await store.add(dayKey, 1);
+    // add, then compare the totals, so parallel joins cannot all pass the reads above
+    if ((await store.add(ipKey, 1)) > o.joinPerIpPerDay) {
+      await store.add(ipKey, -1);
+      throw new HttpError(429, "join_rate_limit", "this address has joined enough accounts today");
+    }
+    if ((await store.add(dayKey, 1)) > o.joinsPerDay) {
+      await store.add(dayKey, -1);
+      await store.add(ipKey, -1);
+      throw new HttpError(429, "join_daily_limit", "this site reached its daily join limit");
+    }
     let sent;
     try {
       sent = await serial(() => chain.join(name, publicKey));
@@ -239,9 +255,13 @@ const GAS_JOIN = 50n * 10n ** 12n;
 export async function createNearChain({ rpc, site, relayer, secret }) {
   const { Account } = await import("near-api-js");
   const { createFailoverProvider } = await import("./failover.mjs");
+  const { createRpc } = await import("./rpc.mjs");
   const provider = await createFailoverProvider(rpc); // one URL, a list, or nothing for the public failover list
   const account = new Account(relayer, provider, secret);
+  const reads = createRpc({ url: provider.urls ?? rpc });
   return {
+    // the sender's key at final: a replayed delegate is refused once its first copy is final
+    accessKey: (accountId, publicKey) => reads.accessKey(accountId, publicKey, "final"),
     async height() {
       return BigInt((await provider.viewBlock({ finality: "final" })).header.height);
     },

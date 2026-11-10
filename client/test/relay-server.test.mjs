@@ -103,7 +103,7 @@ test("per-account limit gives 429 and only successful relays count", async () =>
   await s.close();
 });
 
-test("a chain failure is a 502 with the inner reason and does not spend budget", async () => {
+test("a chain failure is a 502 with the inner reason and still spends budget (the relayer paid gas)", async () => {
   let n = 0;
   const chain = stubChain({ relay: async () => { if (n++ === 0) throw new RelayError("relayed call failed: storage pool is empty", { code: "inner_failure" }); return { hash: "R2" }; } });
   const s = await start({ chain, policy: { perAccountPerHour: 1 } });
@@ -114,7 +114,9 @@ test("a chain failure is a 502 with the inner reason and does not spend budget",
   const j = await bad.json();
   assert.equal(j.error, "inner_failure");
   assert.match(j.reason, /storage pool is empty/);
-  assert.equal((await post(s.url, "/relay", { signed_delegate: await m(2n) })).status, 200, "the failed relay was not charged");
+  // a failed relay still cost the relayer gas, so it counts: otherwise delegates that
+  // fail on chain could be sent without limit
+  assert.equal((await post(s.url, "/relay", { signed_delegate: await m(2n) })).status, 429, "the failed relay was charged");
   await s.close();
 });
 
@@ -264,4 +266,45 @@ test("unknown paths and wrong methods", async () => {
 
 test("createRelayServer needs its parts", () => {
   assert.throws(() => createRelayServer({ site: SITE }), /needs/);
+});
+
+test("the sender's key and nonce are checked on chain before anything is sent", async () => {
+  const keys = new Map();
+  const chain = stubChain({ accessKey: async (account, pk) => keys.get(`${account} ${pk}`) ?? null });
+  const s = await start({ chain });
+  const k = await memberKey();
+  const m = await mkDelegate(k, { nonce: 5n, maxBlockHeight: 1100n });
+  const unknown = await post(s.url, "/relay", { signed_delegate: m.b64 });
+  assert.equal(unknown.status, 422);
+  assert.equal((await unknown.json()).error, "unknown_key");
+  keys.set(`${MEMBER} ${k.pub}`, { nonce: 5, permission: "FullAccess" });
+  const replay = await post(s.url, "/relay", { signed_delegate: m.b64 });
+  assert.equal((await replay.json()).error, "nonce_used");
+  assert.equal(chain.calls.relay.length, 0);
+  keys.set(`${MEMBER} ${k.pub}`, { nonce: 4, permission: "FullAccess" });
+  assert.equal((await post(s.url, "/relay", { signed_delegate: m.b64 })).status, 200);
+  await s.close();
+});
+
+test("parallel relays cannot pass the per-account limit together", async () => {
+  let sent = 0;
+  const chain = stubChain({ relay: async () => (sent++, await new Promise((r) => setTimeout(r, 10)), { hash: "R" }) });
+  const s = await start({ chain, policy: { perAccountPerHour: 1 } });
+  const k = await memberKey();
+  const reqs = await Promise.all([1n, 2n, 3n, 4n].map(async (nonce) => post(s.url, "/relay", { signed_delegate: (await mkDelegate(k, { nonce, maxBlockHeight: 1100n })).b64 })));
+  await s.close();
+  assert.deepEqual(reqs.map((r) => r.status).sort(), [200, 429, 429, 429]);
+  assert.equal(sent, 1);
+});
+
+test("trustProxy uses the address the proxy appended, not one the client wrote", async () => {
+  // A proxy appends the peer to X-Forwarded-For; the client controls everything before it.
+  const s = await start({ joinPerIpPerDay: 1, joinsPerDay: 100, trustProxy: true });
+  const k = await memberKey();
+  const first = await post(s.url, "/join", { name: "cc1", public_key: k.pub }, { "x-forwarded-for": "1.1.1.1, 5.5.5.5" });
+  assert.equal(first.status, 200);
+  const spoofed = await post(s.url, "/join", { name: "cc2", public_key: k.pub }, { "x-forwarded-for": "2.2.2.2, 5.5.5.5" });
+  assert.equal(spoofed.status, 429);
+  assert.equal((await spoofed.json()).error, "join_rate_limit");
+  await s.close();
 });

@@ -207,3 +207,43 @@ test("relay() throws when the outer transaction failed", async () => {
   const account = { relayMetaTransaction: async () => ({ status: { Failure: { ActionError: "no balance" } }, receipts_outcome: [] }) };
   await assert.rejects(relay(m.b64, { account }), /no balance/);
 });
+
+test("a key that is not on the sender is refused before any budget is read", async () => {
+  // Anyone can sign a delegate for <name>.<site> with a key of their own: the signature checks out.
+  const k = await memberKey();
+  const seen = [];
+  const accessKey = async (account, pk) => (seen.push([account, pk]), null);
+  const r = await check(k, {}, policy({ accessKey }));
+  assert.equal(r.code, "unknown_key");
+  assert.deepEqual(seen, [[MEMBER, k.pub]]);
+});
+
+test("a used nonce is refused, so a delegate seen on chain cannot be replayed", async () => {
+  const k = await memberKey();
+  assert.equal((await check(k, { nonce: 5n }, policy({ accessKey: async () => ({ nonce: 5 }) }))).code, "nonce_used");
+  assert.equal((await check(k, { nonce: 5n }, policy({ accessKey: async () => ({ nonce: 4 }) }))).ok, true);
+});
+
+test("only <name>.<site> with one label is a member", async () => {
+  const k = await memberKey();
+  assert.equal((await check(k, { senderId: `x.alice.${SITE}` })).code, "sender_not_member");
+  assert.equal((await check(k, { senderId: `.${SITE}` })).code, "sender_not_member");
+});
+
+test("commit is atomic: two checks that both passed cannot both spend", async () => {
+  const k = await memberKey();
+  const pol = policy({ perAccountPerHour: 1 });
+  const a = await check(k, { nonce: 1n }, pol);
+  const b = await check(k, { nonce: 2n }, pol);
+  assert.equal(a.ok && b.ok, true);
+  const [ca, cb] = await Promise.all([a.commit(), b.commit()]);
+  assert.deepEqual([ca.ok, cb.ok].sort(), [false, true]);
+  assert.equal([ca, cb].find((c) => !c.ok).code, "account_rate_limit");
+  assert.equal(await pol.store.get(`acct:${MEMBER}:${hourBucket(NOW.ms)}`), 1, "the losing reservation was rolled back");
+
+  const day = policy({ dailyTgas: 15 });
+  const c = await check(k, {}, day);
+  const d = await check(k, {}, day);
+  assert.equal((await c.commit()).ok, true);
+  assert.equal((await d.commit()).code, "daily_budget");
+});

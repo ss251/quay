@@ -29,14 +29,27 @@ export function memoryStore() {
 }
 
 export const hourBucket = (ms) => Math.floor(ms / 3_600_000);
+
+/**
+ * `<name>.<site>` with one label: the accounts `join` creates. A member could mint any
+ * number of `x.<name>.<site>` accounts and dodge the per-sender limit.
+ */
+export function isMemberOf(sender, site) {
+  if (!sender.endsWith(`.${site}`)) return false;
+  const name = sender.slice(0, -(site.length + 1));
+  return name.length > 0 && !name.includes(".");
+}
 export const dayBucket = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 /**
  * Decide whether to relay. `input` is the base64 string or the raw bytes of a
- * SignedDelegateAction. `policy` = { site, store, ...DEFAULT_POLICY overrides }.
+ * SignedDelegateAction. `policy` = { site, store, accessKey?, ...DEFAULT_POLICY overrides }.
+ * `accessKey(account, publicKey)` returns the key view ({ nonce }) or null; when given, a key that
+ * is not on the sender or a used nonce is refused (anyone can sign a delegate for any sender).
  * `now` = { ms, height } (current time and current final block height).
  * Returns { ok: true, sender, receiver, gas, digest, commit() } or { ok: false, code, reason }.
- * Call commit() once the relay is actually sent to charge the budgets.
+ * Call commit() before sending: it takes the budgets atomically and returns { ok: true } or a refusal.
+ * A relay that fails on chain still cost the relayer gas, so it is charged too.
  */
 export async function checkDelegate(input, policy, now) {
   const p = { ...DEFAULT_POLICY, ...policy };
@@ -70,8 +83,7 @@ export async function checkDelegate(input, policy, now) {
   }
   if (gas > BigInt(p.maxGas)) return reject("gas_too_high", `gas ${gas} exceeds the limit of ${p.maxGas}`);
 
-  const isMember = d.senderId.endsWith(`.${p.site}`);
-  if (p.memberOnly && !isMember) return reject("sender_not_member", `sender must be a member of ${p.site}`);
+  if (p.memberOnly && !isMemberOf(d.senderId, p.site)) return reject("sender_not_member", `sender must be a member of ${p.site}`);
 
   if (d.receiverId === p.site) {
     for (const a of d.actions)
@@ -88,6 +100,17 @@ export async function checkDelegate(input, policy, now) {
   if (d.maxBlockHeight > height + BigInt(p.maxBlockHeightAhead))
     return reject("expiry_too_far", `max_block_height is more than ${p.maxBlockHeightAhead} blocks ahead`);
 
+  if (typeof p.accessKey === "function") {
+    let key;
+    try {
+      key = await p.accessKey(d.senderId, d.publicKey);
+    } catch (e) {
+      return reject("rpc", `could not read the sender's key: ${String(e?.message ?? e).slice(0, 200)}`);
+    }
+    if (!key) return reject("unknown_key", `the delegate's key is not a key of ${d.senderId}`);
+    if (d.nonce <= BigInt(key.nonce ?? 0)) return reject("nonce_used", "the delegate's nonce is already used; sign a new one");
+  }
+
   const hourKey = `acct:${d.senderId}:${hourBucket(now.ms)}`;
   const dayKey = `tgas:${dayBucket(now.ms)}`;
   const tgas = Number(gas / 1_000_000_000_000n) + (gas % 1_000_000_000_000n ? 1 : 0);
@@ -102,9 +125,18 @@ export async function checkDelegate(input, policy, now) {
     gas,
     digest: hex(await sha256(bytes)),
     bytes,
+    // add, then compare the total: two requests that both passed the reads above cannot both spend
     async commit() {
-      await p.store.add(hourKey, 1);
-      await p.store.add(dayKey, tgas);
+      if ((await p.store.add(hourKey, 1)) > p.perAccountPerHour) {
+        await p.store.add(hourKey, -1);
+        return reject("account_rate_limit", `${d.senderId} reached ${p.perAccountPerHour} relays this hour`);
+      }
+      if ((await p.store.add(dayKey, tgas)) > p.dailyTgas) {
+        await p.store.add(dayKey, -tgas);
+        await p.store.add(hourKey, -1);
+        return reject("daily_budget", "daily gas budget is used up");
+      }
+      return { ok: true };
     },
   };
 }
