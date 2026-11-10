@@ -19,7 +19,7 @@
     <p class="lead">A site on one NEAR testnet account can hold its pages, its data, its sign-in and its scheduled work. Each layer below lists the commands and what has been shown to work.</p>
 
     <h2 id="status">Status on 2026-11-11</h2>
-    <p>Layers marked live were run on testnet on one sample, <a href="https://harbour-board.testnet.page/">Harbour Board</a>, account <code>harbour-board.testnet</code>, contract 3.0.0. Each section says how to check it without a key. The two older accounts, <code>quay-esc0v902.testnet</code> and <code>quay-65nqd3rn.testnet</code>, still run 2.0.0. The command help below is generated from the CLI in this build.</p>
+    <p>Layers marked live were run on testnet on one sample, <a href="https://harbour-board.ss251.workers.dev/">Harbour Board</a>, account <code>harbour-board.testnet</code>, contract 3.0.0. Each section says how to check it without a key. The two older accounts, <code>quay-esc0v902.testnet</code> and <code>quay-65nqd3rn.testnet</code>, still run 2.0.0. The command help below is generated from the CLI in this build.</p>
     <div class="callout">{{i:info}}<p>Collections, docs, rules, products, members, function code and cron settings are live state. Only files, routes and templates are sealed with a release, so <code>quay rollback</code> restores those three and never your data.</p></div>
     <p>To check a view yourself, run <code>curl</code> against <code>https://test.rpc.fastnear.com</code> with a <code>call_function</code> request. The repository README has a one-line <code>view</code> helper, and <code>scripts/judge.sh</code> step 9 runs every check below.</p>
 
@@ -77,7 +77,7 @@ quay functions logs moderate</pre></div>
     {{HELP:secrets}}
 
     <h2 id="routes">Routes</h2>
-    <p><span class="chip chip-live"><span class="dot dot-live"></span>Live</span> A release can declare routes: a pattern, a collection, and a template that is a file in the same release. The contract fills the template in <code>web4_get</code>, so a page is complete HTML without JavaScript. Routes live in <code>quay.json</code> and are applied by <code>quay up</code>. Templates escape every value. There is no raw output. Check: <code>curl https://harbour-board.testnet.page/api/posts</code>.</p>
+    <p><span class="chip chip-live"><span class="dot dot-live"></span>Live</span> A release can declare routes: a pattern, a collection, and a template that is a file in the same release. The contract fills the template in <code>web4_get</code>, so a page is complete HTML without JavaScript. Routes live in <code>quay.json</code> and are applied by <code>quay up</code>. Templates escape every value. There is no raw output. Check: <code>curl https://harbour-board.ss251.workers.dev/api/posts</code>.</p>
     <div class="term"><div class="term-bar"><span>quay.json</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="q-routes" aria-label="Copy the routes">{{i:copy sm}}</button></div>
 <pre id="q-routes">"routes": [
   { "pattern": "/", "kind": "list", "collection": "posts", "template": "templates/home.html", "limit": 10, "order": "desc" },

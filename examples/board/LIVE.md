@@ -2,7 +2,7 @@
 
 Status on 2026-11-10: site, functions, collection, payments, members, routes, cron job and OutLayer relay are live. Seeding is partial (3 of 14 notices), pins and the arming of cron are not done. See "Not done".
 
-- Site: https://harbour-board.testnet.page/ (public gateway) or `quay gateway --account harbour-board.testnet`
+- Site: https://harbour-board.ss251.workers.dev/ (Workers mirror, primary), https://harbour-board.testnet.page/ (public gateway) or `quay gateway --account harbour-board.testnet`
 - Account: `harbour-board.testnet` (v3 contract 3.0.0), relayer `relay.harbour-board.testnet`, buyer `buyer.harbour-board.testnet`
 - Members that exist: maren, dunstan, priya, tobias, halvard, promo-bot (all `<name>.harbour-board.testnet`, created through the OutLayer relay, no NEAR)
 

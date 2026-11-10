@@ -8,7 +8,7 @@ Hosts, in the order to try them:
 | --- | --- | --- | --- | --- |
 | Product site and dashboard | `quay-esc0v902.testnet` | https://quay.ss251.workers.dev/ and `/dashboard/` | https://quay-esc0v902.testnet.page/ | `quay gateway --account quay-esc0v902.testnet`, then http://127.0.0.1:8787/ |
 | Harbour sample, five releases, production on 5 | `quay-65nqd3rn.testnet` | https://quay-harbour.ss251.workers.dev/ | https://quay-65nqd3rn.testnet.page/ | `quay gateway --account quay-65nqd3rn.testnet`, then http://127.0.0.1:8787/ |
-| Harbour Board, the full-stack sample (contract 3.0.0) | `harbour-board.testnet` | none yet | https://harbour-board.testnet.page/ | `quay gateway --account harbour-board.testnet`, then http://127.0.0.1:8787/ |
+| Harbour Board, the full-stack sample (contract 3.0.0) | `harbour-board.testnet` | https://harbour-board.ss251.workers.dev/ | https://harbour-board.testnet.page/ | `quay gateway --account harbour-board.testnet`, then http://127.0.0.1:8787/ |
 | Old demo, left on v1 | `quay-bb.testnet` | none | https://quay-bb.testnet.page/ | `quay gateway --account quay-bb.testnet` |
 
 The Workers hosts are the owner's Cloudflare account running `gateway/worker` unchanged, one site per host. They exist because `testnet.page` answered every account with HTTP 400 for several hours on 2026-11-10 (deprecated default RPC). The mirrors are listed in `web/hosts.json`. The static pages use relative links, so they work on whichever host serves them.
@@ -148,9 +148,9 @@ No key. You need `cargo`, `curl`, `node`, and `shasum` on `PATH`. The same check
 6. Open Harbour Board, the full-stack sample. There is no Workers mirror, so use `testnet.page`, then a local gateway.
 
    ```sh
-   curl -fsS https://harbour-board.testnet.page/
-   curl -fsS https://harbour-board.testnet.page/api/posts
-   curl -sS -o /dev/null -w '%{http_code}\n' https://harbour-board.testnet.page/posts/9
+   curl -fsS https://harbour-board.ss251.workers.dev/
+   curl -fsS https://harbour-board.ss251.workers.dev/api/posts
+   curl -sS -o /dev/null -w '%{http_code}\n' https://harbour-board.ss251.workers.dev/posts/9
    ```
 
    If `testnet.page` is down, run `quay gateway --account harbour-board.testnet` and open http://127.0.0.1:8787/, http://127.0.0.1:8787/api/posts and http://127.0.0.1:8787/posts/9.
@@ -161,7 +161,7 @@ No key. You need `cargo`, `curl`, `node`, and `shasum` on `PATH`. The same check
 
 One account holds a site's pages, data, sign-in, scheduled work and payments. The interface is in `docs/fullstack-interface.md`. Command help for every layer is on the docs site at `/docs/layers/`. Who you trust for each layer, and how to replace it, is at `/architecture/`. Every transaction is recorded in `examples/board/LIVE.md`.
 
-"Live" means we made the transaction or request on testnet, and the link or command below lets you check it. The sample is Harbour Board, https://harbour-board.testnet.page/, account `harbour-board.testnet`. All checks need no key. `sh scripts/judge.sh` runs them.
+"Live" means we made the transaction or request on testnet, and the link or command below lets you check it. The sample is Harbour Board, https://harbour-board.ss251.workers.dev/ (or https://harbour-board.testnet.page/), account `harbour-board.testnet`. All checks need no key. `sh scripts/judge.sh` runs them.
 
 Define this once for the RPC checks:
 
@@ -179,7 +179,7 @@ view() {
 
 **Data (live).** `quay db collection set`, `quay db fund`, `quay db add|list|rm|hide`. The Board's `posts` collection is `write: anyone`, `payer: site`, moderated, with `on_add: moderate`. Proven: [collection](https://explorer.testnet.near.org/transactions/AEg7rzCvAYnvr3R9gUdukQDZ2jsZSMkiRwFTS6r2dyp9), [pool funded](https://explorer.testnet.near.org/transactions/DPnpKqji4wcLbgeHD9PukEu3trVKPZyE2HYn56hqAmqp). Check: `view list_collections '{}'`, `view db_list '{"collection":"posts","query":{"limit":5}}'`.
 
-**Routes (live).** The contract fills templates sealed in the release, so a page is complete HTML without JavaScript. Proven: https://harbour-board.testnet.page/ lists posts with the digest, `/posts/5` renders one, `/api/posts` is JSON, and the hidden spam post is a 404 at `/posts/9`. Check: `curl -fsS https://harbour-board.testnet.page/api/posts` and `view get_release '{"id":"4"}'`.
+**Routes (live).** The contract fills templates sealed in the release, so a page is complete HTML without JavaScript. Proven: https://harbour-board.ss251.workers.dev/ lists posts with the digest, `/posts/5` renders one, `/api/posts` is JSON, and the hidden spam post is a 404 at `/posts/9`. Check: `curl -fsS https://harbour-board.testnet.page/api/posts` and `view get_release '{"id":"4"}'`.
 
 **Members (live).** `quay members list|open|close`. A member is `<name>.harbour-board.testnet`, created with no NEAR. Six exist. Proven through both relays below. Check: `view list_members '{"from_index":0,"limit":50}'`.
 

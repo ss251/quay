@@ -45,6 +45,8 @@ node seed.mjs                          # joins six members through the relay and
 
 Then open `https://<account>.page/`. If the public gateway is down, run `quay gateway --account <account>` and open the local URL.
 
+The live board is https://harbour-board.ss251.workers.dev/ (the Quay gateway on Cloudflare Workers, single-site mode), with https://harbour-board.testnet.page/ and `quay gateway --account harbour-board.testnet` as fallbacks.
+
 ## What each page does without JavaScript
 
 `/`, `/posts/:id`, `/api/posts` are complete HTML or JSON from the contract. The digest box, the member list, the receipts list, posting and pinning need JavaScript, because they read the chain or hold a key in the browser.
@@ -54,7 +56,7 @@ Then open `https://<account>.page/`. If the public gateway is down, run `quay ga
 - **Relayer host.** `relay.host` is `outlayer` with the Node host as fallback. Either way a relayer is a service: it can refuse requests and it spends from the NEAR balance of `relay.<account>`, which is its hard limit. A member key lives only in the visitor's `localStorage`; clearing it loses the account.
 - **OutLayer is one operator.** The moderation, digest and (when used) relay functions run on OutLayer's TEE workers. If OutLayer is down, posts still land, but `fn.preview` stays empty and cron results stop.
 - **Link previews fetch a third party.** A preview image is loaded by the visitor's browser from the linked site. Links in a post are shown as text until the function has checked them and written an `https` URL.
-- **Gateway.** The page is served by the `testnet.page` gateway. `quay gateway` serves the same release on your machine from RPC.
+- **Gateway.** The live board is served by the Quay gateway on Cloudflare Workers (`gateway/worker`, deployed by the owner), and also by the public `testnet.page` gateway. `quay gateway` serves the same release on your machine from RPC.
 - **Cron re-arms by hand.** The yield chain lives about 14 hours per arming. After that run `quay cron arm` again, or any transaction that calls `cron_arm`. The digest page says "No digest yet" until the first run.
 - **Posting and pinning.** Members (`<name>.<account>`) post gasless through the relayer. Any wallet account can also post and pays its own gas; storage is paid by the site pool either way. Pinning needs a wallet with at least 0.1 NEAR; a relayed member holds no NEAR and cannot pay.
 - **Test USDC.** The token price is test USDC (`usdc.fakes.testnet`), not Circle USDC. Anyone can mint it. This page does not offer a token checkout button; use `ft_transfer_call` with `{"product":"pin","ref":"posts/<id>"}`.

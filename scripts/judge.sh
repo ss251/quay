@@ -212,7 +212,7 @@ done
 
 echo "9. Harbour Board, the full-stack sample on harbour-board.testnet"
 # Contract 3.0.0 with data, routes, members, functions, payments and a large file.
-# It has no Workers mirror, so pages come from testnet.page or a local gateway.
+# Pages come from its Workers mirror, then testnet.page, then a local gateway.
 board=harbour-board.testnet
 
 # view <method> <args json>: the JSON text a view call on the board returns.
