@@ -660,3 +660,126 @@ test("probeGateway classifies the public gateway", async () => {
   });
   assert.equal(slow.reason, "timeout after 20 ms");
 });
+
+// ---------- security ----------
+
+const INTERNAL = [
+  "http://169.254.169.254/latest/meta-data/",
+  "http://cdn.test/plain-http",
+  "https://127.0.0.1/admin",
+  "https://0x7f000001/admin",
+  "https://localhost:8080/",
+  "https://router.local/",
+  "https://intranet/",
+  "https://10.1.2.3/",
+  "https://192.168.1.1/",
+  "https://172.20.0.1/",
+  "https://100.64.0.1/",
+  "https://169.254.1.1/",
+  "https://0.0.0.0/",
+  "https://[::1]/",
+  "https://[fd00::1]/",
+  "https://[fe80::1]/",
+  "https://[::ffff:127.0.0.1]/",
+  "https://metadata.google.internal/",
+];
+
+test("bodyUrl: a contract cannot make the gateway fetch internal or plain-http URLs", async () => {
+  // The gateway runs on the owner's server and on users' machines: whatever it fetches
+  // is served back on the site's origin, readable by the site's own scripts.
+  const paths = Object.fromEntries(
+    INTERNAL.map((u, i) => [`/x${i}`, () => ({ contentType: "text/plain", bodyUrl: u })]),
+  );
+  const fetch = fakeNet({ accounts: demo(paths) });
+  const { handler } = gateway({ fetch });
+  for (let i = 0; i < INTERNAL.length; i += 1) {
+    const res = await get(handler, `/x${i}`);
+    assert.equal(res.status, 502, INTERNAL[i]);
+    assert.match(await res.text(), /not allowed|unsupported scheme/, INTERNAL[i]);
+  }
+  const fetched = fetch.calls.map((c) => c.url).filter((u) => !u.startsWith(RPC_A) && !u.startsWith(RPC_B));
+  assert.deepEqual(fetched, [], "nothing internal was fetched");
+});
+
+test("bodyUrl: redirects are followed only to allowed URLs", async () => {
+  const fetch = fakeNet({
+    accounts: demo({
+      "/hop": () => ({ contentType: "text/css", bodyUrl: "https://cdn.test/hop" }),
+      "/evil": () => ({ contentType: "text/css", bodyUrl: "https://cdn.test/evil" }),
+    }),
+    urls: {
+      "https://cdn.test/hop": () => new Response(null, { status: 302, headers: { location: "/a.css" } }),
+      "https://cdn.test/a.css": () => new Response("body{}"),
+      "https://cdn.test/evil": () =>
+        new Response(null, { status: 302, headers: { location: "http://127.0.0.1:2375/containers/json" } }),
+    },
+  });
+  const { handler } = gateway({ fetch });
+  const ok = await get(handler, "/hop");
+  assert.equal(ok.status, 200);
+  assert.equal(await ok.text(), "body{}");
+  const evil = await get(handler, "/evil");
+  assert.equal(evil.status, 502);
+  assert.ok(!fetch.calls.some((c) => c.url.startsWith("http://127.0.0.1:2375")));
+  for (const c of fetch.calls.filter((c) => c.url.startsWith("https://cdn.test")))
+    assert.equal(c.init.redirect, "manual", "redirects are not left to fetch");
+});
+
+test("preloadUrls: internal hosts, too many URLs, and huge bodies are refused", async () => {
+  let ask = [];
+  const fetch = fakeNet({
+    accounts: {
+      "demo.testnet": {
+        web4_get: ({ request }) => (request.preloads ? page("done") : { preloadUrls: ask }),
+      },
+    },
+    urls: {
+      "https://cdn.test/huge": () => new Response(new Uint8Array(3 * 1024 * 1024)),
+      "https://cdn.test/small": () => new Response("ok"),
+    },
+  });
+  const { handler } = gateway({ fetch });
+  ask = ["http://169.254.169.254/latest/meta-data/"];
+  assert.equal((await get(handler, "/")).status, 502);
+  ask = Array.from({ length: 50 }, (_, i) => `https://cdn.test/small?${i}`);
+  const many = await get(handler, "/");
+  assert.equal(many.status, 502);
+  assert.match(await many.text(), /preload/i);
+  ask = ["https://cdn.test/huge"];
+  assert.equal((await get(handler, "/")).status, 502);
+  ask = ["https://cdn.test/small"];
+  assert.equal(await (await get(handler, "/")).text(), "done");
+  assert.ok(!fetch.calls.some((c) => c.url.includes("169.254")));
+});
+
+test("a 404 under /r/<id>/ is not cached for good (the release may not be sealed yet)", async () => {
+  let sealed = false;
+  const { handler, fetch } = gateway({
+    accounts: {
+      "demo.testnet": {
+        web4_get: () => (sealed ? page("release 9") : { status: 404, contentType: "text/plain", body: b64("no such release") }),
+      },
+    },
+  });
+  const early = await get(handler, "/r/9/");
+  assert.equal(early.status, 404);
+  assert.doesNotMatch(early.headers.get("cache-control"), /immutable/);
+  sealed = true;
+  const later = await get(handler, "/r/9/");
+  assert.equal(later.status, 200);
+  assert.equal(await later.text(), "release 9");
+  assert.equal(fetch.rpcCalls().length, 2);
+});
+
+test("the error page never links off-site", async () => {
+  const { handler } = gateway({ accounts: {} });
+  const res = await get(handler, "//evil.example/x", { headers: { accept: "text/html" } });
+  const html = await res.text();
+  assert.doesNotMatch(html, /href="\/\/evil/);
+});
+
+test("view endpoint answers carry nosniff", async () => {
+  const { handler } = gateway({ accounts: { "demo.testnet": { get_x: () => "<script>alert(1)</script>" } } });
+  const res = await get(handler, "/web4/contract/demo.testnet/get_x");
+  assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+});

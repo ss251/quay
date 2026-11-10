@@ -97,8 +97,10 @@ export function errorHtml(error, { account, path }) {
       `<ul>${error.attempts.map((a) => `<li>${escapeHtml(a.rpc ?? a.url)}: ${escapeHtml(a.reason)}</li>`).join("")}</ul>`,
     ]);
   const release = releaseOf(path);
+  // "//host/x" is a path here but an off-site link in href
+  const here = `/${String(path ?? "").replace(/^[/\\]+/, "")}`;
   const links = [
-    `<a class="btn btn-primary" href="${escapeHtml(path)}">Try again</a>`,
+    `<a class="btn btn-primary" href="${escapeHtml(here)}">Try again</a>`,
   ];
   if (release && path !== `/r/${release}/`)
     links.push(

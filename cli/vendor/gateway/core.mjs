@@ -26,6 +26,14 @@ export const DEPRECATED_RPC_HOSTS = ["rpc.testnet.near.org"];
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
 const REVALIDATE = "public, max-age=0, must-revalidate";
+// A 404 under /r/<id>/ may be a release that is not sealed yet.
+const MISSING_RELEASE = "public, max-age=60";
+const MAX_PRELOADS = 16;
+const MAX_PRELOAD_BYTES = 1024 * 1024;
+const MAX_REDIRECTS = 3;
+const REDIRECTS = new Set([301, 302, 303, 307, 308]);
+// Names that only resolve inside a network.
+const LOCAL_SUFFIXES = ["localhost", "local", "internal", "lan", "home.arpa"];
 const ACCOUNT_ID =
   /^(?=.{2,64}$)[a-z0-9]+(?:[-_][a-z0-9]+)*(?:\.[a-z0-9]+(?:[-_][a-z0-9]+)*)*$/;
 // HANDLER_ERROR causes that mean "ask another node", not "this is the answer".
@@ -41,6 +49,43 @@ const TRANSIENT = new Set([
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+
+function privateIpv4(host) {
+  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(host);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 0) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
+  );
+}
+
+/**
+ * Why a URL from a contract may not be fetched, or null. The gateway runs on
+ * the owner's server and on users' machines, and what it fetches is served on
+ * the site's own origin, so a contract must not reach loopback, private,
+ * link-local or metadata addresses, or plain http. A public name that resolves
+ * to a private address cannot be seen from here (fetch has no resolver hook).
+ */
+export function remoteUrlProblem(url) {
+  if (url.protocol !== "https:") return `unsupported scheme ${url.protocol}`;
+  const host = url.hostname.toLowerCase().replace(/\.$/, "");
+  if (host.startsWith("[")) return "IP literal hosts are not allowed";
+  if (privateIpv4(host)) return `${host} is not allowed`;
+  if (/^[\d.]+$/.test(host)) return null;
+  if (!host.includes(".")) return `${host} is not allowed`;
+  if (LOCAL_SUFFIXES.some((s) => host === s || host.endsWith(`.${s}`)))
+    return `${host} is not allowed`;
+  return null;
+}
 
 export function isAccountId(id) {
   return typeof id === "string" && ACCOUNT_ID.test(id);
@@ -409,14 +454,69 @@ export function createGateway(options = {}) {
     }
     return {
       status: 200,
-      headers: { "content-type": type, "cache-control": REVALIDATE },
+      headers: {
+        "content-type": type,
+        "cache-control": REVALIDATE,
+        "x-content-type-options": "nosniff",
+      },
       bytes,
       etag: await etagOf(bytes),
       rpc: used,
     };
   }
 
+  // Fetch a URL a contract chose: https only, no internal hosts, every redirect checked.
+  async function fetchRemote(href, init) {
+    let url = new URL(href);
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+      const problem = remoteUrlProblem(url);
+      if (problem) throw new Error(`${url.href}: ${problem}`);
+      const response = await timed(bodyTimeoutMs, (signal) =>
+        fetchImpl(url.href, { ...init, signal, redirect: "manual" }),
+      );
+      const location = response.headers.get("location");
+      if (!REDIRECTS.has(response.status) || !location) return response;
+      response.body?.cancel().catch(() => {});
+      url = new URL(location, url);
+    }
+    throw new Error(`more than ${MAX_REDIRECTS} redirects`);
+  }
+
+  async function readCapped(response, max) {
+    const length = Number(response.headers.get("content-length"));
+    if (length > max) {
+      response.body?.cancel().catch(() => {});
+      throw new Error(`body over ${max} bytes`);
+    }
+    if (!response.body) return new Uint8Array(0);
+    const parts = [];
+    let size = 0;
+    const reader = response.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > max) {
+        reader.cancel().catch(() => {});
+        throw new Error(`body over ${max} bytes`);
+      }
+      parts.push(value);
+    }
+    const out = new Uint8Array(size);
+    let at = 0;
+    for (const part of parts) {
+      out.set(part, at);
+      at += part.length;
+    }
+    return out;
+  }
+
   async function preload(urls, base, depth) {
+    if (urls.length > MAX_PRELOADS)
+      throw new GatewayError(
+        "preload",
+        `The contract asked for ${urls.length} preloads; at most ${MAX_PRELOADS} are fetched.`,
+      );
     const entries = await Promise.all(
       urls.map(async (raw) => {
         const target = new URL(String(raw), `${base.origin}/`);
@@ -430,10 +530,8 @@ export function createGateway(options = {}) {
                   }),
                   depth + 1,
                 )
-              : await timed(bodyTimeoutMs, (signal) =>
-                  fetchImpl(target.href, { signal }),
-                );
-          const bytes = new Uint8Array(await response.arrayBuffer());
+              : await fetchRemote(target.href, {});
+          const bytes = await readCapped(response, MAX_PRELOAD_BYTES);
           return [
             raw,
             {
@@ -465,6 +563,7 @@ export function createGateway(options = {}) {
       );
     }
     let candidates;
+    let remote = false;
     let etag = null;
     if (target.protocol === "ipfs:") {
       const cid = target.hostname || target.pathname.replace(/^\/+/, "");
@@ -484,8 +583,18 @@ export function createGateway(options = {}) {
         etagMatches(request.headers.get("if-none-match"), etag)
       )
         return { ...out, etag, bytes: null };
-    } else if (target.protocol === "http:" || target.protocol === "https:") {
+    } else if (target.origin === base.origin) {
       candidates = [target.href];
+    } else if (target.protocol === "http:" || target.protocol === "https:") {
+      const problem = remoteUrlProblem(target);
+      if (problem)
+        throw new GatewayError(
+          "bad_response",
+          `The contract sent a body URL that is not allowed (${problem}): ${short(bodyUrl, 120)}. Body URLs must be https on a public host.`,
+          { rpc: out.rpc },
+        );
+      candidates = [target.href];
+      remote = true;
     } else {
       throw new GatewayError(
         "bad_response",
@@ -500,9 +609,12 @@ export function createGateway(options = {}) {
         const same = new URL(candidate).origin === base.origin;
         response = same
           ? await handle(new Request(candidate), depth + 1)
-          : await timed(bodyTimeoutMs, (signal) =>
-              fetchImpl(candidate, { signal, headers: { accept: "*/*" } }),
-            );
+          : remote
+            ? await fetchRemote(candidate, { headers: { accept: "*/*" } })
+            : // the operator's configured NEARFS/IPFS gateways
+              await timed(bodyTimeoutMs, (signal) =>
+                fetchImpl(candidate, { signal, headers: { accept: "*/*" } }),
+              );
       } catch (error) {
         attempts.push({ url: candidate, reason: networkReason(error) });
         continue;
@@ -563,9 +675,11 @@ export function createGateway(options = {}) {
       const headers = {};
       if (res.contentType) headers["content-type"] = String(res.contentType);
       headers["cache-control"] =
-        release && (effective === 200 || effective === 404)
+        release && effective === 200
           ? IMMUTABLE
-          : res.cacheControl
+          : release && effective === 404
+            ? MISSING_RELEASE
+            : res.cacheControl
             ? String(res.cacheControl)
             : REVALIDATE;
       const out = { status: effective, headers, rpc: used };
@@ -720,7 +834,7 @@ export function createGateway(options = {}) {
       const hit = key && cache.get(key);
       if (hit) return finish(request, { ...hit, cache: "hit" }, head);
       const out = await serveWeb4(id, url, request, depth);
-      if (key && out.bytes && (out.status === 200 || out.status === 404))
+      if (key && out.bytes && out.status === 200)
         cache.set(key, out, out.bytes.length + 512);
       return finish(request, out, head);
     } catch (error) {
