@@ -133,3 +133,12 @@ The near-connect manifest (`hot-dao/near-selector` `repository/manifest.json`) l
    The same proof with one byte appended to the message gave `bad signature`, and a different `site` gave `wrong recipient`.
 
 Limits of this claim: the signing ran in my terminal (the NEAR CLI connector is a copy-and-paste flow, so that is how it works), and the proof was reassembled from the wallet response, not read out of the page's closure. The board's page logic accepted it and switched to wallet mode. Posting with the wallet was not tried.
+
+## After the second security review (2026-11-10)
+
+| Step | Link |
+| --- | --- |
+| release 5: fix the test-USDC pin button (arguments were in the wrong order) | https://explorer.testnet.near.org/transactions/5Ft57j3MBfmup7M2sfNuxgJ1boqoJdJN6KxbRiqGoHBL |
+| production 5 | https://explorer.testnet.near.org/transactions/BuSshpmhzccho2agS96H54EFEJvUwbdyW6s4WKhD7QRY |
+| relay function redeployed with the review fixes (sender key and nonce checked before spending, atomic budgets, one-label members): project / secrets | https://explorer.testnet.near.org/transactions/8KHUMSKvMJ7Yb5wD3x13zTT5zsUgYkKNjpGcBBjdTc2P / https://explorer.testnet.near.org/transactions/Dv4umJt17VSUrmRto2p9orJevnCqGtmAViaKRMb2owFw |
+| check: throwaway collection `relaycheck` created; maren added a doc through the OutLayer relay (20 s) and removed it (14 s); collection dropped | https://explorer.testnet.near.org/transactions/5RhXKgZQRgC7FWGxTpoxoPqHaX9vLLpBHSTok6ksJS8G / https://explorer.testnet.near.org/transactions/7hM4N4FPhLKK3gr2QfGLtEmr9Fkr7uUjLcEtYfYpfeMC |
