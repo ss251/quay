@@ -315,7 +315,7 @@ impl Contract {
             &crate::jv::obj!({ "collection": name, "id": id, "owner": writer, "bytes": bytes }),
         );
         if let Some(func) = trigger {
-            self.run_trigger(&func, &name, &id, &writer, &data);
+            self.run_trigger(&func, &name, &id, seq, &writer, &data);
         }
         id
     }

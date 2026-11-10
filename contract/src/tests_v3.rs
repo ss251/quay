@@ -655,6 +655,8 @@ fn pk() -> near_sdk::PublicKey {
 #[test]
 fn join_creates_a_zero_balance_account_and_records_it_in_the_callback() {
     let mut c = fresh();
+    as_who(BOB, NEAR);
+    c.db_fund();
     as_who(ALICE, 0);
     let _ = c.join("alice".into(), pk());
     let receipts = get_created_receipts();
@@ -674,16 +676,16 @@ fn join_creates_a_zero_balance_account_and_records_it_in_the_callback() {
     assert!(!c.is_member("alice.board.testnet".parse().unwrap()));
 
     ctx_with(SITE, 0, vec![PromiseResult::Failed]);
-    assert!(!c.on_join("alice.board.testnet".parse().unwrap()));
+    assert!(!c.on_join("alice.board.testnet".parse().unwrap(), None));
     assert!(!c.is_member("alice.board.testnet".parse().unwrap()));
 
     ctx_with(SITE, 0, vec![PromiseResult::Successful(Vec::new())]);
-    assert!(c.on_join("alice.board.testnet".parse().unwrap()));
+    assert!(c.on_join("alice.board.testnet".parse().unwrap(), None));
     assert!(c.is_member("alice.board.testnet".parse().unwrap()));
     assert!(get_logs().iter().any(|l| l.contains("member_joined") && l.contains("alice.board.testnet")));
     // A repeated success does not list the member twice.
     ctx_with(SITE, 0, vec![PromiseResult::Successful(Vec::new())]);
-    assert!(c.on_join("alice.board.testnet".parse().unwrap()));
+    assert!(c.on_join("alice.board.testnet".parse().unwrap(), None));
     assert_eq!(c.list_members(0, 10).members.len(), 1);
 
     as_who(BOB, 0);
@@ -736,7 +738,7 @@ fn list_members_pages_oldest_first() {
     let mut c = fresh();
     for n in 0..5 {
         ctx_with(SITE, 0, vec![PromiseResult::Successful(Vec::new())]);
-        c.on_join(format!("m{n}.{SITE}").parse().unwrap());
+        c.on_join(format!("m{n}.{SITE}").parse().unwrap(), None);
     }
     let page = c.list_members(0, 2);
     assert_eq!(page.members.iter().map(|m| m.to_string()).collect::<Vec<_>>(), vec![format!("m0.{SITE}"), format!("m1.{SITE}")]);

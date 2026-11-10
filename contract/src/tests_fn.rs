@@ -133,7 +133,8 @@ fn fn_call_sends_the_outlayer_request_and_chains_the_callback() {
     ctx(ALICE, NEAR / 100, 300, vec![], NOW);
     let _ = c.fn_call("preview".into(), json!({ "url": "https://example.com" }).to_string());
     let (request, callback, deposit, gas) = outlayer_calls();
-    assert_eq!(deposit, NEAR / 100, "the whole attached deposit goes to OutLayer");
+    assert_eq!(deposit, NEAR / 200, "OutLayer gets the spec deposit");
+    assert_eq!(transfers(), vec![(ALICE.to_string(), NEAR / 200)], "the excess goes back");
     assert_eq!(gas, Gas::from_tgas(0), "OutLayer gets the unused gas by weight");
     assert_eq!(request["source"]["Project"]["project_id"], format!("{SITE}/preview"));
     assert_eq!(request["source"]["Project"]["version_key"], Value::Null);
@@ -300,7 +301,7 @@ fn on_add_triggers_run_from_the_pool_and_can_hide_the_doc() {
     assert_eq!(request["payer_account_id"], SITE);
     let input: Value = serde_json::from_str(request["input_data"].as_str().unwrap()).unwrap();
     assert_eq!(input, json!({ "collection": "posts", "id": id, "owner": ALICE, "data": { "t": "spam" } }));
-    assert_eq!(callback["trigger"], json!({ "collection": "posts", "id": id }));
+    assert_eq!(callback["trigger"], json!({ "collection": "posts", "id": id, "seq": "2" }));
 
     ctx(SITE, 0, 30, result_ok(json!({ "hide": true, "score": 0.9 })), NOW);
     c.fn_on_result(
@@ -536,7 +537,9 @@ fn every_export_reads_its_json_arguments() {
     assert_eq!(c.get_outlayer().as_str(), "mock.testnet");
     assert_eq!(c.cron_list().len(), 1);
     assert!(c.cron_status().armed);
-    assert_eq!(c.get_pool().balance.0, NEAR - 10);
+    // `join` holds a member record's storage until `on_join` settles it.
+    let held = crate::members::MEMBER_BYTES_BOUND * near_sdk::env::storage_byte_cost().as_yoctonear();
+    assert_eq!(c.get_pool().balance.0, NEAR - 10 - held);
 
     // Callbacks and the receiver hook, with their argument names.
     via_export(x::on_join, SITE, 0, json!({ "account": format!("carol.{SITE}") }));
@@ -602,4 +605,261 @@ fn exports_keep_the_near_sdk_refusals() {
     assert!(msg.contains("Failed to deserialize input from JSON."), "{msg}");
     let msg = panics(|| via_export(x::promote, SITE, 1, json!("not an object")));
     assert!(msg.contains("Failed to deserialize input from JSON."), "{msg}");
+}
+
+// ---------------------------------------------------------------- security review
+
+/// `via_export` with promise results, for callbacks.
+fn via_export_with(f: fn(), who: &str, deposit: u128, input: Value, results: Vec<PromiseResult>) {
+    let predecessor: AccountId = who.parse().unwrap();
+    let mut builder = VMContextBuilder::new();
+    builder
+        .current_account_id(SITE.parse().unwrap())
+        .signer_account_id(predecessor.clone())
+        .predecessor_account_id(predecessor)
+        .attached_deposit(NearToken::from_yoctonear(deposit))
+        .prepaid_gas(Gas::from_tgas(300))
+        .block_timestamp(NOW);
+    builder.context.input = input.to_string().into_bytes().into();
+    testing_env!(
+        builder.build(),
+        near_sdk::test_vm_config(),
+        near_sdk::RuntimeFeesConfig::test(),
+        Default::default(),
+        results,
+    );
+    f();
+}
+
+/// The JSON arguments of the first created call to `method`.
+fn call_args(method: &str) -> Value {
+    for receipt in get_created_receipts() {
+        for action in receipt.actions {
+            if let MockAction::FunctionCallWeight { method_name, args, .. } = action {
+                if method_name == method.as_bytes() {
+                    return serde_json::from_slice(&args).unwrap();
+                }
+            }
+        }
+    }
+    panic!("no {method} call");
+}
+
+#[test]
+fn every_callback_export_refuses_other_callers() {
+    use crate::exports as x;
+    via_export(x::new, SITE, 0, json!({}));
+    let callbacks: Vec<(fn(), &str, Value)> = vec![
+        (x::on_join, "on_join", json!({ "account": format!("carol.{SITE}") })),
+        (x::fn_on_result, "fn_on_result", json!({ "name": "f", "request": "f-1", "caller": ALICE, "deposit": "1000", "refund_to": ALICE })),
+        (x::cron_tick, "cron_tick", json!({ "chain": 0 })),
+    ];
+    for (f, name, input) in callbacks {
+        // A member account of the site is not the site either.
+        for who in [ALICE, "carol.board.testnet"] {
+            let msg = panics(|| via_export(f, who, 0, input.clone()));
+            assert!(msg.contains(&format!("Method {name} is private")), "{name} as {who}: {msg}");
+        }
+    }
+}
+
+#[test]
+fn every_non_payable_change_export_refuses_a_deposit() {
+    use crate::exports as x;
+    via_export(x::new, SITE, 0, json!({}));
+    let methods: Vec<(fn(), &str, &str)> = vec![
+        (x::new, "new", SITE),
+        (x::migrate, "migrate", SITE),
+        (x::put_chunk, "put_chunk", SITE),
+        (x::seal, "seal", SITE),
+        (x::db_remove, "db_remove", ALICE),
+        (x::join, "join", ALICE),
+        (x::on_join, "on_join", SITE),
+        (x::ft_on_transfer, "ft_on_transfer", "usdc.testnet"),
+        (x::fn_on_result, "fn_on_result", SITE),
+        (x::cron_arm, "cron_arm", ALICE),
+        (x::cron_kick, "cron_kick", ALICE),
+        (x::cron_tick, "cron_tick", SITE),
+    ];
+    for (f, name, who) in methods {
+        let msg = panics(|| via_export(f, who, 1, json!({})));
+        assert!(msg.contains(&format!("Method {name} doesn't accept deposit")), "{name}: {msg}");
+    }
+}
+
+#[test]
+fn every_config_export_is_owner_only_with_exactly_one_yocto() {
+    use crate::exports as x;
+    via_export(x::new, SITE, 0, json!({}));
+    let rules = json!({ "write": "anyone", "max_doc_bytes": 100, "moderated": true, "payer": "site" });
+    let methods: Vec<(fn(), Value)> = vec![
+        (x::promote, json!({ "id": "1" })),
+        (x::rollback, json!({})),
+        (x::delete, json!({ "id": "1" })),
+        (x::drop_chunk, json!({ "sha256": "a".repeat(64) })),
+        (x::set_collection, json!({ "name": "posts", "rules": rules })),
+        (x::drop_collection, json!({ "name": "posts" })),
+        (x::db_hide, json!({ "collection": "posts", "id": "1", "hidden": true })),
+        (x::db_withdraw, json!({ "amount": "1" })),
+        (x::set_members_open, json!({ "open": false })),
+        (x::set_product, json!({ "id": "p", "product": { "name": "P", "price_yocto": "1", "grant": "receipt" } })),
+        (x::remove_product, json!({ "id": "p" })),
+        (x::set_token, json!({ "account": "usdc.testnet" })),
+        (x::fn_set, json!({ "name": "f", "spec": { "project": "a.testnet/f", "call": "anyone", "payer": "site" } })),
+        (x::fn_remove, json!({ "name": "f" })),
+        (x::set_outlayer, json!({ "account": "evil.testnet" })),
+        (x::cron_set, json!({ "name": "j", "job": { "every_minutes": 60, "fn": "f" } })),
+        (x::cron_remove, json!({ "name": "j" })),
+    ];
+    for (f, input) in &methods {
+        // Another account, even with the yocto, and a member sub-account.
+        for who in [ALICE, "carol.board.testnet"] {
+            let msg = panics(|| via_export(*f, who, 1, input.clone()));
+            assert!(msg.contains("only this account"), "{input}: {msg}");
+        }
+        // The site with a function-call key (no deposit) or with more than 1 yocto.
+        for deposit in [0, 2] {
+            let msg = panics(|| via_export(*f, SITE, deposit, input.clone()));
+            assert!(msg.contains("exactly 1 yoctoNEAR"), "{input} with {deposit}: {msg}");
+        }
+    }
+    // The publish-only methods take no deposit and only this account.
+    let hash = crate::tests_v3::sha_hex(b"x");
+    let msg = panics(|| via_export(x::put_chunk, ALICE, 0, json!({ "sha256": hash, "data": "eA==" })));
+    assert!(msg.contains("only this account"), "{msg}");
+    let msg = panics(|| via_export(x::seal, ALICE, 0, json!({ "id": "1", "message": "", "spa": false, "files": [] })));
+    assert!(msg.contains("only this account"), "{msg}");
+}
+
+/// Finding: `fn_on_result` refunds the deposit on any failed result, but a
+/// failure later in OutLayer's chain (after it took the deposit) means the
+/// NEAR never came back. `fn_call` forwarded the whole attached deposit, so the
+/// site's exposure per call was whatever the caller attached.
+#[test]
+fn fn_call_forwards_only_the_spec_deposit_and_refunds_the_rest() {
+    let mut c = with_fn("preview", spec(FnPayer::Caller, WriteRule::Anyone));
+    ctx(ALICE, 100 * NEAR, 300, vec![], NOW);
+    c.fn_call("preview".into(), "{}".into());
+    let (_, callback, deposit, _) = outlayer_calls();
+    assert_eq!(deposit, NEAR / 200, "OutLayer gets the spec deposit");
+    assert_eq!(callback["deposit"], (NEAR / 200).to_string());
+    assert_eq!(transfers(), vec![(ALICE.to_string(), 100 * NEAR - NEAR / 200)], "the excess goes back now");
+    // A failed result refunds at most the spec deposit.
+    ctx(SITE, 0, 30, vec![PromiseResult::Failed], NOW);
+    c.fn_on_result(
+        "preview".into(),
+        callback["request"].as_str().unwrap().into(),
+        ALICE.parse().unwrap(),
+        U128(callback["deposit"].as_str().unwrap().parse().unwrap()),
+        Some(ALICE.parse().unwrap()),
+        None,
+    );
+    assert_eq!(transfers(), vec![(ALICE.to_string(), NEAR / 200)]);
+    // Exactly the deposit: nothing to refund up front.
+    ctx(ALICE, NEAR / 200, 300, vec![], NOW);
+    c.fn_call("preview".into(), "{}".into());
+    assert!(transfers().is_empty());
+}
+
+/// Finding: anyone could `join` while members are open, and each member
+/// record is permanent storage the site paid from its own balance, so joins
+/// could lock the site's NEAR until no write fits. Visitors' joins now draw
+/// that storage from the pool, like other site-paid writes.
+#[test]
+fn a_visitor_join_is_paid_from_the_pool() {
+    use crate::exports as x;
+    let pk = "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp";
+    via_export(x::new, SITE, 0, json!({}));
+    let msg = panics(|| via_export(x::join, ALICE, 0, json!({ "name": "carol", "public_key": pk })));
+    assert!(msg.contains("storage pool is empty"), "{msg}");
+    via_export(x::db_fund, BOB, NEAR, json!({}));
+    via_export(x::join, ALICE, 0, json!({ "name": "carol", "public_key": pk }));
+    let held = NEAR - state().get_pool().balance.0;
+    assert!(held > 0, "the join holds pool NEAR");
+    let args = call_args("on_join");
+    // The account could not be created: everything held goes back.
+    via_export_with(x::on_join, SITE, 0, args.clone(), vec![PromiseResult::Failed]);
+    assert_eq!(state().get_pool().balance.0, NEAR);
+    assert_eq!(state().get_pool().reserved.0, 0);
+    // Created: the record's storage stays reserved, the rest goes back.
+    via_export(x::join, ALICE, 0, json!({ "name": "carol", "public_key": pk }));
+    let args = call_args("on_join");
+    let before = near_sdk::env::storage_usage();
+    via_export_with(x::on_join, SITE, 0, args, vec![PromiseResult::Successful(Vec::new())]);
+    let used = u128::from(near_sdk::env::storage_usage() - before) * near_sdk::env::storage_byte_cost().as_yoctonear();
+    let pool = state().get_pool();
+    assert!(state().is_member(format!("carol.{SITE}").parse().unwrap()));
+    assert!(pool.reserved.0 >= used && pool.reserved.0 <= held, "reserved {} for {used}", pool.reserved.0);
+    assert_eq!(pool.balance.0 + pool.reserved.0, NEAR);
+    // A direct call with no promise result settles nothing.
+    let pool = state().get_pool();
+    via_export(x::on_join, SITE, 0, json!({ "account": format!("eve.{SITE}"), "held": NEAR.to_string() }));
+    assert_eq!(state().get_pool().balance, pool.balance);
+    assert!(!state().is_member(format!("eve.{SITE}").parse().unwrap()));
+    // The site itself may still add members without a pool.
+    via_export(x::db_withdraw, SITE, 1, json!({ "amount": pool.balance }));
+    via_export(x::join, SITE, 0, json!({ "name": "dave", "public_key": pk }));
+}
+
+/// Finding: anyone could arm a chain with the 50 Tgas minimum, too little to
+/// launch a job, and re-arm it whenever it stopped. While it was alive the
+/// site could not arm a real one, so jobs never ran.
+#[test]
+fn the_site_can_replace_a_starved_chain() {
+    let mut c = with_fn("digest", spec(FnPayer::Site, WriteRule::Owner));
+    ctx(ALICE, 0, 50, vec![], NOW);
+    c.cron_arm();
+    let starved = c.cron.chain;
+    ctx(BOB, 0, 300, vec![], NOW + 1);
+    assert!(panics(|| c.cron_arm()).contains("already armed"));
+    ctx(SITE, 0, 1000, vec![], NOW + 1);
+    c.cron_arm();
+    assert_eq!(c.cron.chain, starved + 1);
+    // The old chain's tick does nothing.
+    let live = c.cron.pending;
+    ctx(SITE, 0, 40, vec![PromiseResult::Failed], NOW + 200 * 1_000_000_000);
+    c.cron_tick(starved);
+    assert_eq!(c.cron.pending, live);
+}
+
+/// Finding: a trigger result found its doc by collection and id only. A doc
+/// removed and added again under the same explicit id took the old doc's
+/// output, and could be hidden by it.
+#[test]
+fn a_trigger_result_skips_a_doc_added_again_under_the_same_id() {
+    let mut c = with_fn("moderate", spec(FnPayer::Site, WriteRule::Owner));
+    site(1);
+    c.set_collection(
+        "posts".into(),
+        CollectionRules {
+            write: WriteRule::Anyone,
+            max_doc_bytes: 4096,
+            moderated: true,
+            payer: Payer::Writer,
+            max_docs_per_account: None,
+            on_add: Some("moderate".into()),
+        },
+    );
+    fund(&mut c, NEAR);
+    ctx(ALICE, NEAR, 300, vec![], NOW);
+    c.db_add("posts".into(), Some("hello".into()), json!({ "t": "spam" }).to_string());
+    let (_, first, _, _) = outlayer_calls();
+    as_who(ALICE, 0);
+    c.db_remove("posts".into(), "hello".into());
+    ctx(BOB, NEAR, 300, vec![], NOW);
+    c.db_add("posts".into(), Some("hello".into()), json!({ "t": "fine" }).to_string());
+    // The first doc's result arrives after the second doc took the id.
+    ctx(SITE, 0, 30, result_ok(json!({ "hide": true })), NOW);
+    c.fn_on_result(
+        "moderate".into(),
+        first["request"].as_str().unwrap().into(),
+        ALICE.parse().unwrap(),
+        U128(NEAR / 200),
+        None,
+        Some(serde_json::from_value(first["trigger"].clone()).unwrap()),
+    );
+    let doc = c.db_get("posts".into(), "hello".into()).unwrap();
+    assert_eq!(doc.owner.as_str(), BOB);
+    assert!(!doc.hidden, "the old doc's result does not hide the new doc");
+    assert_eq!(doc.fn_result, None);
 }

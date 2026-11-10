@@ -529,7 +529,16 @@ async fn join_creates_a_zero_balance_member_account() -> TestResult {
     expect_panic(paid, "doesn't accept deposit");
     let reserved = call(&world, &bob, "join", json!({ "name": "relay", "public_key": key }), 0).await;
     expect_panic(reserved, "reserved");
+    // A visitor's member record is paid from the pool.
+    let unfunded = call(&world, &bob, "join", json!({ "name": "alice", "public_key": key }), 0).await;
+    expect_panic(unfunded, "storage pool is empty");
+    call(&world, &bob, "db_fund", json!({}), 50 * MILLI).await.expect("db_fund");
     call(&world, &bob, "join", json!({ "name": "alice", "public_key": key }), 0).await.expect("join");
+    let pool: Value = view(&world, "get_pool", json!({})).await?;
+    let reserved_yocto: u128 = pool["reserved"].as_str().unwrap().parse()?;
+    let balance_yocto: u128 = pool["balance"].as_str().unwrap().parse()?;
+    assert!(reserved_yocto > 0 && reserved_yocto <= 3 * MILLI, "the record holds {reserved_yocto}");
+    assert_eq!(reserved_yocto + balance_yocto, 50 * MILLI, "the rest went back to the pool");
     let member: AccountId = "alice.quay.sandbox".parse()?;
     assert_eq!(balance(&world, &member).await?, 0, "a zero-balance account");
     assert!(view::<bool>(&world, "is_member", json!({ "account": member })).await?);
@@ -705,7 +714,7 @@ async fn functions_triggers_and_tokens_with_mock_contracts() -> TestResult {
     let value: Value = out.json()?;
     assert_eq!(value["echo"]["hello"], "world");
     assert_eq!(value["project"], "quay.sandbox/echo");
-    assert_eq!(value["deposit"], (10 * MILLI).to_string());
+    assert_eq!(value["deposit"], MILLI.to_string(), "OutLayer gets the spec deposit; the excess was refunded");
     let requests: Vec<String> = Contract(mock.clone()).call_function("get_requests", json!({})).read_only().fetch_from(&world.network).await?.data;
     let request: Value = serde_json::from_str(&requests[0])?;
     assert_eq!(request["resource_limits"]["max_memory_mb"], 128);

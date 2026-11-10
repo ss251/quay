@@ -77,16 +77,20 @@ pub struct FunctionView {
 
 impl crate::jv::J for TriggerRef {
     fn j(self) -> Value {
-        crate::jv::obj!({ "collection": self.collection, "id": self.id })
+        crate::jv::obj!({ "collection": self.collection, "id": self.id, "seq": self.seq })
     }
 }
 
-/// The doc an `on_add` trigger reports back to.
+/// The doc an `on_add` trigger reports back to. `seq` tells a doc added again
+/// under the same id apart from the one that ran the trigger (`None` only in
+/// callbacks sent before it existed).
 #[near(serializers = [json])]
 #[derive(Clone, Debug)]
 pub struct TriggerRef {
     pub collection: String,
     pub id: String,
+    #[serde(default)]
+    pub seq: Option<U64>,
 }
 
 #[near(serializers = [borsh])]
@@ -193,7 +197,12 @@ impl Contract {
                 if attached < spec.deposit.0 {
                     env::panic_str(&format!("attach at least {} yoctoNEAR", spec.deposit.0));
                 }
-                (caller.clone(), attached, PaidBy::Writer)
+                // OutLayer gets the spec deposit and the excess goes back now.
+                // `fn_on_result` refunds the deposit on any failed result, and a
+                // failure late in OutLayer's chain does not return the NEAR
+                // here, so the site's exposure per call stays at `spec.deposit`.
+                refund(&caller, attached - spec.deposit.0);
+                (caller.clone(), spec.deposit.0, PaidBy::Writer)
             }
             FnPayer::Site => {
                 require!(attached == 0, "this function is paid by the site; attach no deposit");
@@ -317,7 +326,7 @@ impl Contract {
 
     /// Run `func` for a doc just added. Paid from the pool; skipped (logged)
     /// when the function is missing or the pool cannot pay.
-    pub(crate) fn run_trigger(&mut self, func: &str, collection: &str, id: &str, owner: &AccountId, data: &str) {
+    pub(crate) fn run_trigger(&mut self, func: &str, collection: &str, id: &str, seq: u64, owner: &AccountId, data: &str) {
         let Some(spec) = self.fns.specs.get(func) else {
             env::log_str(&format!("on_add {func} skipped: function missing"));
             return;
@@ -342,6 +351,7 @@ impl Contract {
             trigger: Some(TriggerRef {
                 collection: collection.to_string(),
                 id: id.to_string(),
+                seq: Some(U64(seq)),
             }),
             gas: None,
         });
@@ -431,6 +441,10 @@ impl Contract {
         let Some(seq) = self.db.ids.get(&(coll.cid, target.id.clone())) else {
             return;
         };
+        if target.seq.is_some_and(|ran| ran.0 != seq) {
+            env::log_str("trigger result skipped: the doc was replaced");
+            return;
+        }
         let hide = coll.rules.moderated
             && output.and_then(|value| value.get("hide")).and_then(Value::as_bool) == Some(true);
         let byte_cost = env::storage_byte_cost().as_yoctonear();

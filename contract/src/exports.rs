@@ -232,7 +232,7 @@ view!(get_pool, |c| c.get_pool());
 // ---------------------------------------------------------------- members
 
 call!(join, FREE, OPEN, unit, |c, a| c.join(a.get("name"), a.get("public_key")));
-call!(on_join, FREE, PRIVATE, ret, |c, a| c.on_join(a.get::<AccountId>("account")));
+call!(on_join, FREE, PRIVATE, ret, |c, a| c.on_join(a.get::<AccountId>("account"), a.get("held")));
 call!(set_members_open, PAY, OPEN, unit, |c, a| c.set_members_open(a.get("open")));
 view!(get_members_open, |c| c.get_members_open());
 view!(list_members, |c, a| c.list_members(a.get("from_index"), a.get("limit")));

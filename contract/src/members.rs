@@ -5,12 +5,17 @@
 
 use crate::coll::Seq;
 use near_sdk::store::LookupSet;
+use near_sdk::json_types::U128;
 use near_sdk::{env, near, require, AccountId, Gas, GasWeight, NearToken, PublicKey};
 
 use crate::db::name_ok;
 use crate::{assert_self, emit, page_bounds_max, Contract};
 
 pub const RESERVED_NAMES: [&str; 5] = ["relay", "admin", "www", "api", "quay"];
+/// A member record (a list entry and a set entry for an account id of at most
+/// 64 bytes, about 222 bytes with key overheads) stays under this many bytes.
+/// A visitor's `join` holds this much pool NEAR.
+pub const MEMBER_BYTES_BOUND: u128 = 300;
 const ON_JOIN_GAS: Gas = Gas::from_tgas(10);
 const MEMBER_PAGE_MAX: u32 = 50;
 
@@ -43,19 +48,29 @@ impl Contract {
     /// The transaction result is `on_join`'s: `true` once recorded.
     pub fn join(&mut self, name: String, public_key: PublicKey) {
         let site = env::current_account_id();
-        require!(
-            self.members.open || env::predecessor_account_id() == site,
-            "members are closed"
-        );
+        let by_site = env::predecessor_account_id() == site;
+        require!(self.members.open || by_site, "members are closed");
         let account = member_account(&name, &site);
         if self.members.set.contains(&account) {
             env::panic_str("already a member");
         }
+        // The member record is permanent storage. A visitor's join pays it
+        // from the pool, like other site-paid writes, so joins cannot spend
+        // the site's own balance. Held now, settled in `on_join`.
+        let held = if by_site {
+            0
+        } else {
+            let bound = MEMBER_BYTES_BOUND * env::storage_byte_cost().as_yoctonear();
+            if self.spend_pool(bound).is_err() {
+                env::panic_str("storage pool is empty: fund it with db_fund so visitors can join");
+            }
+            bound
+        };
         let create = env::promise_batch_create(&account);
         env::promise_batch_action_create_account(create);
         env::promise_batch_action_add_key_with_full_access(create, &public_key, 0);
         let callback = env::promise_batch_then(create, &site);
-        let args = crate::json_text(&crate::jv::obj!({ "account": account }));
+        let args = crate::json_text(&crate::jv::obj!({ "account": account, "held": U128(held) }));
         env::promise_batch_action_function_call_weight(
             callback,
             "on_join",
@@ -67,20 +82,27 @@ impl Contract {
         env::promise_return(callback);
     }
 
-    /// Records the member when the account was created. Never panics.
-    pub fn on_join(&mut self, account: AccountId) -> bool {
-        let created = env::promise_results_count() == 1
-            && !matches!(
-                env::promise_result_checked(0, 64),
-                Err(near_sdk::PromiseError::Failed)
-            );
-        if !created {
+    /// Records the member when the account was created and settles the pool
+    /// NEAR `join` held. Never panics.
+    pub fn on_join(&mut self, account: AccountId, held: Option<U128>) -> bool {
+        let held = held.map_or(0, |held| held.0);
+        if env::promise_results_count() != 1 {
+            // Not the callback of a `join`: nothing was held, nothing to settle.
+            return false;
+        }
+        if matches!(env::promise_result_checked(0, 64), Err(near_sdk::PromiseError::Failed)) {
+            self.db.pool_balance = self.db.pool_balance.saturating_add(held);
             env::log_str(&format!("join failed: {account} was not created"));
             return false;
         }
+        let before = self.storage_mark();
         if self.members.set.insert(account.clone()) {
             self.members.list.push(account.clone());
         }
+        let after = self.storage_mark();
+        let used = (u128::from(after.saturating_sub(before)) * env::storage_byte_cost().as_yoctonear()).min(held);
+        self.db.pool_reserved = self.db.pool_reserved.saturating_add(used);
+        self.db.pool_balance = self.db.pool_balance.saturating_add(held - used);
         emit("member_joined", &crate::jv::obj!({ "account": account }));
         true
     }

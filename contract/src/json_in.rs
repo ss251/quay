@@ -318,6 +318,7 @@ impl FromJson for TriggerRef {
         Some(TriggerRef {
             collection: o.req("collection")?,
             id: o.req("id")?,
+            seq: o.opt("seq")?,
         })
     }
 }
@@ -377,6 +378,8 @@ mod tests {
             same::<JobIn>(v);
         }
         same::<TriggerRef>(json!({ "collection": "c", "id": "1" }));
+        same::<TriggerRef>(json!({ "collection": "c", "id": "1", "seq": "4" }));
+        same::<TriggerRef>(json!({ "collection": "c", "id": "1", "seq": 4 }));
         same::<Option<U128>>(json!("12"));
         same::<Option<U128>>(json!(12));
         same::<Base64VecU8>(json!("PHA+eDwvcD4="));
@@ -384,5 +387,40 @@ mod tests {
         same::<Vec<String>>(json!(["a", 1]));
         same::<PublicKey>(json!("ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp"));
         same::<AccountId>(json!("UPPER.testnet"));
+        // Edge cases a hand parser could get wrong: signs, overflow, spaces,
+        // floats, exponents, unicode, and nesting.
+        for v in [json!("+5"), json!("-5"), json!(" 5"), json!("5 "), json!(""), json!("0x10"), json!("1e3"), json!("340282366920938463463374607431768211456"), json!("340282366920938463463374607431768211455"), json!(1.0), json!(null), json!([]), json!({})] {
+            same::<U128>(v.clone());
+            same::<U64>(v.clone());
+            same::<Option<U128>>(v);
+        }
+        for v in [json!(-1), json!(-0), json!(0), json!(1.0), json!(1e2), json!(4294967295u64), json!(4294967296u64), json!(18446744073709551615u64), json!("5"), json!(true)] {
+            same::<u32>(v.clone());
+            same::<u64>(v.clone());
+            same::<ListQuery>(json!({ "limit": v }));
+        }
+        let escaped = |text: &str| serde_json::from_str::<Value>(text).unwrap();
+        for v in [escaped(r#""al\u0069ce.testnet""#), escaped(r#""alice.testnet\u0000""#), json!("ålice.testnet"), json!("a"), json!("-a.testnet"), json!(" alice.testnet"), json!(5)] {
+            same::<AccountId>(v);
+        }
+        for v in [json!(true), json!(false), json!(1), json!("true"), json!(null)] {
+            same::<bool>(v);
+        }
+        same::<CollectionRules>(json!({ "write": "anyone", "max_doc_bytes": 10, "moderated": true, "payer": "site", "on_add": { "nested": [1, { "deep": true }] } }));
+        same::<Web4Request>(json!({ "path": "/x", "query": [], "accountId": "bad account" }));
+        same::<Web4Request>(json!({ "path": "/x", "query": { "a": { "b": 1 } }, "accountId": 7 }));
+    }
+
+    /// Where the two still differ, the hand parser is the stricter one, or the
+    /// difference reaches no check: JSON with a repeated key keeps the last
+    /// value (serde's derived structs refused it), and positional arrays for
+    /// a struct are refused (serde's derives took them).
+    #[test]
+    fn known_differences_are_not_security_relevant() {
+        let input = br#"{"collection":"posts","collection":"other","data":"{}"}"#;
+        let value: Value = near_sdk::serde_json::from_slice(input).unwrap();
+        assert_eq!(value["collection"], "other");
+        assert!(TriggerRef::from_json(json!(["c", "1", null])).is_none());
+        assert!(serde_json::from_value::<TriggerRef>(json!(["c", "1", null])).is_ok());
     }
 }

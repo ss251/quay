@@ -168,9 +168,12 @@ impl Contract {
     }
 
     /// Start the chain. Anyone may; the caller's prepaid gas is its budget.
+    /// The site may also replace a live chain (one armed with too little gas
+    /// to run a job, say); the old chain's ticks then do nothing.
     pub fn cron_arm(&mut self) {
         let now = env::block_timestamp();
-        if self.cron.armed && now < self.cron.last_activity().saturating_add(STALE_NS) {
+        let by_site = env::predecessor_account_id() == env::current_account_id();
+        if self.cron.armed && !by_site && now < self.cron.last_activity().saturating_add(STALE_NS) {
             env::panic_str("cron is already armed");
         }
         if env::prepaid_gas() < MIN_ARM_GAS {
