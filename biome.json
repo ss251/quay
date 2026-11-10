@@ -12,7 +12,8 @@
       "!**/dist",
       "!gateway/worker/worker.mjs",
       "!**/node_modules",
-      "!**/target"
+      "!**/target",
+      "!cli/vendor/**"
     ]
   },
   "vcs": {

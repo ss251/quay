@@ -24,7 +24,10 @@ for (const extra of ["extras.mjs", "fastdata.mjs"]) {
   if (existsSync(from)) copyFileSync(from, join(here, "site", "assets", extra));
 }
 // The hero photo is large, so quay deploy stores it off chain (files.external_over).
-copyFileSync(join(here, "art", "harbour.png"), join(here, "site", "assets", "img", "harbour.png"));
+copyFileSync(
+  join(here, "art", "harbour.png"),
+  join(here, "site", "assets", "img", "harbour.png"),
+);
 
 const project = JSON.parse(readFileSync(join(here, "quay.json"), "utf8"));
 const local = existsSync(join(here, "board.json"))

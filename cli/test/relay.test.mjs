@@ -247,7 +247,10 @@ test("quay relay with no subcommand prints help and fails", async () => {
 });
 
 test("quay relay serve --fastdata opts in to __fastdata_kv and says so in /health", async () => {
-  for (const [flags, expected] of [[[], false], [["--fastdata"], true]]) {
+  for (const [flags, expected] of [
+    [[], false],
+    [["--fastdata"], true],
+  ]) {
     const io = streams();
     let stop;
     const stopped = new Promise((resolve) => {
@@ -258,7 +261,13 @@ test("quay relay serve --fastdata opts in to __fastdata_kv and says so in /healt
       ready = resolve;
     });
     const done = run(
-      { ...io, config, relayChain: chain(), relayStop: stopped, onRelayReady: ready },
+      {
+        ...io,
+        config,
+        relayChain: chain(),
+        relayStop: stopped,
+        onRelayReady: ready,
+      },
       parseArgs(["relay", "serve", "--port", "0", ...flags]),
     );
     const { url } = await started;

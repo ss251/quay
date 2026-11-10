@@ -65,9 +65,7 @@
       "dir": "../../functions/moderate",
       "call": "owner",
       "payer": "site",
-      "secrets": [
-        "MOD_API_KEY"
-      ]
+      "secrets": ["MOD_API_KEY"]
     },
     "digest": {
       "dir": "../../functions/digest",

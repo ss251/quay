@@ -517,7 +517,14 @@ test("secrets set refuses values on the command line and bad names", async () =>
     /not a secret name/,
   );
   // a value typed where a name goes is not echoed back
-  const typed = await exec(["secrets", "set", "MOD_API_KEY", SECRET_VALUE, "--fn", "x"]);
+  const typed = await exec([
+    "secrets",
+    "set",
+    "MOD_API_KEY",
+    SECRET_VALUE,
+    "--fn",
+    "x",
+  ]);
   assert.match(typed.error.message, /not a secret name/);
   assert.ok(!typed.error.message.includes(SECRET_VALUE));
   const empty = await exec(["secrets", "set", "A", "--fn", "x"], {
