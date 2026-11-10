@@ -13,8 +13,12 @@ const KEYS = new Set([
   "pinned_first",
   "content_type",
   "prefix",
+  "also",
 ]);
 const COLLECTION = /^[a-z0-9-][a-z0-9_-]{0,31}$/;
+const SYSTEM = new Set(["_fn", "_receipts"]);
+const ALSO_KEYS = new Set(["name", "collection", "prefix", "limit", "order"]);
+const ALSO_NAME = /^[a-z][a-z0-9_]{0,31}$/;
 const SEGMENT_NAME = /^[a-z0-9_]{1,32}$/;
 const LITERAL = /^[A-Za-z0-9._-]+$/;
 const PREFIX = /^[A-Za-z0-9_-]{1,64}$/;
@@ -83,6 +87,7 @@ export function validateRoutes(routes, files) {
       typeof collection !== "string" ||
       !(
         COLLECTION.test(collection) ||
+        SYSTEM.has(collection) ||
         (collection === "*" && route.kind === "json")
       )
     ) {
@@ -129,21 +134,13 @@ export function validateRoutes(routes, files) {
       item.template = route.template;
       checkIncludes(template, byPath, index, new Set([route.template]));
     }
+    if (route.kind === "list" || route.kind === "json") {
+      if (route.limit !== undefined)
+        item.limit = checkLimit(route.limit, index);
+      if (route.order !== undefined)
+        item.order = checkOrder(route.order, index);
+    }
     if (route.kind === "list") {
-      if (route.limit !== undefined) {
-        if (
-          !Number.isInteger(route.limit) ||
-          route.limit < 1 ||
-          route.limit > 50
-        )
-          throw bad(index, "limit must be 1 to 50");
-        item.limit = route.limit;
-      }
-      if (route.order !== undefined) {
-        if (!ORDERS.includes(route.order))
-          throw bad(index, "order must be asc or desc");
-        item.order = route.order;
-      }
       if (route.pinned_first !== undefined) {
         if (typeof route.pinned_first !== "boolean")
           throw bad(index, "pinned_first must be true or false");
@@ -155,10 +152,23 @@ export function validateRoutes(routes, files) {
         item.prefix = route.prefix;
       }
     } else {
-      for (const key of ["limit", "order", "pinned_first", "prefix"]) {
+      for (const key of ["pinned_first", "prefix"]) {
         if (route[key] !== undefined)
           throw bad(index, `${key} is for list routes`);
       }
+      if (route.kind === "json") {
+        // limit and order were read above
+      } else {
+        for (const key of ["limit", "order"]) {
+          if (route[key] !== undefined)
+            throw bad(index, `${key} is for list and json routes`);
+        }
+      }
+    }
+    if (route.also !== undefined) {
+      if (route.kind === "json")
+        throw bad(index, "also is for doc and list routes");
+      item.also = checkAlso(route.also, index);
     }
     if (route.content_type !== undefined) {
       if (typeof route.content_type !== "string" || route.content_type === "")
@@ -168,6 +178,56 @@ export function validateRoutes(routes, files) {
     out.push(item);
   });
   return out;
+}
+
+function checkLimit(value, index, max = 50) {
+  if (!Number.isInteger(value) || value < 1 || value > max)
+    throw bad(index, `limit must be 1 to ${max}`);
+  return value;
+}
+
+function checkOrder(value, index) {
+  if (!ORDERS.includes(value)) throw bad(index, "order must be asc or desc");
+  return value;
+}
+
+function checkAlso(list, index) {
+  if (!Array.isArray(list) || list.length > 3)
+    throw bad(index, "also is a list of at most 3 extra lists");
+  const names = new Set();
+  return list.map((entry, position) => {
+    const where = `also[${position}]`;
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry))
+      throw bad(index, `${where} must be an object`);
+    for (const key of Object.keys(entry))
+      if (!ALSO_KEYS.has(key)) throw bad(index, `${where}: unknown key ${key}`);
+    if (typeof entry.name !== "string" || !ALSO_NAME.test(entry.name))
+      throw bad(
+        index,
+        `${where}.name must be 1 to 32 of a-z, 0-9, _ and start with a letter`,
+      );
+    if (names.has(entry.name))
+      throw bad(index, `${where}.name ${entry.name} is repeated`);
+    names.add(entry.name);
+    if (
+      typeof entry.collection !== "string" ||
+      !(COLLECTION.test(entry.collection) || SYSTEM.has(entry.collection))
+    )
+      throw bad(index, `${where}.collection must be a collection name`);
+    const out = { name: entry.name, collection: entry.collection };
+    if (entry.prefix !== undefined) {
+      if (typeof entry.prefix !== "string" || !PREFIX.test(entry.prefix))
+        throw bad(
+          index,
+          `${where}.prefix must be 1 to 64 of A-Z, a-z, 0-9, _ -`,
+        );
+      out.prefix = entry.prefix;
+    }
+    if (entry.limit !== undefined)
+      out.limit = checkLimit(entry.limit, index, 10);
+    if (entry.order !== undefined) out.order = checkOrder(entry.order, index);
+    return out;
+  });
 }
 
 function checkIncludes(file, byPath, index, seen, depth = 1) {

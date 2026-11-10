@@ -15,6 +15,7 @@ const TOP = new Set([
   "collections",
   "routes",
   "products",
+  "payments",
   "members",
   "functions",
   "relay",
@@ -73,7 +74,10 @@ export function parseProject(raw) {
     routes: [],
     products: {},
     members: null,
-    pending: [],
+    token: undefined,
+    relay: null,
+    functions: {},
+    cron: [],
   };
   if (raw.site !== undefined) {
     const site = section(raw.site, "site");
@@ -114,15 +118,32 @@ export function parseProject(raw) {
     if (!Array.isArray(raw.routes)) throw bad("routes must be a list");
     project.routes = raw.routes;
   }
-  if (raw.products !== undefined) {
-    const products = section(raw.products, "products");
+  const addProducts = (products, where) => {
+    section(products, where);
     for (const [id, item] of Object.entries(products)) {
       checkProductId(id);
+      if (project.products[id]) throw bad(`product ${id} is defined twice`);
       project.products[id] = normalizeProduct(id, item);
     }
-    if (Object.keys(project.products).length > 32)
-      throw bad("a site holds at most 32 products");
+  };
+  if (raw.products !== undefined) addProducts(raw.products, "products");
+  if (raw.payments !== undefined) {
+    const payments = section(raw.payments, "payments");
+    strictKeys(payments, new Set(["token", "products"]), "payments.");
+    if (payments.token !== undefined) {
+      if (
+        payments.token !== null &&
+        (typeof payments.token !== "string" ||
+          !/^[a-z0-9._-]{2,64}$/.test(payments.token))
+      )
+        throw bad("payments.token must be a token account id or null");
+      project.token = payments.token;
+    }
+    if (payments.products !== undefined)
+      addProducts(payments.products, "payments.products");
   }
+  if (Object.keys(project.products).length > 32)
+    throw bad("a site holds at most 32 products");
   if (raw.members !== undefined) {
     const members = section(raw.members, "members");
     strictKeys(members, new Set(["open"]), "members.");
@@ -132,15 +153,42 @@ export function parseProject(raw) {
       project.members = { open: members.open };
     }
   }
-  for (const key of ["functions", "relay"]) {
-    if (raw[key] !== undefined) {
-      section(raw[key], key);
-      if (Object.keys(raw[key]).length > 0) project.pending.push(key);
-    }
+  if (raw.functions !== undefined) {
+    project.functions = section(raw.functions, "functions");
+  }
+  if (raw.relay !== undefined) {
+    const relay = section(raw.relay, "relay");
+    if (relay.host !== undefined && !["node", "outlayer"].includes(relay.host))
+      throw bad("relay.host must be node or outlayer");
+    if (Object.keys(relay).length > 0) project.relay = relay;
   }
   if (raw.cron !== undefined) {
     if (!Array.isArray(raw.cron)) throw bad("cron must be a list");
-    if (raw.cron.length > 0) project.pending.push("cron");
+    const names = new Set();
+    project.cron = raw.cron.map((job, index) => {
+      const where = `cron[${index}]`;
+      section(job, where);
+      strictKeys(
+        job,
+        new Set(["name", "every_minutes", "fn", "input"]),
+        `${where}.`,
+      );
+      if (typeof job.name !== "string" || !/^[a-z0-9_-]{1,32}$/.test(job.name))
+        throw bad(`${where}.name must be 1 to 32 of a-z, 0-9, _ -`);
+      if (names.has(job.name))
+        throw bad(`${where}.name ${job.name} is repeated`);
+      names.add(job.name);
+      if (!Number.isInteger(job.every_minutes) || job.every_minutes < 1)
+        throw bad(`${where}.every_minutes must be a whole number from 1`);
+      if (typeof job.fn !== "string" || !/^[a-z0-9_-]{1,32}$/.test(job.fn))
+        throw bad(`${where}.fn must be a function name`);
+      return {
+        name: job.name,
+        every_minutes: job.every_minutes,
+        fn: job.fn,
+        input: job.input ?? {},
+      };
+    });
   }
   return project;
 }

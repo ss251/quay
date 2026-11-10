@@ -657,7 +657,7 @@ test("quay.json is strict and normalised", () => {
   assert.equal(project.collections.posts.max_docs_per_account, null);
   assert.equal(project.products.pin.price_token, null);
   assert.deepEqual(project.members, { open: false });
-  assert.deepEqual(project.pending, []);
+  assert.deepEqual(project.functions, {});
   assert.throws(
     () => parseProject({ colections: {} }),
     /unknown key colections/,
@@ -678,9 +678,135 @@ test("quay.json is strict and normalised", () => {
     () => parseProject({ products: { p: { name: "P", grant: "pin" } } }),
     /products\.p/,
   );
-  assert.deepEqual(parseProject({ functions: { a: {} } }).pending, [
-    "functions",
-  ]);
+  assert.deepEqual(parseProject({ functions: { a: {} } }).functions, { a: {} });
+});
+
+test("payments.token and payments.products, with old products still accepted", () => {
+  const p = { name: "Pin", price_yocto: "5", grant: "receipt" };
+  const project = parseProject({
+    payments: { token: "usdc.fakes.testnet", products: { pin: p } },
+    products: { old: p },
+  });
+  assert.equal(project.token, "usdc.fakes.testnet");
+  assert.deepEqual(Object.keys(project.products).sort(), ["old", "pin"]);
+  assert.equal(parseProject({ payments: { token: null } }).token, null);
+  assert.equal(parseProject({}).token, undefined);
+  assert.throws(
+    () => parseProject({ payments: { tokn: "x" } }),
+    /unknown key payments\.tokn/,
+  );
+  assert.throws(
+    () =>
+      parseProject({
+        payments: { products: { pin: p } },
+        products: { pin: p },
+      }),
+    /defined twice/,
+  );
+  assert.throws(
+    () => parseProject({ relay: { host: "cloud" } }),
+    /relay\.host/,
+  );
+  assert.throws(
+    () => parseProject({ cron: [{ name: "a", every_minutes: 0, fn: "f" }] }),
+    /every_minutes/,
+  );
+});
+
+test("routes may read _fn and _receipts, use limit on json, and carry also lists", () => {
+  const files = [
+    { path: "index.html", bytes: Buffer.from("x") },
+    { path: "t.html", bytes: Buffer.from("t") },
+  ];
+  const routes = validateRoutes(
+    [
+      {
+        pattern: "/receipts",
+        kind: "list",
+        collection: "_receipts",
+        template: "t.html",
+      },
+      {
+        pattern: "/api/digest",
+        kind: "json",
+        collection: "_fn",
+        limit: 5,
+        order: "asc",
+      },
+      {
+        pattern: "/",
+        kind: "list",
+        collection: "posts",
+        template: "t.html",
+        also: [
+          {
+            name: "digests",
+            collection: "_fn",
+            prefix: "digest-",
+            limit: 3,
+            order: "desc",
+          },
+          { name: "pinned", collection: "posts" },
+        ],
+      },
+    ],
+    files,
+  );
+  assert.equal(routes[1].limit, 5);
+  assert.equal(routes[2].also.length, 2);
+  assert.deepEqual(routes[2].also[0], {
+    name: "digests",
+    collection: "_fn",
+    prefix: "digest-",
+    limit: 3,
+    order: "desc",
+  });
+  const bad = (also, re) =>
+    assert.throws(
+      () =>
+        validateRoutes(
+          [
+            {
+              pattern: "/",
+              kind: "list",
+              collection: "p",
+              template: "t.html",
+              also,
+            },
+          ],
+          files,
+        ),
+      re,
+    );
+  bad([{ name: "a", collection: "_other" }], /collection name/);
+  bad([{ name: "a", collection: "p", limit: 11 }], /limit must be 1 to 10/);
+  bad([{ name: "a", collection: "p", x: 1 }], /unknown key x/);
+  bad(
+    Array.from({ length: 4 }, (_, i) => ({ name: `n${i}`, collection: "p" })),
+    /at most 3/,
+  );
+  bad(
+    [
+      { name: "a", collection: "p" },
+      { name: "a", collection: "p" },
+    ],
+    /repeated/,
+  );
+  assert.throws(
+    () =>
+      validateRoutes(
+        [
+          {
+            pattern: "/x",
+            kind: "doc",
+            collection: "_other",
+            template: "t.html",
+          },
+        ],
+        files,
+      ),
+    /collection name/,
+  );
 });
 
 function siteDir() {
@@ -1036,4 +1162,77 @@ test("quay rollback prints what is versioned and what is not", async () => {
   const json = streams();
   await rollback(baseCtx(json, { chain, json: true }));
   assert.equal(JSON.parse(json.text()).versioned.length, 2);
+});
+
+test("quay up applies the token, sets cron jobs when the contract has them, and reports the rest", async () => {
+  const { root, config } = projectRoot({
+    products: undefined,
+    payments: {
+      token: "usdc.fakes.testnet",
+      products: { pin: { name: "Pin", price_yocto: "100", grant: "receipt" } },
+    },
+    relay: { host: "node" },
+    functions: { digest: { dir: "f" } },
+    cron: [{ name: "digest", every_minutes: 60, fn: "digest", input: {} }],
+  });
+  const chain = fakeChain();
+  chain.view = (
+    (view) => async (method, args) =>
+      method === "cron_list" ? [] : view(method, args)
+  )(chain.view);
+  const io = streams();
+  const ctx = baseCtx(io, {
+    chain,
+    cwd: root,
+    config: {
+      account: "board.testnet",
+      gateway: "https://board.testnet.page",
+      path: config,
+    },
+  });
+  await run(ctx, parseArgs(["up"]));
+  const methods = chain.calls.map((call) => call.method);
+  assert.ok(methods.indexOf("set_token") < methods.indexOf("set_product"));
+  assert.deepEqual(chain.calls.find((c) => c.method === "set_token").args, {
+    account: "usdc.fakes.testnet",
+  });
+  assert.ok(methods.indexOf("promote") < methods.indexOf("cron_set"));
+  assert.deepEqual(chain.calls.find((c) => c.method === "cron_set").args, {
+    name: "digest",
+    every_minutes: 60,
+    fn: "digest",
+    input: {},
+  });
+  const text = io.text();
+  assert.match(
+    text,
+    /relay node {2}manual: nothing to deploy. Run: quay relay serve/,
+  );
+  assert.match(text, /functions digest {2}not applied/);
+  assert.match(text, /cron_arm/);
+});
+
+test("quay up says cron is not applied when the contract has no cron", async () => {
+  const { root, config } = projectRoot({
+    cron: [{ name: "digest", every_minutes: 60, fn: "digest" }],
+  });
+  const chain = fakeChain();
+  const io = streams();
+  await run(
+    baseCtx(io, {
+      chain,
+      cwd: root,
+      config: {
+        account: "board.testnet",
+        gateway: "https://board.testnet.page",
+        path: config,
+      },
+    }),
+    parseArgs(["up"]),
+  );
+  assert.equal(
+    chain.calls.some((call) => call.method === "cron_set"),
+    false,
+  );
+  assert.match(io.text(), /cron digest {2}not applied/);
 });

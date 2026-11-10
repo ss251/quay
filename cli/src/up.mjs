@@ -104,6 +104,7 @@ export async function planUp(ctx, project, options) {
       external: external.includes(file),
     })),
   );
+  steps.push(...(await planExtras(ctx, project)));
   steps.push({
     step: "deploy",
     name: options.label,
@@ -115,6 +116,119 @@ export async function planUp(ctx, project, options) {
     routes: routes.length,
   });
   steps.push({ step: "promote", name: "the new release", action: "promote" });
+  steps.push(...(await planAfter(ctx, project)));
+  return steps;
+}
+
+const NOT_APPLIED = "not applied";
+
+async function optional(path) {
+  try {
+    return await import(path);
+  } catch (error) {
+    if (error?.code === "ERR_MODULE_NOT_FOUND") return null;
+    throw error;
+  }
+}
+
+/** Functions and the accepted token: they come before the release. */
+async function planExtras(ctx, project) {
+  const steps = [];
+  if (Object.keys(project.functions).length > 0) {
+    const mod = await optional("./functions.mjs");
+    steps.push(
+      typeof mod?.deployFunctions === "function"
+        ? {
+            step: "functions",
+            name: Object.keys(project.functions).join(", "),
+            action: "deploy",
+          }
+        : {
+            step: "functions",
+            name: Object.keys(project.functions).join(", "),
+            action: NOT_APPLIED,
+            detail: "this build has no functions deploy",
+          },
+    );
+  }
+  if (project.token !== undefined) {
+    let have = null;
+    try {
+      have = (await ctx.chain.view("get_token", {})) ?? null;
+    } catch {
+      have = null;
+    }
+    steps.push({
+      step: "token",
+      name: project.token ?? "none",
+      action: have === project.token ? "unchanged" : "update",
+      account: project.token,
+    });
+  }
+  return steps;
+}
+
+/** The relay and cron come after the release is live. */
+async function planAfter(ctx, project) {
+  const steps = [];
+  if (project.relay) {
+    const host = project.relay.host ?? "node";
+    if (host === "node") {
+      steps.push({
+        step: "relay",
+        name: "node",
+        action: "manual",
+        detail: `nothing to deploy. Run: quay relay serve --account ${ctx.config.account}`,
+      });
+    } else {
+      const mod = await optional("./relay.mjs");
+      steps.push(
+        typeof mod?.deployRelay === "function"
+          ? { step: "relay", name: "outlayer", action: "deploy" }
+          : {
+              step: "relay",
+              name: "outlayer",
+              action: NOT_APPLIED,
+              detail:
+                "this build has no quay relay deploy. Use host node, or run quay relay serve",
+            },
+      );
+    }
+  }
+  if (project.cron.length > 0) {
+    let have = null;
+    try {
+      have = await ctx.chain.view("cron_list", {});
+    } catch {
+      have = null;
+    }
+    if (!Array.isArray(have)) {
+      for (const job of project.cron)
+        steps.push({
+          step: "cron",
+          name: job.name,
+          action: NOT_APPLIED,
+          detail:
+            "the contract on this account has no cron_set. Replace its wasm with a v3 build that has cron",
+        });
+    } else {
+      const byName = new Map(have.map((item) => [item.name, item]));
+      for (const job of project.cron) {
+        const old = byName.get(job.name);
+        const same =
+          old &&
+          old.every_minutes === job.every_minutes &&
+          old.fn === job.fn &&
+          JSON.stringify(old.input ?? {}) === JSON.stringify(job.input);
+        steps.push({
+          step: "cron",
+          name: job.name,
+          action: same ? "unchanged" : old ? "update" : "create",
+          job,
+        });
+      }
+    }
+  }
   return steps;
 }
 
@@ -128,6 +242,8 @@ function describe(step) {
   if (step.step === "promote") return "promote  the new release to production";
   const label = `${step.step} ${step.name}`;
   if (step.action === "unchanged") return `${label}  unchanged`;
+  if (step.action === NOT_APPLIED || step.action === "manual")
+    return `${label}  ${step.action}  (${step.detail})`;
   return `${label}  ${step.action}${step.detail ? `  (${step.detail})` : ""}`;
 }
 
@@ -159,12 +275,8 @@ export async function up(ctx, parsed) {
   };
   if (!ctx.dryRun) owner(ctx);
   const steps = await planUp(ctx, project, options);
-  const changes = steps.filter((step) => step.action !== "unchanged");
-  if (project.pending.length > 0)
-    writeErr(
-      ctx,
-      `note: ${project.pending.join(", ")} in quay.json is not applied yet. Those sections are pending.`,
-    );
+  const quiet = new Set(["unchanged", NOT_APPLIED, "manual"]);
+  const changes = steps.filter((step) => !quiet.has(step.action));
   const plain = [
     `plan for ${account}`,
     ...steps.map((step) => `  ${describe(step)}`),
@@ -191,19 +303,58 @@ export async function up(ctx, parsed) {
     done.push(record);
     if (!ctx.json) writeOut(ctx, line);
   };
-  for (const step of steps) {
+  const rank = ["functions", "collection", "token", "product", "members"];
+  const early = steps
+    .filter((step) => rank.includes(step.step))
+    .sort((a, b) => rank.indexOf(a.step) - rank.indexOf(b.step));
+  const late = steps.filter((step) => ["relay", "cron"].includes(step.step));
+  const applyStep = async (step) => {
+    if (step.action === "unchanged") return;
+    if (step.action === NOT_APPLIED || step.action === "manual") {
+      log(
+        {
+          step: step.step,
+          name: step.name,
+          action: step.action,
+          detail: step.detail,
+        },
+        `${step.step} ${step.name}  ${step.action}: ${step.detail}`,
+      );
+      return;
+    }
     if (
-      step.action === "unchanged" ||
-      step.step === "deploy" ||
-      step.step === "promote"
-    )
-      continue;
+      step.step === "functions" ||
+      (step.step === "relay" && step.action === "deploy")
+    ) {
+      const mod =
+        step.step === "functions"
+          ? await import("./functions.mjs")
+          : await import("./relay.mjs");
+      const result =
+        step.step === "functions"
+          ? await mod.deployFunctions(ctx, project.functions)
+          : await mod.deployRelay(ctx, project.relay);
+      log(
+        {
+          step: step.step,
+          name: step.name,
+          action: step.action,
+          result: result ?? null,
+        },
+        `${step.step} ${step.name}  deployed`,
+      );
+      return;
+    }
     const [method, args] =
       step.step === "collection"
         ? ["set_collection", { name: step.name, rules: step.rules }]
         : step.step === "product"
           ? ["set_product", { id: step.name, product: step.product }]
-          : ["set_members_open", { open: step.open }];
+          : step.step === "token"
+            ? ["set_token", { account: step.account }]
+            : step.step === "cron"
+              ? ["cron_set", step.job]
+              : ["set_members_open", { open: step.open }];
     const sent = await ctx.chain.send(method, args, { deposit: 1n });
     log(
       {
@@ -215,7 +366,8 @@ export async function up(ctx, parsed) {
       },
       `${step.step} ${step.name}  ${PAST[step.action] ?? step.action}  ${explorerUrl(sent.hash)}`,
     );
-  }
+  };
+  for (const step of early) await applyStep(step);
   const deployCtx = { ...ctx, yes: true, isTTY: false };
   const released = await deployRelease(deployCtx, options);
   if (released.stopped) return;
@@ -249,6 +401,15 @@ export async function up(ctx, parsed) {
     },
     `production ${released.id}  ${url}  ${explorerUrl(promoted.hash)}`,
   );
+  for (const step of late) await applyStep(step);
+  const cronSet = late.some(
+    (step) => step.step === "cron" && step.action !== NOT_APPLIED,
+  );
+  if (cronSet && !ctx.json)
+    writeOut(
+      ctx,
+      "cron jobs are set but not running. cron_arm funds the schedule (about 1 NEAR liquid) and stays a separate, explicit call.",
+    );
   if (ctx.json) {
     writeOut(
       ctx,
@@ -270,6 +431,7 @@ function publicStep(step) {
   const copy = { ...step };
   delete copy.rules;
   delete copy.product;
+  delete copy.job;
   return copy;
 }
 

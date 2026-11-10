@@ -338,7 +338,8 @@ export const COMMANDS = [
       "quay.json keys are strict: an unknown key is an error.",
       "Versioned per release: files, routes and templates. Rolling back restores all three.",
       "Not versioned (live state): docs, collection rules, products, members, function code and secrets, relay and cron settings. quay up and quay rollback print this.",
-      "The functions, relay and cron sections are pending and are not applied.",
+      "payments.token and payments.products set the accepted token and products (a top-level products section still works).",
+      "relay host node prints the quay relay serve command. functions, relay host outlayer and cron are applied when this build and the contract support them, else quay up prints a not applied line. cron_arm is never run by quay up: it costs about 1 NEAR liquid.",
     ],
   },
 ];
