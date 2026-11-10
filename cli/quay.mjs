@@ -159,15 +159,20 @@ async function rpc(method, args) {
     }),
   });
   const body = await response.json();
-  if (body.error) die(body.error.message || JSON.stringify(body.error));
-  if (body.result.error) die(body.result.error);
+  if (body.error) throw new Error(body.error.message || JSON.stringify(body.error));
+  if (body.result.error) throw new Error(String(body.result.error));
   const text = Buffer.from(body.result.result).toString("utf8");
   return JSON.parse(text);
 }
 
 async function nextId() {
   for (let id = 1; id <= 64; id += 1) {
-    const release = await rpc("get_release", { id: String(id) });
+    let release;
+    try {
+      release = await rpc("get_release", { id: String(id) });
+    } catch (err) {
+      die(err.message);
+    }
     if (release === null) return String(id);
   }
   die("no free release id from 1 to 64; pass --id");

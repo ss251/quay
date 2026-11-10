@@ -1,6 +1,6 @@
 {
   "account": "quay-bb.testnet",
   "network": "testnet",
-  "rpc": "https://rpc.testnet.near.org",
+  "rpc": "https://rpc.testnet.fastnear.com",
   "gateway": "https://quay-bb.testnet.page"
 }
