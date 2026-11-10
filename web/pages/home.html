@@ -1,0 +1,19 @@
+<h1>Publish a site. Move production when you mean to.</h1>
+<p class="lede">Quay stores a folder of files on a NEAR testnet account. Each release keeps its own URL. Production is a pointer you can promote or roll back.</p>
+<div class="row">
+  <a class="button" href="docs/index.html">Read the docs</a>
+  <a class="button quiet" href="dashboard/index.html">Open the dashboard</a>
+</div>
+<h2>Sixty seconds</h2>
+<ol class="steps">
+  <li><div><code>npm install -g ./cli</code><p class="meta">From a checkout of this repo. Or run <code>node cli/bin/quay.js</code> without installing.</p></div></li>
+  <li><div><code>quay init</code><p class="meta">Creates a testnet account, deploys the contract, and writes <code>quay.json</code>.</p></div></li>
+  <li><div><code>quay deploy ./dist -m "first landing"</code><p class="meta">Uploads the folder, skips bytes already stored, and prints a preview URL.</p></div></li>
+  <li><div><code>quay promote 1</code><p class="meta">Points the site root at that release. The preview URL does not change.</p></div></li>
+</ol>
+<h2>What you get</h2>
+<div class="measure">
+  <p>A release is sealed. You can read it later at <code>/r/&lt;id&gt;/</code>. Promoting does not rewrite the files. Rolling back swaps the pointer with the previous release.</p>
+  <p>A publish-only key can upload. It cannot promote, roll back, or delete. Those calls require 1 yoctoNEAR, which that key cannot attach.</p>
+  <p>Storage costs about 0.01 NEAR per 1000 bytes, locked on the contract account until you delete a release that is not production.</p>
+</div>

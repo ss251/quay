@@ -1,0 +1,47 @@
+<h1>Dashboard</h1>
+<p class="lede">Look up a Quay account. After you sign in as that account, you can promote, roll back, or delete. The page never holds a key.</p>
+<form id="lookup" class="row">
+  <div>
+    <label for="account">Account</label>
+    <input id="account" name="account" type="text" autocomplete="off" spellcheck="false" placeholder="quay-harbor.testnet" required>
+  </div>
+  <button type="submit">View</button>
+</form>
+<p id="wallet-line">Not signed in. Anyone can read. Only the contract account can change production.</p>
+<div class="row">
+  <button type="button" id="sign-in">Sign in</button>
+  <button type="button" id="sign-out" class="quiet" hidden>Sign out</button>
+</div>
+<p id="empty" class="panel">Enter a Quay account to see its releases.</p>
+<p id="loading" class="panel" hidden aria-live="polite">Loading releases.</p>
+<p id="error" class="panel error" role="alert" hidden></p>
+<p id="notice" class="panel error" role="alert" hidden></p>
+<section id="result" hidden>
+  <div id="summary" class="panel"></div>
+  <h2>Releases</h2>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Id</th><th>Date</th><th>Files</th><th>Size</th><th>Message</th><th>Role</th><th>Actions</th></tr>
+      </thead>
+      <tbody id="releases"></tbody>
+    </table>
+  </div>
+  <h2>History</h2>
+  <p><button type="button" id="rollback" data-action="rollback" class="quiet">Roll back</button></p>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Date</th><th>Kind</th><th>Release</th><th>Previous</th></tr>
+      </thead>
+      <tbody id="history"></tbody>
+    </table>
+  </div>
+</section>
+<dialog id="confirm" aria-labelledby="confirm-text">
+  <p id="confirm-text"></p>
+  <form method="dialog" class="row">
+    <button type="submit" class="quiet" value="cancel">Cancel</button>
+    <button type="button" id="confirm-yes" value="confirm">Confirm</button>
+  </form>
+</dialog>
