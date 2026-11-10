@@ -101,6 +101,7 @@ async function serve(ctx, parsed) {
   const dailyTgas = countOf(flags, "daily-tgas");
   if (perAccount) policy.perAccountPerHour = perAccount;
   if (dailyTgas) policy.dailyTgas = dailyTgas;
+  if (flags.fastdata) policy.fastdata = true;
   const extra =
     typeof flags.origin === "string"
       ? flags.origin.split(",").filter(Boolean)
@@ -136,7 +137,9 @@ async function serve(ctx, parsed) {
       site,
       relayer,
       balance: balance?.toString() ?? null,
-      policy: relay.policy.methods,
+      policy: relay.policy.fastdata
+        ? [...relay.policy.methods, "__fastdata_kv"]
+        : relay.policy.methods,
     },
     [
       `relaying for ${site} at ${url}`,

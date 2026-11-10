@@ -11,7 +11,29 @@ export const DEFAULT_POLICY = Object.freeze({
   dailyTgas: 30_000,
   allowUploads: false,
   memberOnly: true, // sender must be <name>.<site>
+  fastdata: false, // opt in: also relay __fastdata_kv (gas-only public data, docs/fullstack-interface.md section 1b)
 });
+
+export const FASTDATA_METHOD = "__fastdata_kv";
+const FASTDATA_PREFIX = "quay/";
+const FASTDATA_MAX_KEYS = 256;
+// The receiver has no such method, so the receipt fails by design; the FastNEAR indexer still records it.
+const BY_DESIGN = /MethodNotFound|AccountDoesNotExist|CodeDoesNotExist|Exceeded the prepaid gas/;
+
+/** Args of a relayed FastData write: a JSON object, at most 256 keys, every key under quay/. Returns a reason or null. */
+function fastdataArgsProblem(args) {
+  let obj;
+  try {
+    obj = JSON.parse(new TextDecoder().decode(args));
+  } catch {
+    return "args are not JSON";
+  }
+  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return "args must be a JSON object";
+  const keys = Object.keys(obj);
+  if (keys.length === 0 || keys.length > FASTDATA_MAX_KEYS) return `a write has 1 to ${FASTDATA_MAX_KEYS} keys`;
+  const stray = keys.find((k) => !k.startsWith(FASTDATA_PREFIX));
+  return stray === undefined ? null : `key ${JSON.stringify(stray.slice(0, 40))} is outside ${FASTDATA_PREFIX}`;
+}
 
 /** In-memory budget store. Hosts with several processes inject a shared one with the same shape. */
 export function memoryStore() {
@@ -86,8 +108,12 @@ export async function checkDelegate(input, policy, now) {
   if (p.memberOnly && !isMemberOf(d.senderId, p.site)) return reject("sender_not_member", `sender must be a member of ${p.site}`);
 
   if (d.receiverId === p.site) {
-    for (const a of d.actions)
-      if (!p.methods.includes(a.methodName)) return reject("method_not_allowed", `method ${a.methodName} is not relayed`);
+    for (const a of d.actions) {
+      if (p.fastdata && a.methodName === FASTDATA_METHOD) {
+        const problem = fastdataArgsProblem(a.args);
+        if (problem) return reject("bad_fastdata_args", problem);
+      } else if (!p.methods.includes(a.methodName)) return reject("method_not_allowed", `method ${a.methodName} is not relayed`);
+    }
   } else if (d.receiverId === d.senderId && p.allowUploads) {
     for (const a of d.actions)
       if (a.methodName !== "fs_store") return reject("method_not_allowed", `method ${a.methodName} is not relayed`);
@@ -177,7 +203,9 @@ export async function relay(input, { account }) {
   const bytes = typeof input === "string" ? base64Decode(input) : input;
   const signedDelegate = deserialize(SCHEMA.SignedDelegate, bytes);
   const outcome = await account.relayMetaTransaction(signedDelegate);
-  const bad = failures(outcome);
+  // a FastData write fails on chain by design: only the expected failures are let through, and only for those calls
+  const fastdataOnly = signedDelegate.delegateAction.actions.every((a) => a.functionCall?.methodName === FASTDATA_METHOD);
+  const bad = failures(outcome).filter((f) => !(fastdataOnly && BY_DESIGN.test(f)));
   if (bad.length) throw new RelayError(`relayed call failed: ${bad.join("; ")}`, { code: "inner_failure", outcome });
   return { hash: outcome?.transaction?.hash ?? outcome?.transaction_outcome?.id, outcome };
 }

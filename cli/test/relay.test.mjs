@@ -245,3 +245,27 @@ test("quay relay with no subcommand prints help and fails", async () => {
     /unknown relay command/,
   );
 });
+
+test("quay relay serve --fastdata opts in to __fastdata_kv and says so in /health", async () => {
+  for (const [flags, expected] of [[[], false], [["--fastdata"], true]]) {
+    const io = streams();
+    let stop;
+    const stopped = new Promise((resolve) => {
+      stop = resolve;
+    });
+    let ready;
+    const started = new Promise((resolve) => {
+      ready = resolve;
+    });
+    const done = run(
+      { ...io, config, relayChain: chain(), relayStop: stopped, onRelayReady: ready },
+      parseArgs(["relay", "serve", "--port", "0", ...flags]),
+    );
+    const { url } = await started;
+    const health = await (await fetch(`${url}/health`)).json();
+    assert.equal(health.policy.fastdata, expected);
+    assert.equal(health.policy.methods.includes("__fastdata_kv"), expected);
+    stop();
+    await done;
+  }
+});

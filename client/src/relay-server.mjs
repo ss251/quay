@@ -176,7 +176,8 @@ export function createRelayServer(options) {
       balance_near: bal === null ? null : (Number(bal / 10n ** 20n) / 10000).toFixed(4),
       ok: bal !== null && bal >= BigInt(o.minBalance),
       policy: {
-        methods: policy.methods,
+        methods: policy.fastdata ? [...policy.methods, "__fastdata_kv"] : policy.methods,
+        fastdata: Boolean(policy.fastdata),
         max_gas: String(policy.maxGas),
         max_block_height_ahead: String(policy.maxBlockHeightAhead),
         per_account_per_hour: policy.perAccountPerHour,

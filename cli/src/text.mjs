@@ -15,6 +15,7 @@ const BOOLEAN = new Set([
   "hidden",
   "no-verify",
   "trust-proxy",
+  "fastdata",
   "https",
   "include-relay",
   "contract-only",
@@ -385,6 +386,10 @@ export const COMMANDS = [
       ["--per-account <n>", "serve: relays per member per hour. Default 30."],
       ["--daily-tgas <n>", "serve: gas budget per UTC day. Default 30000."],
       ["--trust-proxy", "serve: read the client address from X-Forwarded-For."],
+      [
+        "--fastdata",
+        "serve: also relay __fastdata_kv, gas-only public data (quay/ keys only). Opt in; off by default.",
+      ],
       [
         "--near <NEAR>",
         "create: NEAR moved from the site account to the relayer. Default 0.5.",

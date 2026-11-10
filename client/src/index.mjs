@@ -76,11 +76,14 @@ export function returnValue(outcome, receiver) {
   return decode(outcome?.status?.SuccessValue);
 }
 
-function failureOf(outcome) {
+// A FastData write fails on chain by design: the receiver has no such method, and the indexer reads the call itself.
+const BY_DESIGN = /MethodNotFound|AccountDoesNotExist|CodeDoesNotExist|Exceeded the prepaid gas/;
+function failureOf(outcome, tolerate = false) {
   const bad = [];
   if (outcome?.status?.Failure) bad.push(outcome.status.Failure);
   for (const r of outcome?.receipts_outcome ?? []) if (r.outcome?.status?.Failure) bad.push(r.outcome.status.Failure);
-  return bad.length ? JSON.stringify(bad[0]).slice(0, 300) : null;
+  const real = tolerate ? bad.filter((f) => !BY_DESIGN.test(JSON.stringify(f))) : bad;
+  return real.length ? JSON.stringify(real[0]).slice(0, 300) : null;
 }
 
 /**
@@ -100,7 +103,7 @@ export function connect(options) {
   const sessionKey = `quay:${site}:session`;
   const outlayer = options.relay && typeof options.relay === "object" ? options.relay.outlayer : null;
   if (options.relay && typeof options.relay === "object" && !outlayer)
-    throw new QuayError("relay must be a URL or { outlayer: { owner, project, paymentKey, api } }", "bad_config");
+    throw new QuayError("relay is a URL or { outlayer: { owner, paymentKey } }", "bad_config");
   const relayBase = typeof options.relay === "string" ? options.relay.replace(/\/+$/, "") : null;
   const relayerId = options.relayer ?? `relay.${site}`;
   const defaultGas = BigInt(options.gas ?? DEFAULT_GAS);
@@ -138,7 +141,7 @@ export function connect(options) {
   const failMessage = (json, fallback) => (json?.error ? (json.reason ? `${json.error}: ${json.reason}` : json.error) : fallback);
 
   const timeoutError = (what, detail) =>
-    new QuayError(`${what} did not settle within ${Math.round(confirmMs / 1000)} s${detail ? ` (${detail})` : ""}. It may still complete: look it up before sending it again.`, "relay_timeout");
+    new QuayError(`${what} did not settle within ${Math.round(confirmMs / 1000)} s${detail ? ` (${detail})` : ""}. It may still complete: look it up before resending.`, "relay_timeout");
 
   // A call that outran OutLayer's synchronous window (408) or that the API restarted
   // (status "pending") is still running and is charged once: poll it, never resend it.
@@ -201,7 +204,7 @@ export function connect(options) {
 
   async function postRelay(path, body) {
     if (outlayer) return postOutlayer(path, body);
-    if (!relayBase) throw new QuayError("no relay configured: pass connect({ site, relay: <relayer URL> })", "no_relay");
+    if (!relayBase) throw new QuayError("no relay: pass connect({ site, relay })", "no_relay");
     const res = await doFetch(`${relayBase}${path}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -320,31 +323,33 @@ export function connect(options) {
     return { hash: outcome?.transaction?.hash, outcome };
   }
 
-  async function keyWrite(method, args, gas, deposit, receiver = site) {
-    const { Account } = await import("near-api-js");
+  async function keyWrite(method, args, gas, deposit, receiver = site, tolerate = false) {
+    const { Account, actions } = await import("near-api-js");
     const { createFailoverProvider } = await import("./failover.mjs");
     const k = options.key;
     const account = new Account(k.accountId, await createFailoverProvider(rpc.urls), k.secretKey);
-    const outcome = await account.callFunctionRaw({ contractId: receiver, methodName: method, args, gas, deposit });
+    const outcome = tolerate
+      ? await account.signAndSendTransaction({ receiverId: receiver, actions: [actions.functionCall(method, args, gas, deposit)], throwOnFailure: false })
+      : await account.callFunctionRaw({ contractId: receiver, methodName: method, args, gas, deposit });
     return { hash: outcome?.transaction?.hash, outcome };
   }
 
   /** Send a write. Returns { hash, outcome, relayed }. */
-  async function write(method, args, { deposit = 0n, gas = defaultGas, receiver = site, confirm = true } = {}) {
+  async function write(method, args, { deposit = 0n, gas = defaultGas, receiver = site, confirm = true, tolerate = false } = {}) {
     const dep = toYocto(deposit);
     let result;
-    if (options.key) result = await keyWrite(method, args, gas, dep, receiver);
+    if (options.key) result = await keyWrite(method, args, gas, dep, receiver, tolerate);
     else if (state.mode === "member") {
       if (dep !== 0n)
         throw new QuayError(
-          "this write attaches a deposit, which a relayed member cannot pay. Sign in with a wallet, or use a site-paid collection.",
+          "a relayed member cannot pay a deposit: sign in with a wallet, or use a site-paid collection",
           "deposit_needs_wallet",
         );
       result = await relayWrite(method, args, gas);
       if (confirm) result.outcome = await confirmTx(result.hash);
     } else if (state.mode === "wallet") result = await walletWrite(method, args, gas, dep, receiver);
     else throw new QuayError("sign in first: quay.auth.signIn()", "not_signed_in");
-    const bad = failureOf(result.outcome);
+    const bad = failureOf(result.outcome, tolerate);
     if (bad) throw new QuayError(`${method} failed: ${bad}`, "call_failed");
     return result;
   }
@@ -374,9 +379,34 @@ export function connect(options) {
     return collectionInfo.get(name)?.on_add ? MAX_GAS : defaultGas;
   }
 
+  // ----- gas-only public data (a lazy module: pages that never use it do not load it) -----
+  // Loaded by URL next to this file (src/fastdata.mjs, or dist/fastdata.mjs beside dist/quay.js), so the
+  // bundler leaves it out of quay.js.
+  const loadFastdata = () => import(new URL("./fastdata.mjs", import.meta.url).href);
+  const fdConfig = options.fastdata ?? {};
+  function fastdata(name) {
+    let col;
+    const get = async () =>
+      (col ??= (await loadFastdata()).fastdataCollection(name, {
+        site,
+        kv: fdConfig.kv,
+        fetch: doFetch,
+        now,
+        write: async (args) => {
+          const { FASTDATA_METHOD, FASTDATA_GAS } = await loadFastdata();
+          await write(FASTDATA_METHOD, args, { deposit: 0n, gas: BigInt(fdConfig.gas ?? FASTDATA_GAS), tolerate: true });
+        },
+      }));
+    const lazy = (m) => async (...a) => (await get())[m](...a);
+    return { name, backend: "fastdata", list: lazy("list"), get: lazy("get"), add: lazy("add"), update: lazy("update"), remove: lazy("remove") };
+  }
+
   // ----- db -----
   const db = {
-    collection(name) {
+    /** collection(name) is the on-chain collection; collection(name, { backend: "fastdata" }) is gas-only public data. */
+    collection(name, opts = {}) {
+      if (opts.backend === "fastdata") return fastdata(name);
+      if (opts.backend) throw new QuayError(`unknown backend ${opts.backend}`, "bad_backend");
       return {
         name,
         list: (query = {}) => view("db_list", { collection: name, query }),
@@ -387,7 +417,7 @@ export function connect(options) {
           const args = { collection: name, data: JSON.stringify(data) };
           if (id != null) {
             if (!DOC_ID.test(String(id)) || /^\d+$/.test(String(id)))
-              throw new QuayError("a doc id is 1 to 64 characters of A-Z a-z 0-9 _ - and may not be all digits (digits are automatic ids)", "bad_id");
+              throw new QuayError("a doc id is 1-64 of A-Za-z0-9_- and not all digits (digits are automatic ids)", "bad_id");
             args.id = String(id);
           }
           if (state.mode === "member" && !options.key && toYocto(deposit ?? 0n) === 0n) {
@@ -399,7 +429,7 @@ export function connect(options) {
             } catch (error) {
               // The relay call itself timed out: the add may still land under this id.
               if (error.code === "relay_timeout" && (await view("db_get", { collection: name, id: args.id }).catch(() => null))) return args.id;
-              if (error.code === "relay_timeout") error.message += ` The doc id is ${name}/${args.id}; adding it again with { id } cannot duplicate it.`;
+              if (error.code === "relay_timeout") error.message += ` Doc id ${name}/${args.id}: adding it again with { id } cannot duplicate it.`;
               throw error;
             }
             return awaitDoc(name, args.id, written.hash);
@@ -442,7 +472,7 @@ export function connect(options) {
       const res = await postRelay("/join", { name: handle, public_key: formatPublicKey(key.publicKey) });
       s = { name: handle, accountId: res.account, publicKey: formatPublicKey(key.publicKey), secretKey: key.secretKey, active: true };
     } else if (name && !s.accountId.startsWith(`${name}.`)) {
-      throw new QuayError(`this browser already holds the member ${s.accountId}; call auth.forget() to start over`, "session_exists");
+      throw new QuayError(`this browser holds member ${s.accountId}; call auth.forget() first`, "session_exists");
     }
     s.active = true;
     writeSession(s);
@@ -532,59 +562,12 @@ export function connect(options) {
     },
   };
 
-  const fnConfig = options.functions ?? {};
-  const httpsKey = fnConfig.httpsKey ?? fnConfig.https_key ?? null;
-
-  const functions = {
-    /**
-     * Run a site function. With functions.https_key it calls OutLayer over HTTPS (no wallet needed);
-     * otherwise it sends fn_call (300 Tgas) through the member relayer, the wallet or the explicit key
-     * and returns the function output from the transaction result.
-     */
-    async call(name, input = {}) {
-      if (httpsKey)
-        return outlayerCall({ owner: site, project: name, paymentKey: httpsKey, api: fnConfig.api }, input, name);
-      const spec = await view("fn_get", { name });
-      if (!spec) throw new QuayError(`unknown function ${name}`, "unknown_function");
-      const deposit = spec.payer === "site" ? 0n : toYocto(spec.deposit ?? "5000000000000000000000");
-      const written = await write("fn_call", { name, input: JSON.stringify(input ?? {}) }, { deposit, gas: MAX_GAS, confirm: false });
-      const out = await resultOf("fn_call", written, { final: true });
-      if (typeof out === "string") {
-        try {
-          return JSON.parse(out);
-        } catch {}
-      }
-      return out;
-    },
-  };
-
-  /**
-   * Buy a product. Needs a wallet or an explicit key because it attaches a deposit.
-   * { token: true } pays `price_token` in the site's NEP-141 token with ft_transfer_call.
-   */
-  async function pay(product, { ref, deposit, token = false } = {}) {
-    if (token) {
-      if (state.mode === "member")
-        throw new QuayError("token payments need a wallet: members have no NEAR for the 1 yocto deposit. Sign in with a wallet.", "deposit_needs_wallet");
-      const [tokenId, p] = await Promise.all([view("get_token", {}), view("get_product", { id: product })]);
-      if (!tokenId) throw new QuayError("this site has no payment token configured", "no_token");
-      if (!p) throw new QuayError(`unknown product ${product}`, "unknown_product");
-      if (!p.price_token || BigInt(p.price_token) === 0n) throw new QuayError(`${product} has no token price`, "no_token_price");
-      const msg = { product };
-      if (ref != null) msg.ref = ref;
-      await write("ft_transfer_call", { receiver_id: site, amount: String(p.price_token), msg: JSON.stringify(msg) }, { deposit: 1n, gas: 100_000_000_000_000n, receiver: tokenId });
-      return;
-    }
-    let amount = deposit;
-    if (amount == null) {
-      const p = await view("get_product", { id: product });
-      if (!p) throw new QuayError(`unknown product ${product}`, "unknown_product");
-      amount = p.price_yocto;
-    }
-    const args = { product };
-    if (ref != null) args.ref = ref;
-    await write("pay", args, { deposit: amount });
-  }
+  // Functions and checkout are lazy siblings of this file (see build.mjs): pages that never call them do not load them.
+  const loadExtras = () => import(new URL("./extras.mjs", import.meta.url).href);
+  const xctx = { site, view, write, resultOf, outlayerCall, state, toYocto, QuayError, MAX_GAS, fn: options.functions ?? {} };
+  const functions = { call: async (name, input) => (await loadExtras()).call(xctx, name, input) };
+  /** Buy a product (wallet or explicit key). { token: true } pays price_token with ft_transfer_call. */
+  const pay = async (product, o) => (await loadExtras()).pay(xctx, product, o);
 
   return { site, rpc, db, members, auth, functions, pay, view };
 }

@@ -87,6 +87,30 @@ A doc id is 1 to 64 bytes of `[A-Za-z0-9_-]`. When the writer passes no id, the 
 
 **Events** (`data` items): `collection_set {name}`, `doc_added {collection, id, owner, bytes}`, `doc_updated {collection, id, bytes}`, `doc_removed {collection, id, by, refund}`, `doc_hidden {collection, id, hidden}`, `pool_funded {by, yocto}`.
 
+### 1b. Gas-only public data (FastData KV)
+
+A second, optional backend for data that needs no rules, no moderation and no storage deposit. It writes to FastNEAR's FastData indexer instead of the contract, so it costs gas only (a few thousandths of a NEAR at most) and a relayed visitor with zero NEAR can use it. It is **not** part of the contract and not covered by the contract's rules or tests.
+
+```js
+const guestbook = quay.db.collection("guestbook", { backend: "fastdata" });
+await guestbook.add({ text: "hi" });                 // -> id, newest first in key order
+await guestbook.list({ limit: 20, owner?, prefix?, from?, order? });   // DocPage
+await guestbook.get(id, { owner? });  await guestbook.update(id, data);  await guestbook.remove(id);
+```
+
+How it works (verified on testnet, 2026-11-12):
+
+- A write is a `FunctionCall` of `__fastdata_kv` on the **site account** with args `{ "quay/<collection>/<id>": { "data": {...}, "at": <ms> } }` (at most 256 keys), deposit 0, gas 5 Tgas. The site has no such method, so the receipt fails with `MethodNotFound` (with 1 gas it fails with `Exceeded the prepaid gas`; the indexer records both). The failure is by design: the indexer reads the call itself. The client and `relay()` accept exactly those failures for these calls and no others.
+- The caller's account is the entry's `predecessor_id`. Reads use `POST https://kv.test.fastnear.com/v0/latest/<site>` with `{key_prefix, include_metadata, limit, page_token}` and return the DocPage shape with `owner = predecessor_id`. The indexer pages in **key order**; automatic ids count down from a fixed ceiling, so the default listing is newest first. `order: "asc"` reads up to 1,000 entries and flips them. `remove` writes a tombstone (`null`), and lists skip tombstones.
+- Relayed writes use the existing relayer. The receiver stays the site, so the receiver rule holds. The relay policy does **not** relay `__fastdata_kv` unless the site opts in (`quay relay serve --fastdata`, policy `fastdata: true`); then it also requires args to be a JSON object of 1 to 256 keys that all start with `quay/`, and deposit 0 as always. Hosts with a fixed method list (the OutLayer relay function) must add `__fastdata_kv` to it.
+
+What this gives up, plainly:
+
+- **No rules, no moderation, no quota.** The site owner cannot hide, remove or limit anything.
+- **`owner` is the only identity.** Every account writes under its own name, but anyone can write any key under their own name, including the key of a doc someone else made (their copy sits under *their* `owner`). A reader must show or filter by `owner`, never trust the doc id or the content. `get(id)` without `owner` returns the earliest write; pass `owner` to be exact.
+- **Reads depend on FastNEAR's indexer.** If it is down or lags, lists are stale or empty. The data is on chain (each write is a transaction), but only the indexer serves it by key.
+- **Nanosecond timestamps are approximate** (the indexer sends JSON numbers).
+
 ## 2. Members and sign-in
 
 | Method | Who | Deposit | Effect |

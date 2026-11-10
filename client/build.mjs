@@ -49,6 +49,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       external: ["near-api-js", "./failover.mjs"],
       legalComments: "none",
     });
+    // fastdata.mjs (gas-only data) and extras.mjs (functions, checkout) are lazy siblings: dist/quay.js imports them by URL on demand.
+    for (const name of ["fastdata", "extras"]) {
+      const lazyOut = here(`./dist/${name}.mjs`);
+      await build({ entryPoints: [here(`./src/${name}.mjs`)], outfile: lazyOut, bundle: true, minify: true, format: "esm", target: "es2022", platform: "browser", legalComments: "none" });
+      console.log(`client/dist/${name}.mjs ${statSync(lazyOut).size} bytes, gzip ${gzipSync(readFileSync(lazyOut)).length} bytes (loaded on demand)`);
+    }
     // The dashboard loads this lazily as assets/status.js (web/build.mjs copies it).
     const statusOut = here("./dist/status.js");
     await build({ entryPoints: [here("./src/status.mjs")], outfile: statusOut, bundle: true, minify: true, format: "esm", target: "es2022", platform: "browser", legalComments: "none" });

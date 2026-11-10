@@ -975,9 +975,28 @@ var DEFAULT_POLICY = Object.freeze({
   perAccountPerHour: 30,
   dailyTgas: 3e4,
   allowUploads: false,
-  memberOnly: true
+  memberOnly: true,
   // sender must be <name>.<site>
+  fastdata: false
+  // opt in: also relay __fastdata_kv (gas-only public data, docs/fullstack-interface.md section 1b)
 });
+var FASTDATA_METHOD = "__fastdata_kv";
+var FASTDATA_PREFIX = "quay/";
+var FASTDATA_MAX_KEYS = 256;
+var BY_DESIGN = /MethodNotFound|AccountDoesNotExist|CodeDoesNotExist|Exceeded the prepaid gas/;
+function fastdataArgsProblem(args) {
+  let obj;
+  try {
+    obj = JSON.parse(new TextDecoder().decode(args));
+  } catch {
+    return "args are not JSON";
+  }
+  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return "args must be a JSON object";
+  const keys = Object.keys(obj);
+  if (keys.length === 0 || keys.length > FASTDATA_MAX_KEYS) return `a write has 1 to ${FASTDATA_MAX_KEYS} keys`;
+  const stray = keys.find((k) => !k.startsWith(FASTDATA_PREFIX));
+  return stray === void 0 ? null : `key ${JSON.stringify(stray.slice(0, 40))} is outside ${FASTDATA_PREFIX}`;
+}
 function memoryStore() {
   const m = /* @__PURE__ */ new Map();
   return {
@@ -1028,8 +1047,12 @@ async function checkDelegate(input, policy, now) {
   if (gas > BigInt(p.maxGas)) return reject("gas_too_high", `gas ${gas} exceeds the limit of ${p.maxGas}`);
   if (p.memberOnly && !isMemberOf(d.senderId, p.site)) return reject("sender_not_member", `sender must be a member of ${p.site}`);
   if (d.receiverId === p.site) {
-    for (const a of d.actions)
-      if (!p.methods.includes(a.methodName)) return reject("method_not_allowed", `method ${a.methodName} is not relayed`);
+    for (const a of d.actions) {
+      if (p.fastdata && a.methodName === FASTDATA_METHOD) {
+        const problem = fastdataArgsProblem(a.args);
+        if (problem) return reject("bad_fastdata_args", problem);
+      } else if (!p.methods.includes(a.methodName)) return reject("method_not_allowed", `method ${a.methodName} is not relayed`);
+    }
   } else if (d.receiverId === d.senderId && p.allowUploads) {
     for (const a of d.actions)
       if (a.methodName !== "fs_store") return reject("method_not_allowed", `method ${a.methodName} is not relayed`);
@@ -1104,7 +1127,8 @@ async function relay(input, { account }) {
   const bytes = typeof input === "string" ? base64Decode(input) : input;
   const signedDelegate = deserialize(SCHEMA.SignedDelegate, bytes);
   const outcome = await account.relayMetaTransaction(signedDelegate);
-  const bad = failures(outcome);
+  const fastdataOnly = signedDelegate.delegateAction.actions.every((a) => a.functionCall?.methodName === FASTDATA_METHOD);
+  const bad = failures(outcome).filter((f) => !(fastdataOnly && BY_DESIGN.test(f)));
   if (bad.length) throw new RelayError(`relayed call failed: ${bad.join("; ")}`, { code: "inner_failure", outcome });
   return { hash: outcome?.transaction?.hash ?? outcome?.transaction_outcome?.id, outcome };
 }
@@ -1265,7 +1289,8 @@ function createRelayServer(options) {
       balance_near: bal === null ? null : (Number(bal / 10n ** 20n) / 1e4).toFixed(4),
       ok: bal !== null && bal >= BigInt(o.minBalance),
       policy: {
-        methods: policy.methods,
+        methods: policy.fastdata ? [...policy.methods, "__fastdata_kv"] : policy.methods,
+        fastdata: Boolean(policy.fastdata),
         max_gas: String(policy.maxGas),
         max_block_height_ahead: String(policy.maxBlockHeightAhead),
         per_account_per_hour: policy.perAccountPerHour,
