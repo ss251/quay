@@ -7,7 +7,10 @@ const root = fileURLToPath(new URL("../..", import.meta.url));
 
 test("the CI workflow deploys a preview and does not promote", () => {
   const action = readFileSync(`${root}/action/action.yml`, "utf8");
-  const workflow = readFileSync(`${root}/examples/harbour/.github/workflows/preview.yml`, "utf8");
+  const workflow = readFileSync(
+    `${root}/examples/harbour/.github/workflows/preview.yml`,
+    "utf8",
+  );
   for (const text of [action, workflow]) {
     assert.doesNotMatch(text, /quay (promote|rollback|delete)/);
   }

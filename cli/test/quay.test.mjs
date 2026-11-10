@@ -6,9 +6,22 @@ import test from "node:test";
 
 import { deploy, promote, releases, run } from "../src/app.mjs";
 import { gatewayFor } from "../src/config.mjs";
-import { classifyChainError, formatNear, formatTime, helpText, parseArgs, redact } from "../src/text.mjs";
+import {
+  classifyChainError,
+  formatNear,
+  formatTime,
+  helpText,
+  parseArgs,
+  redact,
+} from "../src/text.mjs";
 import { COMMANDS } from "../src/text.mjs";
-import { checkPath, collectSite, contentType, planRelease, YOCTO_PER_BYTE } from "../src/site.mjs";
+import {
+  checkPath,
+  collectSite,
+  contentType,
+  planRelease,
+  YOCTO_PER_BYTE,
+} from "../src/site.mjs";
 
 function streams() {
   const out = [];
@@ -27,12 +40,22 @@ test("help lists every command and json output", () => {
     assert.match(root, new RegExp(command.name));
     const page = helpText(command.name);
     assert.match(page, /--json/);
-    assert.match(page, new RegExp(command.usage.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(
+      page,
+      new RegExp(command.usage.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
   }
 });
 
 test("parseArgs reads the message and rejects an unknown flag", () => {
-  const parsed = parseArgs(["deploy", "site", "-m", "harbour", "--spa", "--json"]);
+  const parsed = parseArgs([
+    "deploy",
+    "site",
+    "-m",
+    "harbour",
+    "--spa",
+    "--json",
+  ]);
   assert.equal(parsed.command, "deploy");
   assert.deepEqual(parsed.rest, ["site"]);
   assert.equal(parsed.flags.message, "harbour");
@@ -42,7 +65,10 @@ test("parseArgs reads the message and rejects an unknown flag", () => {
 
 test("the gateway host is the account name plus testnet.page", () => {
   assert.equal(gatewayFor("quay-bb.testnet"), "https://quay-bb.testnet.page");
-  assert.equal(gatewayFor("quay-esc0v902.testnet"), "https://quay-esc0v902.testnet.page");
+  assert.equal(
+    gatewayFor("quay-esc0v902.testnet"),
+    "https://quay-esc0v902.testnet.page",
+  );
 });
 
 test("storage price is 0.01 NEAR per 1000 bytes", () => {
@@ -58,9 +84,15 @@ test("collect keeps nested files, types, and skips dotfiles", () => {
   writeFileSync(join(dir, "assets", "mark.svg"), "<svg></svg>");
   writeFileSync(join(dir, ".secret"), "no");
   const files = collectSite(dir);
-  assert.deepEqual(files.map((file) => file.path), ["assets/mark.svg", "index.html"]);
+  assert.deepEqual(
+    files.map((file) => file.path),
+    ["assets/mark.svg", "index.html"],
+  );
   assert.equal(contentType("assets/mark.svg"), "image/svg+xml");
-  assert.equal(files.find((file) => file.path.endsWith(".svg")).contentType, "image/svg+xml");
+  assert.equal(
+    files.find((file) => file.path.endsWith(".svg")).contentType,
+    "image/svg+xml",
+  );
   assert.throws(() => checkPath("../etc/passwd"), /dotted/);
 });
 
@@ -94,13 +126,23 @@ test("deploy skips chunks the contract already has", async () => {
       spa: false,
       color: false,
       isTTY: false,
-      config: { account: "quay-demo.testnet", gateway: "https://quay-demo.testnet.page", rpc: "https://test.rpc.fastnear.com" },
+      config: {
+        account: "quay-demo.testnet",
+        gateway: "https://quay-demo.testnet.page",
+        rpc: "https://test.rpc.fastnear.com",
+      },
       signer: { secret: "local", limited: false, publicKey: "ed25519:abc" },
       chain: {
         async view(method) {
           if (method === "list_releases") return { releases: [], next: null };
           if (method === "get_status") {
-            return { stored_bytes: "10", max_bytes: "2000000", production: null, release_count: 0, version: "2.0.0" };
+            return {
+              stored_bytes: "10",
+              max_bytes: "2000000",
+              production: null,
+              release_count: 0,
+              version: "2.0.0",
+            };
           }
           return null;
         },
@@ -143,12 +185,18 @@ test("a failed seal drops the chunks just uploaded", async () => {
           spa: false,
           color: false,
           isTTY: false,
-          config: { account: "quay-demo.testnet", gateway: "https://quay-demo.testnet.page", rpc: "https://test.rpc.fastnear.com" },
+          config: {
+            account: "quay-demo.testnet",
+            gateway: "https://quay-demo.testnet.page",
+            rpc: "https://test.rpc.fastnear.com",
+          },
           signer: { secret: "local", limited: false, publicKey: "ed25519:abc" },
           chain: {
             async view(method) {
-              if (method === "list_releases") return { releases: [], next: null };
-              if (method === "get_status") return { stored_bytes: "0", max_bytes: "2000000" };
+              if (method === "list_releases")
+                return { releases: [], next: null };
+              if (method === "get_status")
+                return { stored_bytes: "0", max_bytes: "2000000" };
               return null;
             },
             async hasChunk() {
@@ -194,13 +242,25 @@ test("a publish-only key cannot promote", async () => {
 });
 
 test("a method mismatch is a refusal", () => {
-  const error = classifyChainError(new Error("AccessKey MethodNameMismatch promote"));
+  const error = classifyChainError(
+    new Error("AccessKey MethodNameMismatch promote"),
+  );
   assert.equal(error.code, 3);
+  const named = classifyChainError({
+    name: "AccessKeyMethodNameMismatchActionError",
+    message: "Access key does not allow method promote",
+    txHash: "5X4e6Fvs1ccpJVU6NLo89wGCkHXJbGesbphpBKbXMzx1",
+  });
+  assert.equal(named.code, 3);
+  assert.match(named.message, /cannot call that method/);
 });
 
 test("secrets do not survive an error string", () => {
   const secret = "ed25519:THISISNOTAREALKEYVALUE";
-  assert.equal(redact(`failed with ${secret}`, [secret]), "failed with [redacted]");
+  assert.equal(
+    redact(`failed with ${secret}`, [secret]),
+    "failed with [redacted]",
+  );
 });
 
 test("releases marks production", async () => {
@@ -215,8 +275,20 @@ test("releases marks production", async () => {
         if (method === "list_releases") {
           return {
             releases: [
-              { id: "1", timestamp: "0", file_count: 2, bytes: "1200", message: "first" },
-              { id: "2", timestamp: "1700000000000000000", file_count: 3, bytes: "2400", message: "second" },
+              {
+                id: "1",
+                timestamp: "0",
+                file_count: 2,
+                bytes: "1200",
+                message: "first",
+              },
+              {
+                id: "2",
+                timestamp: "1700000000000000000",
+                file_count: 3,
+                bytes: "2400",
+                message: "second",
+              },
             ],
             next: null,
           };
@@ -244,10 +316,17 @@ test("missing publish_methods falls back to put_chunk and seal", async () => {
       isTTY: false,
       cwd: tmpdir(),
       credentialsDir: mkdtempSync(join(tmpdir(), "quay-keys-")),
-      config: { account: "quay-demo.testnet", rpc: "https://test.rpc.fastnear.com", gateway: "https://quay-demo.testnet.page" },
+      config: {
+        account: "quay-demo.testnet",
+        rpc: "https://test.rpc.fastnear.com",
+        gateway: "https://quay-demo.testnet.page",
+      },
       signer: { secret: "owner", limited: false, publicKey: "ed25519:owner" },
       secrets: [],
-      generateKey: () => ({ secret: "ed25519:NEWSECRETVALUE12", publicKey: "ed25519:new" }),
+      generateKey: () => ({
+        secret: "ed25519:NEWSECRETVALUE12",
+        publicKey: "ed25519:new",
+      }),
       chain: {
         async view() {
           throw new Error("method missing");

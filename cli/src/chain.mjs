@@ -1,8 +1,18 @@
 import { readFileSync } from "node:fs";
-import { Account, JsonRpcProvider, KeyPair, actions, teraToGas } from "near-api-js";
+import {
+  Account,
+  JsonRpcProvider,
+  KeyPair,
+  actions,
+  teraToGas,
+} from "near-api-js";
 
 import { chainError, QuayError } from "./errors.mjs";
-import { classifyChainError, transactionHashOf, transactionValueOf } from "./outcome.mjs";
+import {
+  classifyChainError,
+  transactionHashOf,
+  transactionValueOf,
+} from "./outcome.mjs";
 
 const GAS_CHUNK = teraToGas("200");
 const GAS_CALL = teraToGas("80");
@@ -27,11 +37,17 @@ export function accountFromSecret(accountId, provider, secret) {
 
 export function createChain({ accountId, rpc, secret }) {
   const provider = createProvider(rpc);
-  const account = secret ? accountFromSecret(accountId, provider, secret) : new Account(accountId, provider);
+  const account = secret
+    ? accountFromSecret(accountId, provider, secret)
+    : new Account(accountId, provider);
 
   async function view(method, args = {}) {
     try {
-      return await provider.callFunction({ contractId: accountId, method, args });
+      return await provider.callFunction({
+        contractId: accountId,
+        method,
+        args,
+      });
     } catch (error) {
       throw chainError(error?.message ?? "view call failed");
     }
@@ -44,7 +60,11 @@ export function createChain({ accountId, rpc, secret }) {
         waitUntil: "EXECUTED",
         actions: [actions.functionCall(method, args, gas, deposit)],
       });
-      return { hash: transactionHashOf(outcome), value: transactionValueOf(outcome), outcome };
+      return {
+        hash: transactionHashOf(outcome),
+        value: transactionValueOf(outcome),
+        outcome,
+      };
     } catch (error) {
       throw classifyChainError(error);
     }
@@ -59,10 +79,18 @@ export function createChain({ accountId, rpc, secret }) {
       return Boolean(await view("has_chunk", { sha256 }));
     },
     async putChunk(sha256, bytes) {
-      return send("put_chunk", { sha256, data: Buffer.from(bytes).toString("base64") }, { deposit: 0n, gas: GAS_CHUNK });
+      return send(
+        "put_chunk",
+        { sha256, data: Buffer.from(bytes).toString("base64") },
+        { deposit: 0n, gas: GAS_CHUNK },
+      );
     },
     async seal(id, files, message, spa) {
-      return send("seal", { id, files, message, spa }, { deposit: 0n, gas: GAS_CALL });
+      return send(
+        "seal",
+        { id, files, message, spa },
+        { deposit: 0n, gas: GAS_CALL },
+      );
     },
     async promote(id) {
       return send("promote", { id }, { deposit: 1n });
@@ -144,13 +172,20 @@ export function createChain({ accountId, rpc, secret }) {
       try {
         const meta = await publisher.createSignedMetaTransaction({
           receiverId: accountId,
-          actions: [actions.functionCall("promote", { id: "ci-prove" }, GAS_CALL, 0n)],
+          actions: [
+            actions.functionCall("promote", { id: "ci-prove" }, GAS_CALL, 0n),
+          ],
         });
         const outcome = await account.relayMetaTransaction(meta.signedDelegate);
-        return { refused: false, hash: transactionHashOf(outcome), message: "promote was accepted" };
+        return {
+          refused: false,
+          hash: transactionHashOf(outcome),
+          message: "promote was accepted",
+        };
       } catch (error) {
         const wrapped = classifyChainError(error);
-        const hash = error?.transactionResult?.transaction?.hash ?? null;
+        const hash =
+          error?.transactionResult?.transaction?.hash ?? error?.txHash ?? null;
         if (wrapped.code === 3) {
           return { refused: true, hash, message: wrapped.message };
         }
@@ -172,14 +207,23 @@ export function emptyCodeHash(hash) {
   return hash === "11111111111111111111111111111111";
 }
 
-export async function fundContract({ payerId, secret, rpc, contractId, yocto, memo }) {
+export async function fundContract({
+  payerId,
+  secret,
+  rpc,
+  contractId,
+  yocto,
+  memo,
+}) {
   const provider = createProvider(rpc);
   const account = accountFromSecret(payerId, provider, secret);
   try {
     const outcome = await account.signAndSendTransaction({
       receiverId: contractId,
       waitUntil: "EXECUTED",
-      actions: [actions.functionCall("buy", memo ? { memo } : {}, GAS_CALL, yocto)],
+      actions: [
+        actions.functionCall("buy", memo ? { memo } : {}, GAS_CALL, yocto),
+      ],
     });
     return { hash: transactionHashOf(outcome) };
   } catch (error) {

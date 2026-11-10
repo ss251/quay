@@ -1,9 +1,21 @@
 import { spawn } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createInterface } from "node:readline";
 import { dirname, join, resolve } from "node:path";
 
-import { credentialsHome, FAUCET_URL, gatewayFor, requireAccount } from "./config.mjs";
+import {
+  credentialsHome,
+  FAUCET_URL,
+  gatewayFor,
+  requireAccount,
+} from "./config.mjs";
 import { generateKey } from "./chain.mjs";
 import { refused, QuayError } from "./errors.mjs";
 import {
@@ -44,8 +56,17 @@ export async function run(ctx, parsed) {
     writeOut(ctx, "2.0.0");
     return 0;
   }
-  if (parsed.command === "help" || parsed.flags.help || parsed.command === "help") {
-    const topic = parsed.command === "help" ? parsed.rest[0] : parsed.flags.help ? parsed.command : undefined;
+  if (
+    parsed.command === "help" ||
+    parsed.flags.help ||
+    parsed.command === "help"
+  ) {
+    const topic =
+      parsed.command === "help"
+        ? parsed.rest[0]
+        : parsed.flags.help
+          ? parsed.command
+          : undefined;
     writeOut(ctx, helpText(topic === "help" ? undefined : topic));
     return 0;
   }
@@ -71,7 +92,8 @@ export async function run(ctx, parsed) {
 
 function owner(ctx) {
   if (ctx.signer?.limited) throw refused("a publish-only key cannot do that");
-  if (!ctx.signer?.secret) throw new QuayError("no signing key for this account", 1);
+  if (!ctx.signer?.secret)
+    throw new QuayError("no signing key for this account", 1);
 }
 
 async function confirm(ctx, question) {
@@ -96,7 +118,10 @@ async function allReleases(chain) {
   const releases = [];
   let from = 0;
   for (;;) {
-    const page = await chain.view("list_releases", { from_index: from, limit: 20 });
+    const page = await chain.view("list_releases", {
+      from_index: from,
+      limit: 20,
+    });
     releases.push(...(page?.releases ?? []));
     if (page?.next == null) return releases;
     from = page.next;
@@ -106,7 +131,8 @@ async function allReleases(chain) {
 async function publishMethods(chain) {
   try {
     const methods = await chain.view("publish_methods", {});
-    if (Array.isArray(methods) && methods.length > 0) return methods.map(String);
+    if (Array.isArray(methods) && methods.length > 0)
+      return methods.map(String);
   } catch {
     return FALLBACK_METHODS;
   }
@@ -115,15 +141,22 @@ async function publishMethods(chain) {
 
 export async function deploy(ctx, parsed) {
   const account = requireAccount(ctx.config);
-  if (!ctx.signer?.secret) throw new QuayError("no signing key for this account", 1);
+  if (!ctx.signer?.secret)
+    throw new QuayError("no signing key for this account", 1);
   const dir = resolve(parsed.rest[0] ?? ".");
-  const message = checkMessage(parsed.flags.message ? String(parsed.flags.message) : "");
+  const message = checkMessage(
+    parsed.flags.message ? String(parsed.flags.message) : "",
+  );
   const spa = Boolean(ctx.spa);
   const files = collectSite(dir);
   const listed = await allReleases(ctx.chain);
-  if (listed.length >= 32) throw new QuayError("the contract already has 32 releases", 1);
-  const id = parsed.flags.id ? checkId(String(parsed.flags.id)) : nextReleaseId(listed);
-  if (listed.some((release) => release.id === id)) throw new QuayError(`release ${id} already exists`, 1);
+  if (listed.length >= 32)
+    throw new QuayError("the contract already has 32 releases", 1);
+  const id = parsed.flags.id
+    ? checkId(String(parsed.flags.id))
+    : nextReleaseId(listed);
+  if (listed.some((release) => release.id === id))
+    throw new QuayError(`release ${id} already exists`, 1);
   const status = await ctx.chain.view("get_status", {});
   const hashes = new Set();
   for (const file of files) {
@@ -172,7 +205,10 @@ export async function deploy(ctx, parsed) {
   try {
     for (let index = 0; index < plan.uploads.length; index += 1) {
       const upload = plan.uploads[index];
-      writeErr(ctx, `${index + 1}/${plan.uploads.length}  ${upload.path}  ${upload.data.length} bytes`);
+      writeErr(
+        ctx,
+        `${index + 1}/${plan.uploads.length}  ${upload.path}  ${upload.data.length} bytes`,
+      );
       const sent = await ctx.chain.putChunk(upload.sha256, upload.data);
       chunkHashes.push(sent.hash);
       uploaded.push(upload.sha256);
@@ -193,7 +229,13 @@ export async function deploy(ctx, parsed) {
   }
   emit(
     ctx,
-    { ...summary, message, spa, transaction: sealed.hash, chunk_transactions: chunkHashes },
+    {
+      ...summary,
+      message,
+      spa,
+      transaction: sealed.hash,
+      chunk_transactions: chunkHashes,
+    },
     `${paint(ctx.color, "36", id)}  ${summary.url}\nreused ${formatBytes(summary.reused_bytes)}`,
   );
 }
@@ -201,7 +243,10 @@ export async function deploy(ctx, parsed) {
 async function dropAbandoned(ctx, hashes) {
   if (hashes.length === 0) return;
   if (ctx.signer?.limited) {
-    writeErr(ctx, "Those new chunks stay stored. A publish-only key cannot drop them.");
+    writeErr(
+      ctx,
+      "Those new chunks stay stored. A publish-only key cannot drop them.",
+    );
     return;
   }
   for (const sha256 of hashes) {
@@ -209,7 +254,10 @@ async function dropAbandoned(ctx, hashes) {
       await ctx.chain.dropChunk(sha256);
       writeErr(ctx, `dropped unused chunk ${sha256.slice(0, 12)}`);
     } catch (error) {
-      writeErr(ctx, `could not drop ${sha256.slice(0, 12)}: ${error.message ?? error}`);
+      writeErr(
+        ctx,
+        `could not drop ${sha256.slice(0, 12)}: ${error.message ?? error}`,
+      );
     }
   }
 }
@@ -218,7 +266,8 @@ export async function promote(ctx, parsed) {
   owner(ctx);
   const id = checkId(parsed.rest[0] ?? "");
   const current = await ctx.chain.view("get_status", {});
-  if (current?.production === id) throw new QuayError(`${id} is already production`, 1);
+  if (current?.production === id)
+    throw new QuayError(`${id} is already production`, 1);
   const release = await ctx.chain.view("get_release", { id });
   if (!release) throw new QuayError(`release ${id} is missing`, 1);
   const ok = await confirm(ctx, `Make ${id} the production release?`);
@@ -237,22 +286,40 @@ export async function rollback(ctx) {
   const sent = await ctx.chain.rollback();
   const id = typeof sent.value === "string" ? sent.value : current.previous;
   const url = previewUrl(ctx.config.gateway);
-  emit(ctx, { id, previous: current.production, url, transaction: sent.hash }, `${id} is production\n${url}`);
+  emit(
+    ctx,
+    { id, previous: current.production, url, transaction: sent.hash },
+    `${id} is production\n${url}`,
+  );
 }
 
 export async function releases(ctx) {
   requireAccount(ctx.config);
-  const [rows, current] = await Promise.all([allReleases(ctx.chain), ctx.chain.view("get_status", {})]);
+  const [rows, current] = await Promise.all([
+    allReleases(ctx.chain),
+    ctx.chain.view("get_status", {}),
+  ]);
   const view = rows.map((release) => ({
     id: release.id,
     date: formatTime(release.timestamp),
     files: release.file_count,
     size: formatBytes(release.bytes),
     message: release.message || "",
-    role: release.id === current?.production ? "production" : release.id === current?.previous ? "previous" : "",
+    role:
+      release.id === current?.production
+        ? "production"
+        : release.id === current?.previous
+          ? "previous"
+          : "",
   }));
   if (ctx.json) {
-    writeOut(ctx, JSON.stringify({ production: current?.production ?? null, releases: view }));
+    writeOut(
+      ctx,
+      JSON.stringify({
+        production: current?.production ?? null,
+        releases: view,
+      }),
+    );
     return;
   }
   if (view.length === 0) {
@@ -274,7 +341,9 @@ function colorRoles(ctx, lines) {
   if (!ctx.color) return lines;
   return lines
     .split("\n")
-    .map((line) => (line.trimEnd().endsWith("production") ? paint(true, "36", line) : line))
+    .map((line) =>
+      line.trimEnd().endsWith("production") ? paint(true, "36", line) : line,
+    )
     .join("\n");
 }
 
@@ -350,7 +419,8 @@ export async function keys(ctx, parsed) {
   const sub = parsed.rest[0];
   if (!sub || parsed.flags.help) {
     writeOut(ctx, helpText("keys"));
-    if (!sub) throw new QuayError("quay keys needs create, list, revoke, or prove", 1);
+    if (!sub)
+      throw new QuayError("quay keys needs create, list, revoke, or prove", 1);
     return;
   }
   if (sub === "create") return keysCreate(ctx);
@@ -362,7 +432,11 @@ export async function keys(ctx, parsed) {
 
 async function keysCreate(ctx) {
   owner(ctx);
-  if (!ctx.ci) throw new QuayError("pass --ci. This command creates a publish-only key.", 1);
+  if (!ctx.ci)
+    throw new QuayError(
+      "pass --ci. This command creates a publish-only key.",
+      1,
+    );
   const account = requireAccount(ctx.config);
   const methods = await publishMethods(ctx.chain);
   const key = ctx.generateKey();
@@ -413,7 +487,8 @@ async function keysList(ctx) {
   }
   const rows = keys.map((entry) => {
     const permission = entry.access_key?.permission;
-    const limited = permission && permission !== "FullAccess" && permission.FunctionCall;
+    const limited =
+      permission && permission !== "FullAccess" && permission.FunctionCall;
     return {
       public_key: String(entry.public_key),
       access: limited ? "publish" : "full",
@@ -443,21 +518,30 @@ async function keysList(ctx) {
 async function keysRevoke(ctx, publicKey) {
   owner(ctx);
   if (!publicKey) throw new QuayError("quay keys revoke needs a public key", 1);
-  if (publicKey === ctx.signer.publicKey) throw refused("refusing to revoke the key that is signing");
+  if (publicKey === ctx.signer.publicKey)
+    throw refused("refusing to revoke the key that is signing");
   const sent = await ctx.chain.deleteKey(publicKey);
   const ciPath = join(ctx.credentialsDir, `${ctx.config.account}.ci.json`);
   if (existsSync(ciPath)) {
     const saved = JSON.parse(readFileSync(ciPath, "utf8"));
     if (saved.public_key === publicKey) rmSync(ciPath);
   }
-  emit(ctx, { public_key: publicKey, transaction: sent.hash }, `revoked ${publicKey}`);
+  emit(
+    ctx,
+    { public_key: publicKey, transaction: sent.hash },
+    `revoked ${publicKey}`,
+  );
 }
 
 async function keysProve(ctx) {
   owner(ctx);
   requireAccount(ctx.config);
   const ciSecret = ctx.ciSecret;
-  if (!ciSecret) throw new QuayError("no publish-only key. Run quay keys create --ci first.", 1);
+  if (!ciSecret)
+    throw new QuayError(
+      "no publish-only key. Run quay keys create --ci first.",
+      1,
+    );
   const result = await ctx.chain.relayRefusal(ciSecret);
   if (!result.refused) {
     throw new QuayError("the publish-only key was able to promote", 2);
@@ -466,7 +550,10 @@ async function keysProve(ctx) {
   emit(
     ctx,
     { refused: true, message: result.message, transaction: result.hash, url },
-    [`refused  ${result.message}`, url ?? "the refusal had no transaction hash"].join("\n"),
+    [
+      `refused  ${result.message}`,
+      url ?? "the refusal had no transaction hash",
+    ].join("\n"),
   );
 }
 
@@ -524,7 +611,10 @@ export async function init(ctx, parsed) {
     finishInit(ctx, account, key, null, true, version?.version ?? null);
     return;
   }
-  const ok = await confirm(ctx, `Replace the wasm on ${account}? A full-access key can do this.`);
+  const ok = await confirm(
+    ctx,
+    `Replace the wasm on ${account}? A full-access key can do this.`,
+  );
   if (!ok) return stopped(ctx);
   const wasm = ctx.readWasm();
   const sent = await ctx.chain.replaceWasm(wasm);
@@ -532,14 +622,22 @@ export async function init(ctx, parsed) {
 }
 
 function reconnect(ctx, account, key) {
-  const next = ctx.connect({ account, secret: key.secret, publicKey: key.publicKey });
+  const next = ctx.connect({
+    account,
+    secret: key.secret,
+    publicKey: key.publicKey,
+  });
   return next;
 }
 
 function finishInit(ctx, account, key, hash, adopted, version = "2.0.0") {
   const file = join(ctx.credentialsDir, `${account}.json`);
   if (key?.secret && key?.publicKey) {
-    writeKeyFile(file, { account_id: account, public_key: key.publicKey, private_key: key.secret });
+    writeKeyFile(file, {
+      account_id: account,
+      public_key: key.publicKey,
+      private_key: key.secret,
+    });
   }
   const config = {
     account,
@@ -547,7 +645,10 @@ function finishInit(ctx, account, key, hash, adopted, version = "2.0.0") {
     rpc: ctx.config.rpc,
     gateway: gatewayFor(account),
   };
-  writeFileSync(join(ctx.cwd, "quay.json"), `${JSON.stringify(config, null, 2)}\n`);
+  writeFileSync(
+    join(ctx.cwd, "quay.json"),
+    `${JSON.stringify(config, null, 2)}\n`,
+  );
   emit(
     ctx,
     { ...config, adopted, version, transaction: hash, credential_file: file },
@@ -568,11 +669,17 @@ async function fundAccount(accountId, publicKey) {
   const response = await fetch(FAUCET_URL, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ newAccountId: accountId, newAccountPublicKey: publicKey }),
+    body: JSON.stringify({
+      newAccountId: accountId,
+      newAccountPublicKey: publicKey,
+    }),
   });
   const text = await response.text();
   if (!response.ok) {
-    throw new QuayError(`faucet returned ${response.status}: ${text.slice(0, 180)}`, 2);
+    throw new QuayError(
+      `faucet returned ${response.status}: ${text.slice(0, 180)}`,
+      2,
+    );
   }
 }
 

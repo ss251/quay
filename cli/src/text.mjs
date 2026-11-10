@@ -18,16 +18,21 @@ const KNOWN = new Set([...BOOLEAN, "account", "rpc", "message", "id"]);
 export const COMMANDS = [
   {
     name: "init",
-    summary: "Create or adopt a testnet account, deploy the contract, and write quay.json.",
+    summary:
+      "Create or adopt a testnet account, deploy the contract, and write quay.json.",
     usage: "quay init [account]",
     options: [
-      ["--replace", "Deploy the bundled wasm over an existing contract. Asks first."],
+      [
+        "--replace",
+        "Deploy the bundled wasm over an existing contract. Asks first.",
+      ],
       ["--yes", "Skip the confirmation."],
     ],
   },
   {
     name: "deploy",
-    summary: "Upload a folder as an immutable release and print its preview URL.",
+    summary:
+      "Upload a folder as an immutable release and print its preview URL.",
     usage: "quay deploy [dir] [-m message]",
     options: [
       ["-m, --message <text>", "Release note, at most 200 characters."],
@@ -52,7 +57,8 @@ export const COMMANDS = [
   },
   {
     name: "releases",
-    summary: "List releases: id, date, files, size, message, and which is production.",
+    summary:
+      "List releases: id, date, files, size, message, and which is production.",
     usage: "quay releases",
     options: [],
   },
@@ -79,10 +85,19 @@ export const COMMANDS = [
     summary: "Create, list, or revoke a publish-only key.",
     usage: "quay keys <create|list|revoke|prove>",
     options: [
-      ["create --ci", "Add a key that can only call put_chunk and seal. The secret is printed once."],
+      [
+        "create --ci",
+        "Add a key that can only call put_chunk and seal. The secret is printed once.",
+      ],
       ["list", "Show access keys. Secrets stay in the credentials folder."],
-      ["revoke <public-key>", "Remove an access key. Refuses the key that is signing."],
-      ["prove", "Relay a promote signed by the publish-only key and expect the refusal."],
+      [
+        "revoke <public-key>",
+        "Remove an access key. Refuses the key that is signing.",
+      ],
+      [
+        "prove",
+        "Relay a promote signed by the publish-only key and expect the refusal.",
+      ],
     ],
   },
 ];
@@ -90,7 +105,10 @@ export const COMMANDS = [
 const GLOBAL = [
   ["--json", "Print one JSON object on stdout."],
   ["--account <id>", "Contract account. Overrides quay.json and QUAY_ACCOUNT."],
-  ["--rpc <url>", "JSON-RPC URL. The default is https://test.rpc.fastnear.com."],
+  [
+    "--rpc <url>",
+    "JSON-RPC URL. The default is https://test.rpc.fastnear.com.",
+  ],
   ["--help", "Show this help."],
 ];
 
@@ -109,7 +127,8 @@ export function parseArgs(argv) {
     }
     if (token === "-m") {
       const value = argv[index + 1];
-      if (!value || value.startsWith("-")) throw usage("quay: -m needs a message");
+      if (!value || value.startsWith("-"))
+        throw usage("quay: -m needs a message");
       flags.message = value;
       index += 1;
       continue;
@@ -155,8 +174,12 @@ export function helpText(command) {
       lines.push(`  ${item.name.padEnd(10)} ${item.summary}`);
     }
     lines.push("", "Global options");
-    for (const [flag, text] of GLOBAL) lines.push(`  ${flag.padEnd(18)} ${text}`);
-    lines.push("", "Storage is about 0.01 NEAR per 1000 bytes on the contract account.");
+    for (const [flag, text] of GLOBAL)
+      lines.push(`  ${flag.padEnd(18)} ${text}`);
+    lines.push(
+      "",
+      "Storage is about 0.01 NEAR per 1000 bytes on the contract account.",
+    );
     lines.push("Run `quay <command> --help` for one command.");
     return lines.join("\n");
   }
@@ -165,7 +188,8 @@ export function helpText(command) {
   const lines = [item.summary, "", "Usage", `  ${item.usage}`];
   if (item.options.length) {
     lines.push("", "Options");
-    for (const [flag, text] of item.options) lines.push(`  ${flag.padEnd(24)} ${text}`);
+    for (const [flag, text] of item.options)
+      lines.push(`  ${flag.padEnd(24)} ${text}`);
   }
   lines.push("", "Global options");
   for (const [flag, text] of GLOBAL) lines.push(`  ${flag.padEnd(18)} ${text}`);
@@ -203,13 +227,23 @@ export function formatTime(nanoseconds) {
 
 export function table(rows, columns) {
   const widths = columns.map((column) =>
-    Math.max(column.label.length, ...rows.map((row) => String(row[column.key] ?? "").length)),
+    Math.max(
+      column.label.length,
+      ...rows.map((row) => String(row[column.key] ?? "").length),
+    ),
   );
   const line = (row) =>
-    columns.map((column, index) => String(row[column.key] ?? "").padEnd(widths[index])).join("  ");
-  return [line(Object.fromEntries(columns.map((column) => [column.key, column.label]))), ...rows.map(line)].join(
-    "\n",
-  );
+    columns
+      .map((column, index) =>
+        String(row[column.key] ?? "").padEnd(widths[index]),
+      )
+      .join("  ");
+  return [
+    line(
+      Object.fromEntries(columns.map((column) => [column.key, column.label])),
+    ),
+    ...rows.map(line),
+  ].join("\n");
 }
 
 export function redact(text, secrets) {
@@ -235,11 +269,19 @@ export function emit(ctx, payload, plain) {
 
 export function classifyChainError(error) {
   const panic = error?.panicMessage ? String(error.panicMessage) : "";
-  const message = `${panic}\n${error?.message ?? error}`;
-  if (/MethodNameMismatch|method is not allowed|Access key .* does not allow|DepositWithFunctionCall/i.test(message)) {
+  const message = `${panic}\n${error?.name ?? ""}\n${error?.message ?? error}`;
+  if (
+    /MethodNameMismatch|method is not allowed|does not allow method|DepositWithFunctionCall/i.test(
+      message,
+    )
+  ) {
     return new QuayError("the signing key cannot call that method", 3);
   }
-  if (/yoctoNEAR|only this account|cannot delete production|nothing to roll back/i.test(message)) {
+  if (
+    /yoctoNEAR|only this account|cannot delete production|nothing to roll back/i.test(
+      message,
+    )
+  ) {
     return new QuayError(panic || firstLine(message), 3);
   }
   const hash = error?.transactionResult?.transaction?.hash ?? error?.txHash;
@@ -248,7 +290,12 @@ export function classifyChainError(error) {
 }
 
 function firstLine(text) {
-  return String(text).split("\n").map((line) => line.trim()).find(Boolean) ?? "the network rejected the transaction";
+  return (
+    String(text)
+      .split("\n")
+      .map((line) => line.trim())
+      .find(Boolean) ?? "the network rejected the transaction"
+  );
 }
 
 export function assertTestnet(network) {
