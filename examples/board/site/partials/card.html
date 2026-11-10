@@ -1,0 +1,5 @@
+<li class="post{{#if pinned_until}} pinned{{/if}}">
+<h3><a href="/posts/{{id | url}}">{{data.title}}</a></h3>
+<p class="meta">{{#if pinned_until}}<span class="tag pin">Pinned</span> {{/if}}{{#if data.topic}}<span class="tag">{{data.topic}}</span> {{/if}}<a href="/?owner={{owner | url}}">{{owner}}</a> &middot; <time>{{created | date}}</time></p>
+<p class="excerpt">{{data.body}}</p>
+</li>

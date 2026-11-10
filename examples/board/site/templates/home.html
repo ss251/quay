@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{> partials/head.html}}
+</head>
+<body data-page="home">
+{{> partials/header.html}}
+<main id="main">
+<figure class="hero"><img src="/assets/img/harbour.png" width="1000" height="400" alt="A fishing boat at berth 4, a dinghy under sail and the breakwater light at sunset" fetchpriority="high"></figure>
+<h1>Notices from the harbour</h1>
+<p class="lede">Tides, berths, the market, the lifeboat and the sailing club. Anyone can read. Members post.</p>
+<section class="card digest" id="digest" aria-labelledby="digest-h" data-digest>
+<h2 id="digest-h">Harbour digest</h2>
+<p class="muted" data-digest-body>The digest is written every hour by a function. <a href="/api/posts?limit=5">Read the newest notices as JSON</a> or enable JavaScript to see it here.</p>
+</section>
+<h2>Notices{{#if query.owner}} by {{query.owner}}{{/if}}</h2>
+{{#if query.owner}}<p><a href="/">Show everyone</a></p>{{/if}}
+<ol class="posts">
+{{#each docs}}
+{{> partials/card.html}}
+{{else}}
+<li class="post">No notices yet. <a href="/new/">Post the first one.</a></li>
+{{/each}}
+</ol>
+{{#if next}}<a class="more" rel="next" href="/?from={{next | url}}{{#if query.owner}}&amp;owner={{query.owner | url}}{{/if}}">Older notices</a>{{/if}}
+{{> partials/how.html}}
+</main>
+{{> partials/footer.html}}
+</body>
+</html>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" role="img" aria-label="A lifeboat on the water with a blue hull and an orange cabin">
+  <rect width="480" height="200" rx="10" fill="#f7ead2"/>
+  <rect y="120" width="480" height="80" fill="#5d93ad"/>
+  <g fill="none" stroke="#a9cbd9" stroke-width="3" stroke-linecap="round"><path d="M20 150q20-8 40 0t40 0t40 0"/><path d="M300 170q20-8 40 0t40 0t40 0"/><path d="M150 184q20-8 40 0t40 0"/></g>
+  <path d="M60 104 L400 104 L430 84 L370 134 L100 134Z" fill="#1f3d52"/>
+  <path d="M60 104 L430 84 L424 94 L66 112Z" fill="#c8432f"/>
+  <rect x="170" y="62" width="120" height="42" rx="4" fill="#f08a2e"/>
+  <rect x="184" y="72" width="22" height="16" fill="#e8f0f3"/><rect x="214" y="72" width="22" height="16" fill="#e8f0f3"/><rect x="244" y="72" width="22" height="16" fill="#e8f0f3"/>
+  <rect x="226" y="30" width="5" height="32" fill="#2a2d33"/><path d="M231 32h38v14h-38z" fill="#c8432f"/>
+  <rect x="150" y="96" width="160" height="6" fill="#2a2d33" opacity=".35"/>
+</svg>

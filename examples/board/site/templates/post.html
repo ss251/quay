@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{> partials/head.html}}
+</head>
+<body data-page="post" data-post="{{doc.id}}" data-ref="posts/{{doc.id}}">
+{{> partials/header.html}}
+<main id="main">
+<article>
+<p class="meta"><a href="/">All notices</a></p>
+<h1>{{doc.data.title}}</h1>
+<p class="meta">{{#if doc.data.topic}}<span class="tag">{{doc.data.topic}}</span> {{/if}}<a href="/?owner={{doc.owner | url}}">{{doc.owner}}</a> &middot; <time>{{doc.created | date}}</time></p>
+<p class="body">{{doc.data.body | lines}}</p>
+{{#if doc.fn.preview}}
+<aside class="preview" aria-label="Link preview">
+{{#if doc.fn.preview.image}}<img src="{{doc.fn.preview.image}}" alt="" loading="lazy" referrerpolicy="no-referrer">{{/if}}
+<a href="{{doc.fn.preview.url}}" rel="noopener nofollow ugc">{{doc.fn.preview.title}}</a>
+<span class="muted">{{doc.fn.preview.description}}</span>
+</aside>
+{{else}}
+{{#if doc.data.link}}<p class="meta">Link shared: {{doc.data.link}}. It becomes clickable once the moderation function has checked it.</p>{{/if}}
+{{/if}}
+{{#if doc.pinned_until}}<p><span class="pinned-note">Pinned until <time>{{doc.pinned_until | date}}</time></span></p>{{/if}}
+<p>
+<button type="button" class="js-only" data-pin>Pin this post for 0.1 NEAR</button>
+<span class="no-js meta">Pinning needs JavaScript and a NEAR wallet.</span>
+</p>
+<p class="meta" data-pin-status role="status" aria-live="polite"></p>
+<p class="meta"><a href="/api/posts/{{doc.id | url}}">This post as JSON</a></p>
+</article>
+</main>
+{{> partials/footer.html}}
+</body>
+</html>

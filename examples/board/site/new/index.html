@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/assets/board.css">
+<link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+<script>document.documentElement.classList.add("js")</script>
+<title>Post a notice - Harbour Board</title>
+</head>
+<body data-page="new">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="top"><div class="wrap bar">
+<a class="brand" href="/"><img src="/assets/mark.svg" alt="" width="26" height="26">Harbour Board</a>
+<nav aria-label="Board"><a href="/">Notices</a><a href="/new/" aria-current="page">Post</a><a href="/members/">Members</a><a href="/receipts/">Pins</a></nav>
+</div></header>
+<main id="main">
+<h1>Post a notice</h1>
+<p class="lede">Joining takes a name and no NEAR. A relayer pays the gas and the board's storage pool pays for your post.</p>
+<noscript><p class="notice err">Posting needs JavaScript, because your key is made in this browser. Reading the board does not.</p></noscript>
+
+<section class="card" id="auth" aria-labelledby="auth-h">
+<h2 id="auth-h">Who is posting</h2>
+<p id="who" role="status" aria-live="polite" class="meta">Not signed in.</p>
+<div class="two" id="auth-forms">
+<form id="join-form" novalidate>
+<h3>Join the board</h3>
+<label>Pick a name <small>2 to 32 of a-z, 0-9, - and _. You become <span class="site-suffix"></span>.</small>
+<input id="join-name" name="name" autocomplete="off" autocapitalize="none" spellcheck="false" minlength="2" maxlength="32" pattern="[a-z0-9_\-]{2,32}" required></label>
+<button type="submit">Join, no NEAR needed</button>
+</form>
+<div>
+<h3>Sign in with a wallet</h3>
+<p class="hint">For members who already hold an account, and for paying to pin. A wallet account that is not a member cannot post.</p>
+<button type="button" class="ghost" id="wallet-btn">Sign in with a wallet</button>
+</div>
+</div>
+<p><button type="button" class="ghost" id="signout" hidden>Sign out</button></p>
+<p class="notice err" id="auth-msg" role="alert" hidden></p>
+</section>
+
+<section class="card" id="post-card" aria-labelledby="post-h" hidden>
+<h2 id="post-h">Your notice</h2>
+<form id="post-form" novalidate>
+<label>Title <small>Up to 80 characters.</small>
+<input id="f-title" name="title" maxlength="80" required></label>
+<label>What is happening? <small id="count">0 of 1400 characters</small>
+<textarea id="f-body" name="body" maxlength="1400" required></textarea></label>
+<label>Topic
+<select id="f-topic" name="topic"><option value="notice">Notice</option><option value="tides">Tides and weather</option><option value="berths">Berths and moorings</option><option value="market">Fish market</option><option value="events">Events and volunteers</option><option value="sale">For sale or wanted</option><option value="ferry">Ferry</option></select></label>
+<label>A link <small>Optional, https only. The moderation function reads it for a preview.</small>
+<input id="f-link" name="link" type="url" inputmode="url" placeholder="https://"></label>
+<button type="submit" id="post-btn">Post to the board</button>
+</form>
+<ol class="steps" id="steps" aria-live="polite" hidden>
+<li data-step="sign">Sign with your member key</li>
+<li data-step="relay">Relay it to the contract (the relayer pays gas)</li>
+<li data-step="trigger">Wait for the moderation function (about 13 seconds)</li>
+<li data-step="done">Published</li>
+</ol>
+<p class="notice" id="result" role="status" hidden></p>
+</section>
+<img class="illus" src="/assets/img/lifeboat.svg" alt="" width="480" height="200" loading="lazy">
+</main>
+<footer><div class="wrap"><p>Testnet only. Posts are public and permanent on chain unless a moderator hides them.</p></div></footer>
+<script type="module" src="/assets/board.js"></script>
+</body>
+</html>

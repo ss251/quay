@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/assets/board.css">
+<link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+<script>document.documentElement.classList.add("js")</script>
+<title>Pins - Harbour Board</title>
+</head>
+<body data-page="receipts">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="top"><div class="wrap bar">
+<a class="brand" href="/"><img src="/assets/mark.svg" alt="" width="26" height="26">Harbour Board</a>
+<nav aria-label="Board"><a href="/">Notices</a><a href="/new/">Post</a><a href="/members/">Members</a><a href="/receipts/" aria-current="page">Pins</a></nav>
+</div></header>
+<main id="main">
+<h1>Pin receipts</h1>
+<p class="lede">Paying to pin a notice keeps it at the top for 24 hours. Every payment leaves a receipt on chain.</p>
+<p id="receipts-status" role="status" class="meta">Loading receipts from the contract.</p>
+<table id="receipts-table" hidden>
+<thead><tr><th scope="col">Paid by</th><th scope="col">Notice</th><th scope="col">Amount</th><th scope="col">When</th></tr></thead>
+<tbody id="receipts"></tbody>
+</table>
+<p class="meta">Payments are NEAR on testnet. The site can also accept test USDC (usdc.fakes.testnet), which anyone can mint and which is not Circle USDC.</p>
+</main>
+<footer><div class="wrap"><p>Testnet only. Posts are public and permanent on chain unless a moderator hides them.</p></div></footer>
+<script type="module" src="/assets/board.js"></script>
+</body>
+</html>

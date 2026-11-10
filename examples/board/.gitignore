@@ -1,0 +1,6 @@
+# built by build.mjs
+site/assets/quay.js
+site/assets/config.json
+# member keys made by seed.mjs; never commit
+.seed-sessions.json
+board.json

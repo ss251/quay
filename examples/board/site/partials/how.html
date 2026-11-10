@@ -1,0 +1,13 @@
+<section class="card how" aria-labelledby="how-h">
+<h2 id="how-h">How this page works</h2>
+<ul>
+<li><strong>Release</strong>: these files and routes are sealed in release {{site.release}} on <code>{{site.account}}</code>.</li>
+<li><strong>Database</strong>: each notice is a document in the <code>posts</code> collection, read live.</li>
+<li><strong>Routes</strong>: the contract fills a template with the documents and answers this request itself.</li>
+<li><strong>Members</strong>: joining creates <code>name.{{site.account}}</code> through a relayer, with no NEAR needed.</li>
+<li><strong>Functions</strong>: a moderation function checks each new post and builds its link preview.</li>
+<li><strong>Payments</strong>: a wallet can pay to pin a notice for 24 hours.</li>
+<li><strong>Cron</strong>: an hourly job writes the harbour digest.</li>
+<li><strong>Large files</strong>: the picture above is stored off chain and checked by hash.</li>
+</ul>
+</section>
