@@ -165,14 +165,16 @@ test("deploy skips chunks the contract already has", async () => {
           assert.equal(id, "1");
           assert.equal(message, "note");
           assert.equal(spa, false);
-          assert.equal(sealFiles.length, 2);
+          // index.html, app.css and the sealed quay-site.json manifest
+          assert.equal(sealFiles.length, 3);
+          assert.ok(sealFiles.some((f) => f.path === "quay-site.json"));
           return { hash: "seal-tx" };
         },
       },
     },
     { rest: [dir], flags: { message: "note" } },
   );
-  assert.equal(uploaded.length, 1);
+  assert.equal(uploaded.length, 2); // the manifest is a new chunk
   assert.match(io.err(), /reused/);
   assert.match(io.text(), /https:\/\/quay-demo\.testnet\.page\/r\/1\//);
   assert.match(io.text(), /transactions\/seal-tx/);
@@ -229,7 +231,7 @@ test("a failed seal drops the chunks just uploaded", async () => {
       ),
     /seal failed/,
   );
-  assert.equal(dropped.length, 1);
+  assert.equal(dropped.length, 2); // index.html and the manifest
 });
 
 test("a publish-only key cannot promote", async () => {
@@ -404,5 +406,37 @@ test("a gateway timeout explains the certificate delay", async () => {
     (error) =>
       error.code === 2 &&
       /certificate is issued on the first request/.test(error.message),
+  );
+});
+
+test("siteManifest names the relay and functions and never holds a key", async () => {
+  const { siteManifest } = await import("../src/release.mjs");
+  assert.deepEqual(siteManifest(null), { relay: null, functions_https: false });
+  assert.deepEqual(
+    siteManifest({
+      relay: {
+        host: "outlayer",
+        owner: "board.testnet",
+        paymentKey: "secret:1:abc",
+      },
+      functions: { preview: {} },
+    }),
+    {
+      relay: { host: "outlayer", owner: "board.testnet", project: "relay" },
+      functions_https: true,
+    },
+  );
+  assert.deepEqual(
+    siteManifest({ relay: { url: "https://r.example" }, functions: {} }),
+    {
+      relay: { host: "node", url: "https://r.example" },
+      functions_https: false,
+    },
+  );
+  assert.doesNotMatch(
+    JSON.stringify(
+      siteManifest({ relay: { host: "outlayer", paymentKey: "k" } }),
+    ),
+    /paymentKey|"k"/,
   );
 });

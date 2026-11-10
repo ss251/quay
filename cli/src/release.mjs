@@ -74,11 +74,51 @@ export function splitFiles(files, externalOver) {
  * store, verify (default true), project note. Returns the summary and the
  * seal result, or `{ stopped: true }` / `{ dryRun: true }`.
  */
+/**
+ * The public manifest sealed into each release as quay-site.json: where the
+ * relay and functions endpoints are. It never holds a key or payment key.
+ */
+export function siteManifest(project) {
+  const relay = project?.relay;
+  const host = relay ? (relay.host ?? "node") : null;
+  return {
+    relay: !relay
+      ? null
+      : host === "outlayer"
+        ? {
+            host,
+            owner: relay.owner ?? null,
+            project: relay.project ?? "relay",
+          }
+        : { host, url: relay.url ?? null },
+    functions_https: Object.keys(project?.functions ?? {}).length > 0,
+  };
+}
+
 export async function deployRelease(ctx, options) {
   const dir = resolve(options.dir ?? ".");
   const message = checkMessage(options.message ?? "");
   const spa = Boolean(options.spa);
   const files = collectSite(dir);
+  const status = await ctx.chain.view("get_status", {});
+  if (
+    options.manifest !== undefined &&
+    files.length < 64 &&
+    !files.some((file) => file.path === "quay-site.json")
+  ) {
+    files.push({
+      path: "quay-site.json",
+      bytes: Buffer.from(
+        JSON.stringify({
+          site: ctx.config.account,
+          ...options.manifest,
+          version: status?.version ?? null,
+        }),
+      ),
+      contentType: "application/json",
+    });
+    files.sort((left, right) => left.path.localeCompare(right.path));
+  }
   const listed = await allReleases(ctx.chain);
   if (listed.length >= 32)
     throw new QuayError("the contract already has 32 releases", 1);
@@ -110,7 +150,6 @@ export async function deployRelease(ctx, options) {
         : null,
     });
   }
-  const status = await ctx.chain.view("get_status", {});
   const hashes = new Set();
   for (const file of onChain) {
     for (const chunk of chunkFile(file.bytes)) hashes.add(chunk.sha256);

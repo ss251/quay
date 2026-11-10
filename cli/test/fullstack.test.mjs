@@ -1085,6 +1085,7 @@ test("quay up applies steps in order, prints a link for each and promotes", asyn
       "set_members_open",
       "put_chunk",
       "put_chunk",
+      "put_chunk",
       "seal",
       "promote",
     ],

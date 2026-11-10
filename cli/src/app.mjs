@@ -27,7 +27,12 @@ import { secretsCmd } from "./secrets.mjs";
 import { parseCount } from "./units.mjs";
 import { membersCmd } from "./members.mjs";
 import { productsCmd, receiptsCmd } from "./products.mjs";
-import { allReleases, deployRelease, reportDeploy } from "./release.mjs";
+import {
+  allReleases,
+  deployRelease,
+  reportDeploy,
+  siteManifest,
+} from "./release.mjs";
 import {
   confirm,
   explorerUrl,
@@ -148,6 +153,15 @@ export async function deploy(ctx, parsed) {
     spa: Boolean(ctx.spa),
     id: flags.id,
     routes: project?.routes ?? [],
+    manifest: siteManifest(
+      project && {
+        ...project,
+        relay: project.relay && {
+          ...project.relay,
+          owner: project.relay.owner ?? ctx.config.account,
+        },
+      },
+    ),
     externalOver:
       flags["external-over"] !== undefined
         ? parseCount(flags["external-over"], "--external-over", { min: 1 })

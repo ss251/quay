@@ -4,7 +4,12 @@ import { buildJob } from "./cron.mjs";
 import { warnTokenPool } from "./products.mjs";
 import { requireAccount } from "./config.mjs";
 import { QuayError } from "./errors.mjs";
-import { allReleases, deployRelease, splitFiles } from "./release.mjs";
+import {
+  allReleases,
+  deployRelease,
+  siteManifest,
+  splitFiles,
+} from "./release.mjs";
 import { parseProject, readProject } from "./projectfile.mjs";
 import { validateRoutes } from "./routes.mjs";
 import {
@@ -277,6 +282,13 @@ export async function up(ctx, parsed) {
     message: flags.message ? String(flags.message) : "",
     id: flags.id,
     routes: project.routes,
+    manifest: siteManifest({
+      ...project,
+      relay: project.relay && {
+        ...project.relay,
+        owner: project.relay.owner ?? account,
+      },
+    }),
     externalOver:
       flags["external-over"] !== undefined
         ? parseCount(flags["external-over"], "--external-over", { min: 1 })
