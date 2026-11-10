@@ -1409,7 +1409,7 @@ async function loadFunctionsTab(account, box) {
           : stateBox(
               "empty",
               "No scheduled jobs",
-              "A job runs a function every few minutes while the chain is armed. The chain stops after about 14 hours of gas.",
+              "A job runs a function every few minutes while the chain is armed. One arm of 1 PGas lasts about 15 hours with no jobs and about 6 with one hourly job.",
               'quay cron add "every 30m" digest',
             ),
       ),

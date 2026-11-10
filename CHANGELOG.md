@@ -2,13 +2,13 @@
 
 ## Unreleased — full-stack
 
-- Contract 3.0.0, live on `harbour-board.testnet`: a document database with collection rules and a storage pool, members with no NEAR, a function registry for OutLayer, routes with templates sealed in a release, large files by CID, products and receipts, and yield-chain cron. v2 methods keep their JSON. The spec is `docs/fullstack-interface.md`.
+- Contract 3.0.1, live on `harbour-board.testnet` (3.0.0 gave a cron job too little gas for OutLayer): a document database with collection rules and a storage pool, members with no NEAR, a function registry for OutLayer, routes with templates sealed in a release, large files by CID or https URL, products and receipts, and yield-chain cron. v2 methods keep their JSON. The spec is `docs/fullstack-interface.md`.
 - CLI: `quay db`, `members`, `products`, `receipts`, `relay`, `functions`, `secrets`, `cron`, `gateway` and `quay up`, which applies `quay.json`. Large files go to FastFS by default; NEARFS is cut because testnet never served its uploads.
 - `@quay/gateway` serves a site over RPC on Node, Deno, Bun, a container or Cloudflare Workers, with an RPC fallback list. `@quay/client` has the db API, NEP-413 sign-in, member sessions and the relayer host. `examples/board` uses every layer.
 - Docs site: a layers page with command help generated from the CLI, an architecture page with a trust table, and relative links, so the pages work on any host. The home page is served from Cloudflare Workers (`quay.ss251.workers.dev`) because `testnet.page` answered HTTP 400 for several hours on 2026-11-10.
-- `scripts/judge.sh` tries the Workers host, then `testnet.page`, then a local gateway, and prints which one answered. It checks the gateway, the contract versions, and every live layer of Harbour Board with keyless page fetches and RPC views. Wallet sign-in, Pinata, Filebase and an armed cron chain are not checked because they are not proven.
-- Harbour Board (https://harbour-board.testnet.page/) shows data, routes, members through two relayers, functions on OutLayer, payments in NEAR and test USDC, and a large file on FastFS. Cron is set and not armed. Wallet sign-in is pending.
-- README: a Full-stack layers section that marks each layer live or pending, with transaction links and a keyless check for each.
+- `scripts/judge.sh` tries the Workers host, then `testnet.page`, then a local gateway, and prints which one answered. It checks the gateway, the contract versions, and every live layer of Harbour Board with keyless page fetches and RPC views. It also checks that a scheduled run wrote a digest. Wallet sign-in needs a wallet, so it is not checked; Pinata, Filebase and Circle USDC are not proven.
+- Harbour Board (https://harbour-board.ss251.workers.dev/, or https://harbour-board.testnet.page/) shows data, routes, members through two relayers, functions on OutLayer, payments in NEAR and test USDC, a large file on FastFS and an hourly digest from cron (re-armed by hand about every 6 hours). Wallet sign-in was shown with one near-connect connector, NEAR CLI.
+- README: a Full-stack layers section that marks what each layer proved live and where it is weak, with transaction links and a keyless check for each.
 
 ## Unreleased
 

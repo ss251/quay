@@ -301,7 +301,7 @@ Contract part (frozen). The store and upload path are *pending spike (b)*.
 
 ## 8. Scheduled jobs (`quay cron`)
 
-Spike (e): OutLayer has no scheduler. A contract can keep a yield chain alive by itself: each yield times out after about 200 blocks (~2 minutes), its callback runs, and it yields again with the gas it has left. Each hop costs about 2.25 Tgas, so 1 PGas of prepaid gas lasts about 440 hops (~14.5 hours) and less when jobs run. After that the chain stops until any transaction re-arms it. That is the mechanism, with that limit stated everywhere it is offered.
+Spike (e): OutLayer has no scheduler. A contract can keep a yield chain alive by itself: each yield times out after about 200 blocks (~2 minutes), its callback runs, and it yields again with the gas it has left. Each hop costs about 2.25 Tgas, so 1 PGas of prepaid gas lasts about 440 hops (~14.5 hours) with no jobs. Each job run takes 95 Tgas from the chain (80 for OutLayer's `request_execution`, which keeps about 50 for its own callback, and 15 for `fn_on_result`), so one hourly job gives about 6 hours. After that the chain stops until any transaction re-arms it. That is the mechanism, with that limit stated everywhere it is offered.
 
 | Method | Who | Deposit | Effect |
 | --- | --- | --- | --- |

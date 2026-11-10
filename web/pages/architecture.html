@@ -19,7 +19,7 @@
       <tr><td>Members</td><td>live on the Board</td></tr>
       <tr><td>Products and receipts</td><td>live on the Board</td></tr>
       <tr><td>Function registry and function results</td><td>live on the Board</td></tr>
-      <tr><td>Cron jobs</td><td>set, not armed</td></tr>
+      <tr><td>Cron jobs</td><td>live on the Board</td></tr>
     </tbody></table></div>
     <p>Large files are the exception. The release stores an https URL (or a CID) and a sha256, and the bytes live elsewhere. The contract cannot fetch them, so the CLI checks the hash before it seals and anyone can check it again. The contract wasm is 295,899 bytes, which locks about 2.96 NEAR on each site account. Global contracts are not used: a global contract deploy would burn 10 NEAR per 100 KB.</p>
 
@@ -36,7 +36,7 @@
         <tr><td>Pinata, Filebase</td><td>An API key you hold, in the environment, and the service's own availability. Implemented, with unit tests. Never run against the live services.</td><td>Any IPFS pinning service. The gateway reads <code>ipfs://</code> through <code>ipfs.io</code> and <code>dweb.link</code> as well.</td></tr>
         <tr><td>Relayer</td><td>It holds a key and spends from its own account. Its NEAR balance is the spend limit. It can refuse requests. It cannot move the site. Two hosts. <code>quay relay serve</code> is a Node process you run. The OutLayer function needs no server, but the page carries a payment key, and anyone who reads the page can spend it: scope it to the relay project and keep it at a few cents. Calls through OutLayer took 5 to 17 seconds and stalled before a fix.</td><td>Run <code>quay relay serve</code> yourself. Fund it with <code>quay relay create</code>.</td></tr>
         <tr><td>Wallet connector</td><td>The dashboard and the client load <code>@hot-labs/near-connect</code> from esm.sh, and the wallets it offers.</td><td>Pass your own connector to <code>connect({ wallet })</code>, or sign with an explicit key in Node.</td></tr>
-        <tr><td>Cron</td><td>The contract itself, but the Board's job is set and not armed. A chain lasts about 14.5 hours per 1 PGas, then any transaction must arm it again. No operator runs it, and nobody re-arms it for you.</td><td>Run <code>quay cron arm</code> on a timer you control.</td></tr>
+        <tr><td>Cron</td><td>The contract itself, and OutLayer for each run. A chain lasts about 15 hours per 1 PGas with no jobs and about 6 with one hourly job, then a transaction must arm it again. No operator runs it, and nobody re-arms it for you.</td><td>Run <code>quay cron arm</code> on a timer you control.</td></tr>
         <tr><td>RPC providers</td><td>A read that matters should not rely on one endpoint.</td><td>Any testnet RPC. <code>rpc.testnet.near.org</code> is deprecated and Quay drops it.</td></tr>
         <tr><td>Your full-access key</td><td>It can replace the contract wasm, so a release is not owner-proof. Config changes need 1 yoctoNEAR, which a publish-only key cannot attach.</td><td>Keep it off CI. Use <code>quay keys create --ci</code> there.</td></tr>
       </tbody>

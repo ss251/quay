@@ -296,10 +296,12 @@ echo "   hero photo, 493,183 bytes on FastFS, served through the gateway with sh
 echo "   cron"
 check "$(view cron_list '{}')" 'd.some(j=>j.name==="digest"&&j.every_minutes===60)' "digest job set"
 armed=$(view cron_status '{}' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).armed?"armed":"set but not armed"))')
-echo "   the digest job is set, $armed"
+echo "   the digest job is set, chain $armed now (one arm lasts about 6 hours)"
+check "$(view db_list '{"collection":"_fn","query":{"prefix":"digest-","limit":50,"order":"desc"}}')" 'd.docs.some(x=>x.data.ok&&x.data.output&&x.data.output.scheduled===true)' "a scheduled run wrote a digest"
+echo "   a scheduled run wrote a digest (ok, scheduled: true in _fn)"
 
-# Not checked, because not proven: the wallet sign-in through near-connect, Pinata and
-# Filebase, Circle USDC, and an armed cron chain. See README, Full-stack layers.
-echo "   not checked here: wallet sign-in, Pinata and Filebase, Circle USDC, an armed cron chain"
+# Not checked here: wallet sign-in needs a person and a wallet (see examples/board/LIVE.md);
+# Pinata and Filebase and Circle USDC are not proven. See README, Full-stack layers.
+echo "   not checked here: wallet sign-in (needs a wallet), Pinata and Filebase, Circle USDC"
 
 echo "judge checks passed"

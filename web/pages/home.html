@@ -143,7 +143,7 @@
       <span class="kicker">Beyond static files</span>
       <h2>A whole site on one account</h2>
       <p class="lede">Harbour Board is a notice board on <code>harbour-board.testnet</code>. Its pages are rendered by the contract from posts it stores. Members join with no NEAR, a function on OutLayer screens each post, and a post can be pinned by paying in NEAR or test USDC. Its 493 KB photo is stored off chain on FastFS and checked by sha256.</p>
-      <p class="lede">Weak spots, stated plainly: OutLayer calls take 5 to 17 seconds, and testnet.page, OutLayer and FastNEAR are one operator each. The scheduled digest is set, not armed. Wallet sign-in is not shown on testnet yet. Read the <a href="{{P}}architecture/index.html#trust">trust table</a>.</p>
+      <p class="lede">Weak spots, stated plainly: OutLayer calls take 5 to 17 seconds, and testnet.page, OutLayer and FastNEAR are one operator each. The scheduled digest runs, but its chain must be armed again about every 6 hours. Wallet sign-in was shown with one near-connect wallet, the NEAR CLI connector; Intear and Meteor were not. Read the <a href="{{P}}architecture/index.html#trust">trust table</a>.</p>
       <div class="ctas"><a class="btn btn-primary" href="https://harbour-board.ss251.workers.dev/">Open Harbour Board</a><a class="btn" href="{{P}}docs/layers/index.html">What each layer does</a></div>
     </div>
     <div class="card">
@@ -154,8 +154,8 @@
         <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Functions on OutLayer</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
         <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Payments, test USDC only</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
         <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Large files on FastFS</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
-        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Scheduled jobs</div></div><span class="chip chip-warn">Set, not armed</span></li>
-        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Wallet sign-in</div></div><span class="chip chip-warn">Pending</span></li>
+        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Scheduled jobs, re-armed about every 6 hours</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
+        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Wallet sign-in</div></div><span class="chip chip-warn">One wallet</span></li>
       </ol>
     </div>
   </div>
