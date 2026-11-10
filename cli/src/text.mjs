@@ -22,6 +22,8 @@ const KNOWN = new Set([
   "rpc",
   "message",
   "id",
+  "port",
+  "host",
   "write",
   "payer",
   "max-bytes",
@@ -114,6 +116,21 @@ export const COMMANDS = [
     summary: "Show the account, production pointer, storage, and gateway.",
     usage: "quay status",
     options: [],
+  },
+  {
+    name: "gateway",
+    summary:
+      "Serve the account's site on this machine over RPC, without testnet.page.",
+    usage:
+      "quay gateway --account <id> [--port 8787] [--host 127.0.0.1] [--rpc <url>...]",
+    options: [
+      ["--port <n>", "Port to listen on. The default is 8787."],
+      ["--host <addr>", "Interface to listen on. The default is 127.0.0.1."],
+      [
+        "--rpc <url>",
+        "RPC endpoint. Repeat for a fallback list. The default list is fastnear, intea, drpc.",
+      ],
+    ],
   },
   {
     name: "open",
@@ -329,15 +346,21 @@ export function parseArgs(argv) {
     if (!KNOWN.has(name)) throw usage(`quay: unknown flag ${token}`);
     if (eq !== -1) {
       flags[name] = body.slice(eq + 1);
-      continue;
-    }
-    const next = argv[index + 1];
-    if (BOOLEAN.has(name) || next === undefined || next.startsWith("-")) {
-      flags[name] = true;
     } else {
-      flags[name] = next;
-      index += 1;
+      const next = argv[index + 1];
+      if (BOOLEAN.has(name) || next === undefined || next.startsWith("-")) {
+        flags[name] = true;
+      } else {
+        flags[name] = next;
+        index += 1;
+      }
     }
+    // Every --rpc in order, for commands that take a fallback list.
+    if (name === "rpc" && typeof flags.rpc === "string")
+      flags.rpcList = [
+        ...(flags.rpcList ?? []),
+        ...flags.rpc.split(",").filter(Boolean),
+      ];
   }
   return {
     command: positionals[0] ?? "help",

@@ -18,6 +18,7 @@ import {
 import { generateKey } from "./chain.mjs";
 import { refused, QuayError } from "./errors.mjs";
 import { readProject } from "./projectfile.mjs";
+import { gateway, localCommand, publicGatewayHealth } from "./gateway.mjs";
 import { db } from "./db.mjs";
 import { parseCount } from "./units.mjs";
 import { membersCmd } from "./members.mjs";
@@ -98,6 +99,7 @@ export async function run(ctx, parsed) {
     open: open,
     delete: deleteRelease,
     keys: keys,
+    gateway: gateway,
     db: db,
     members: membersCmd,
     products: productsCmd,
@@ -262,7 +264,11 @@ function colorRoles(ctx, lines) {
 
 export async function status(ctx) {
   const account = requireAccount(ctx.config);
-  const current = await ctx.chain.view("get_status", {});
+  const [current, health] = await Promise.all([
+    ctx.chain.view("get_status", {}),
+    publicGatewayHealth(ctx),
+  ]);
+  const local = localCommand(account);
   const payload = {
     account,
     network: "testnet",
@@ -274,7 +280,12 @@ export async function status(ctx) {
     max_bytes: current.max_bytes,
     gateway: ctx.config.gateway,
     production_url: previewUrl(ctx.config.gateway),
+    gateway_health: health,
+    local_gateway: local,
   };
+  const reach = health.ok
+    ? `ok ${health.status}, ${health.ms} ms`
+    : `down: ${health.reason}, ${health.ms} ms`;
   emit(
     ctx,
     payload,
@@ -285,7 +296,8 @@ export async function status(ctx) {
       `previous     ${current.previous ?? "none"}`,
       `releases     ${current.release_count}`,
       `stored       ${formatBytes(current.stored_bytes)} of ${formatBytes(current.max_bytes)}`,
-      `gateway      ${ctx.config.gateway}`,
+      `gateway      ${ctx.config.gateway}  ${reach}`,
+      `local        ${local}`,
     ].join("\n"),
   );
 }
