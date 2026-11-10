@@ -1,17 +1,18 @@
 # Quay
 
-Testnet contract and CLI that publish sealed site releases and move a production pointer. Live URLs and judge steps are in `README.md`. The method list is `docs/contract-interface.md`. `quay init` writes `quay.json` in the project you run it from.
+Testnet contract, CLI, client and gateway that host a full-stack app on one NEAR account: sealed releases with server-rendered routes, a document db, members, a relayer, functions on OutLayer, payments and cron. Live URLs and judge steps are in `README.md`; every live transaction is in `LIVE.md` and `examples/board/LIVE.md`. The v2 method list is `docs/contract-interface.md`; v3 (everything full-stack, plus deviations at the end) is `docs/fullstack-interface.md`. `quay init` writes `quay.json` in the project you run it from.
 
-- Layout is `contract/`, `cli/`, `web/`, `examples/`, `docs/`. Build with `sh scripts/build.sh`. Test with `sh scripts/test.sh`. The wasm the CLI deploys is `cli/vendor/quay.wasm`.
-- Rebuild that wasm with one cargo job: `cd contract && CARGO_BUILD_JOBS=1 cargo near build non-reproducible-wasm`, then copy `contract/target/near/quay.wasm` onto the vendor path. `sh scripts/build.sh` does that only when `QUAY_REBUILD_WASM=1`.
-- Contract unit tests: `cargo test --manifest-path contract/Cargo.toml -- --test-threads=8`. Sandbox tests: `cargo test --manifest-path contract/sandbox/Cargo.toml -- --test-threads=1`. The `unit-testing` feature is a dev-dependency only. Do not enable it for `cargo near build`.
-- Run one heavy cargo or wasm build at a time. Put `$HOME/.cargo/bin` first on `PATH`. The Homebrew cargo on this machine has no wasm target.
-- `near` and `cargo-near` live in `~/.cargo/bin`. Keys stay in `~/.near-credentials`. Never commit or print a key. The faucet is the helper POST the CLI uses. If it rate-limits, wait.
+- Layout: `contract/` (Rust), `cli/`, `client/` (`@quay/client`, browser + Node, relay host), `gateway/` (web4 gateway: local, single-file, Cloudflare Worker in `gateway/worker/`), `functions/` (OutLayer WASI guests, `wasm32-wasip2`), `web/`, `examples/board/` (the full-stack sample), `docs/`. Build with `sh scripts/build.sh`. Test with `sh scripts/test.sh` (`QUAY_SKIP_SANDBOX=1` skips the sandbox suites; the JS ones need `npm install` in `client/`).
+- The wasm the CLI deploys is `cli/vendor/quay.wasm`. Rebuild with one cargo job: `cd contract && CARGO_BUILD_JOBS=1 cargo near build non-reproducible-wasm`, then copy `contract/target/near/quay.wasm` there. The exports and collections are hand-written to keep it under 300 KB (~3 NEAR locked per site); do not reintroduce `#[near]` method macros or `near_sdk::store` collections without checking the size.
+- The `unit-testing` feature is a dev-dependency only. Do not enable it for `cargo near build`.
+- The machine is short of memory: run one heavy cargo build or sandbox node at a time, kill near-sandbox nodes and headless browsers you start, never touch a browser you did not start. Put `$HOME/.cargo/bin` first on `PATH`; the Homebrew cargo has no wasm targets.
+- `near` and `cargo-near` live in `~/.cargo/bin`. Keys stay in `~/.near-credentials`. Never commit or print a key, a secret or a payment key. The faucet rate-limits per IP for hours; one failed request can restart the wait.
 - Network is testnet. Do not use mainnet, NEAR Intents, or real funds. Do not migrate `quay-bb.testnet` in place. It stays on the v1 wasm.
 - Official NEAR skills live in `.grok/skills/` and are gitignored. The docs MCP is `.grok/config.toml`.
 - A full-access key can replace the wasm. Releases are not owner-proof.
-- The site in `web/` is plain HTML, CSS and JS: tokens and components in `web/assets/quay.css`, icons in `web/assets/icons.svg`, pages in `web/pages/`. `node web/build.mjs` writes `web/dist` and minifies with esbuild (a root dev dependency). Every byte is stored on chain, so check the size of `web/dist` before a deploy. Headless dashboard tests can supply a wallet stub as `globalThis.QUAY_TEST_WALLET`; never sign in a visible browser.
-- The public host is `https://<name>.testnet.page` for account `<name>.testnet`. An extra host label fails TLS. A new host has no certificate until the gateway sees the first request. `quay init` and the first `quay deploy` wait for that.
+- The site in `web/` is plain HTML, CSS and JS: tokens and components in `web/assets/quay.css`, icons inlined by `web/build.mjs`, pages in `web/pages/`, demo hosts in `web/hosts.json`. Every byte is stored on chain, so check the size of `web/dist` before a deploy. Headless dashboard tests can supply a wallet stub as `globalThis.QUAY_TEST_WALLET`; never sign in a visible browser.
+- Hosts: Workers mirrors in `web/hosts.json` first, then `https://<name>.testnet.page` (one operator, has had outages), then `quay gateway --account <id>`. An extra host label on testnet.page fails TLS.
+- OutLayer calls take 5–20 s. A relayed delegate's deposit is paid by the relayer, so the relay policy refuses any deposit. Large files go to FastFS by default (served a few minutes after upload); NEARFS does not serve new testnet uploads.
 
 ## Maintaining this file
 
