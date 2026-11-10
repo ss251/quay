@@ -1,6 +1,7 @@
 import { dirname, resolve } from "node:path";
 
 import { buildJob } from "./cron.mjs";
+import { warnTokenPool } from "./products.mjs";
 import { requireAccount } from "./config.mjs";
 import { QuayError } from "./errors.mjs";
 import { allReleases, deployRelease, splitFiles } from "./release.mjs";
@@ -359,6 +360,7 @@ export async function up(ctx, parsed) {
       );
       return;
     }
+    if (step.step === "product") await warnTokenPool(ctx, step.product);
     const [method, args] =
       step.step === "collection"
         ? ["set_collection", { name: step.name, rules: step.rules }]

@@ -1315,7 +1315,12 @@ test("quay cron arm sends 1 PGas, confirms, and refuses under 1.1 NEAR liquid", 
     const chain = fakeChain();
     const view = chain.view;
     chain.view = async (method, args) =>
-      method === "cron_status" ? { armed: false } : view(method, args);
+      method === "cron_status"
+        ? {
+            armed: chain.calls.some((c) => c.method === "cron_arm"),
+            pending: true,
+          }
+        : view(method, args);
     chain.accountView = async () => ({ amount, storage_usage: 1000 });
     return chain;
   };
@@ -1332,4 +1337,64 @@ test("quay cron arm sends 1 PGas, confirms, and refuses under 1.1 NEAR liquid", 
   assert.equal(call.method, "cron_arm");
   assert.equal(call.deposit, 0n);
   assert.equal(call.gas, 1000n * 10n ** 12n);
+  assert.equal(call.waitUntil, "INCLUDED");
+});
+
+test("db add sends 300 Tgas to a collection with an on_add trigger", async () => {
+  const chain = fakeChain({
+    collections: {
+      posts: {
+        write: "anyone",
+        payer: "site",
+        max_doc_bytes: 500,
+        moderated: false,
+        max_docs_per_account: null,
+        on_add: "moderate",
+      },
+      plain: {
+        write: "anyone",
+        payer: "site",
+        max_doc_bytes: 500,
+        moderated: false,
+        max_docs_per_account: null,
+        on_add: null,
+      },
+    },
+  });
+  const io = await exec(["db", "add", "posts", '{"a":1}'], { chain });
+  assert.equal(chain.calls[0].gas, 300n * 10n ** 12n);
+  assert.match(io.io.err(), /runs moderate on every add/);
+  await exec(["db", "add", "plain", '{"a":1}'], { chain });
+  assert.equal(chain.calls[1].gas, undefined);
+});
+
+test("init stops before deploying when the account cannot pay for the wasm", async () => {
+  const { assertCanAffordWasm, codeCostYocto } = await import(
+    "../src/afford.mjs"
+  );
+  const wasm = new Uint8Array(520_000);
+  assert.equal(codeCostYocto(wasm) / 10n ** 22n, 530n);
+  const io = streams();
+  const poor = baseCtx(io, {
+    chain: {
+      accountView: async () => ({
+        amount: String(2n * 10n ** 24n),
+        storage_usage: 182,
+      }),
+    },
+  });
+  await assert.rejects(
+    assertCanAffordWasm(poor, wasm),
+    /needs about 5\.3\d* NEAR.*Nothing was deployed/,
+  );
+  assert.match(io.err(), /locks about 5\.3/);
+  const rich = baseCtx(streams(), {
+    chain: {
+      accountView: async () => ({
+        amount: String(10n * 10n ** 24n),
+        storage_usage: 182,
+      }),
+    },
+  });
+  await assertCanAffordWasm(rich, wasm);
 });

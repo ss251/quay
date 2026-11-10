@@ -8,9 +8,15 @@ import {
   formatTime,
   helpText,
   table,
+  writeErr,
   writeOut,
 } from "./text.mjs";
-import { parseCount, parseNear, parseUnits } from "./units.mjs";
+import {
+  MIN_TOKEN_POOL_YOCTO,
+  parseCount,
+  parseNear,
+  parseUnits,
+} from "./units.mjs";
 
 export const PRODUCT_ID = /^[a-z0-9_-]{1,32}$/;
 const GRANTS = ["pin", "receipt"];
@@ -64,6 +70,22 @@ export function buildProduct({
     product.pin_seconds = secs;
   }
   return product;
+}
+
+/** Token receipts take their storage from the pool: under 0.01 NEAR the contract refuses token payments. */
+export async function warnTokenPool(ctx, product) {
+  if (product?.price_token == null) return;
+  let pool = null;
+  try {
+    pool = await ctx.chain.view("get_pool", {});
+  } catch {
+    return;
+  }
+  if (BigInt(pool?.balance ?? 0) < MIN_TOKEN_POOL_YOCTO)
+    writeErr(
+      ctx,
+      "warning: the storage pool holds less than 0.01 NEAR, so token payments are refused. Run quay db fund 0.1.",
+    );
 }
 
 export async function productsCmd(ctx, parsed) {
@@ -131,6 +153,7 @@ export async function productsCmd(ctx, parsed) {
               max: 31_536_000,
             }),
     });
+    await warnTokenPool(ctx, product);
     const sent = await sendCall(
       ctx,
       "set_product",

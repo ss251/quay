@@ -18,6 +18,7 @@ export const MIN_LIQUID_YOCTO = 11n * 10n ** 23n;
 const BYTE_COST = 10n ** 19n;
 export const MIN_MINUTES = 5;
 export const MAX_JOBS = 8;
+export const MAX_MINUTES = 40_320;
 export const MAX_INPUT_BYTES = 4096;
 const NAME = /^[a-z0-9_-]{1,32}$/;
 
@@ -29,6 +30,11 @@ export function parseEvery(text) {
   if (!match)
     throw new QuayError('the schedule is like "every 30m" or "every 2h"', 1);
   const minutes = Number(match[1]) * (match[2].toLowerCase() === "h" ? 60 : 1);
+  if (minutes > MAX_MINUTES)
+    throw new QuayError(
+      `a job runs at least every ${MAX_MINUTES} minutes (4 weeks)`,
+      1,
+    );
   if (minutes < MIN_MINUTES)
     throw new QuayError(`a job runs at most every ${MIN_MINUTES} minutes`, 1);
   return minutes;
@@ -36,8 +42,15 @@ export function parseEvery(text) {
 
 /** The job the contract takes. `input` is JSON text. */
 export function buildJob({ every_minutes, fn, input }) {
-  if (!Number.isInteger(every_minutes) || every_minutes < MIN_MINUTES)
-    throw new QuayError(`every_minutes must be ${MIN_MINUTES} or more`, 1);
+  if (
+    !Number.isInteger(every_minutes) ||
+    every_minutes < MIN_MINUTES ||
+    every_minutes > MAX_MINUTES
+  )
+    throw new QuayError(
+      `every_minutes must be ${MIN_MINUTES} to ${MAX_MINUTES}`,
+      1,
+    );
   if (typeof fn !== "string" || !/^[a-z0-9_-]{1,32}$/.test(fn))
     throw new QuayError("fn must be a function name", 1);
   const text = typeof input === "string" ? input : JSON.stringify(input ?? {});
@@ -108,6 +121,7 @@ export async function cronCmd(ctx, parsed) {
       status ?? {},
       [
         `armed       ${status?.armed ? "yes" : "no"}`,
+        `pending     ${status?.pending ? "yes (a yield is waiting)" : "no"}`,
         `hops        ${status?.hops ?? 0}`,
         `last tick   ${status?.last_tick ? formatTime(status.last_tick) : "never"}`,
         `started     ${status?.started ? formatTime(status.started) : "never"}`,
@@ -222,15 +236,31 @@ async function arm(ctx) {
       { dry_run: true, method: "cron_arm", gas: ARM_GAS.toString() },
       "dry run: cron_arm with 1 PGas",
     );
+  // The yield chain keeps going, so the transaction never reaches a final
+  // status. Send it as included, then watch cron_status.
   const sent = await ctx.chain.send(
     "cron_arm",
     {},
-    { deposit: 0n, gas: ARM_GAS },
+    { deposit: 0n, gas: ARM_GAS, waitUntil: "INCLUDED" },
   );
+  const sleep =
+    ctx.sleep ?? ((ms) => new Promise((done) => setTimeout(done, ms)));
+  let after = null;
+  for (let attempt = 0; attempt < (ctx.armPolls ?? 10); attempt += 1) {
+    after = await ctx.chain.view("cron_status", {}).catch(() => null);
+    if (after?.armed) break;
+    await sleep(ctx.armIntervalMs ?? 2000);
+  }
+  if (!after?.armed)
+    throw new QuayError(
+      `cron_arm was sent (${explorerUrl(sent.hash)}) but cron_status does not show the schedule armed yet. Check quay cron status.`,
+      2,
+    );
   emit(
     ctx,
     {
       armed: true,
+      pending: Boolean(after.pending),
       transaction: sent.hash,
       transaction_url: explorerUrl(sent.hash),
     },

@@ -1,3 +1,5 @@
+import { teraToGas } from "near-api-js";
+
 import { QuayError } from "./errors.mjs";
 
 export const YOCTO_PER_NEAR = 10n ** 24n;
@@ -57,3 +59,8 @@ export function growthCost(oldBytes, newBytes) {
   if (growth <= 0) return 0n;
   return BigInt(growth + UPDATE_MARGIN_BYTES) * BYTE_COST;
 }
+
+/** fn_call and a db_add that runs an on_add trigger need at least 120 Tgas. */
+export const TRIGGER_GAS = teraToGas("300");
+/** A token payment needs this much in the pool for its receipt (1000 bytes). */
+export const MIN_TOKEN_POOL_YOCTO = 10n ** 22n;

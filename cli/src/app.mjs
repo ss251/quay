@@ -19,6 +19,7 @@ import { generateKey } from "./chain.mjs";
 import { refused, QuayError } from "./errors.mjs";
 import { readProject } from "./projectfile.mjs";
 import { gateway, localCommand, publicGatewayHealth } from "./gateway.mjs";
+import { assertCanAffordWasm } from "./afford.mjs";
 import { cronCmd } from "./cron.mjs";
 import { db } from "./db.mjs";
 import { functionsCmd } from "./functions.mjs";
@@ -505,6 +506,7 @@ export async function init(ctx, parsed) {
     ctx = reconnect(ctx, account, key);
     await waitForAccount(ctx);
     const wasm = ctx.readWasm();
+    await assertCanAffordWasm(ctx, wasm);
     const sent = await ctx.chain.deployAndInit(wasm);
     await finishInit(ctx, account, key, sent.hash, false);
     return;
@@ -530,6 +532,7 @@ export async function init(ctx, parsed) {
   const hasCode = view && !ctx.emptyCode(view.code_hash);
   if (!hasCode) {
     const wasm = ctx.readWasm();
+    await assertCanAffordWasm(ctx, wasm);
     const sent = await ctx.chain.deployAndInit(wasm);
     await finishInit(ctx, account, key, sent.hash, false);
     return;

@@ -179,8 +179,14 @@ export function parseProject(raw) {
       if (names.has(job.name))
         throw bad(`${where}.name ${job.name} is repeated`);
       names.add(job.name);
-      if (!Number.isInteger(job.every_minutes) || job.every_minutes < 5)
-        throw bad(`${where}.every_minutes must be a whole number from 5`);
+      if (
+        !Number.isInteger(job.every_minutes) ||
+        job.every_minutes < 5 ||
+        job.every_minutes > 40320
+      )
+        throw bad(
+          `${where}.every_minutes must be a whole number from 5 to 40320`,
+        );
       if (typeof job.fn !== "string" || !/^[a-z0-9_-]{1,32}$/.test(job.fn))
         throw bad(`${where}.fn must be a function name`);
       try {

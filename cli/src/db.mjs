@@ -13,7 +13,13 @@ import {
   writeErr,
   writeOut,
 } from "./text.mjs";
-import { addDocCost, growthCost, parseCount, parseNear } from "./units.mjs";
+import {
+  addDocCost,
+  growthCost,
+  parseCount,
+  parseNear,
+  TRIGGER_GAS,
+} from "./units.mjs";
 
 const WRITE_RULES = ["owner", "anyone", "members"];
 const PAYERS = ["writer", "site"];
@@ -70,7 +76,12 @@ function needKey(ctx) {
  * Send one function call, or print it on --dry-run. Returns null when nothing
  * was sent.
  */
-export async function sendCall(ctx, method, args, { deposit = 0n, note } = {}) {
+export async function sendCall(
+  ctx,
+  method,
+  args,
+  { deposit = 0n, note, gas } = {},
+) {
   if (ctx.dryRun) {
     emit(
       ctx,
@@ -79,7 +90,7 @@ export async function sendCall(ctx, method, args, { deposit = 0n, note } = {}) {
     );
     return null;
   }
-  return ctx.chain.send(method, args, { deposit });
+  return ctx.chain.send(method, args, gas ? { deposit, gas } : { deposit });
 }
 
 export function textOfData(input, cwd) {
@@ -386,12 +397,17 @@ async function add(ctx, parsed, args) {
     deposit = addDocCost((id ?? "0000000000").length, bytes);
     note = `storage deposit ${formatNear(deposit)} NEAR attached. The contract refunds the excess.`;
   }
+  if (rules.on_add)
+    writeErr(
+      ctx,
+      `this collection runs ${rules.on_add} on every add. Sending 300 Tgas, the call needs at least 120.`,
+    );
   if (note) writeErr(ctx, note);
   const sent = await sendCall(
     ctx,
     "db_add",
     { collection, id, data },
-    { deposit, note },
+    { deposit, note, gas: rules.on_add ? TRIGGER_GAS : undefined },
   );
   if (!sent) return;
   const docId = typeof sent.value === "string" ? sent.value : id;

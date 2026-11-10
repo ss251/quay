@@ -53,11 +53,15 @@ export function createChain({ accountId, rpc, secret }) {
     }
   }
 
-  async function send(method, args, { deposit = 0n, gas = GAS_CALL } = {}) {
+  async function send(
+    method,
+    args,
+    { deposit = 0n, gas = GAS_CALL, waitUntil = "EXECUTED" } = {},
+  ) {
     try {
       const outcome = await account.signAndSendTransaction({
         receiverId: accountId,
-        waitUntil: "EXECUTED",
+        waitUntil,
         actions: [actions.functionCall(method, args, gas, deposit)],
       });
       return {

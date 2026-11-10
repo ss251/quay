@@ -111,6 +111,7 @@ export function fakeChain(seed = {}) {
         args,
         deposit: options.deposit ?? 0n,
         ...(options.gas ? { gas: options.gas } : {}),
+        ...(options.waitUntil ? { waitUntil: options.waitUntil } : {}),
       });
       const hash = `tx-${calls.length}`;
       if (method === "set_collection")
