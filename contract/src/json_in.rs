@@ -11,8 +11,6 @@
 //! field reads a missing key as its default, `U64`/`U128` are decimal strings,
 //! and enums are their lowercase names.
 
-use std::collections::BTreeMap;
-
 use near_sdk::base64::Engine;
 use near_sdk::json_types::{Base64VecU8, U128, U64};
 use near_sdk::serde_json::{Map, Value};
@@ -150,10 +148,10 @@ impl<T: FromJson> FromJson for Vec<T> {
     }
 }
 
-impl FromJson for BTreeMap<String, Value> {
+impl FromJson for Map<String, Value> {
     fn from_json(value: Value) -> Option<Self> {
         match value {
-            Value::Object(map) => Some(map.into_iter().collect()),
+            Value::Object(map) => Some(map),
             _ => None,
         }
     }
@@ -269,7 +267,7 @@ impl FromJson for Web4Request {
         Some(Web4Request {
             account_id: o.opt("accountId")?,
             path: o.or("path", String::new)?,
-            query: o.or("query", BTreeMap::new)?,
+            query: o.or("query", Map::new)?,
             preloads: o.opt("preloads")?,
         })
     }

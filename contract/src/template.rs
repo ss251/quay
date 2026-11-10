@@ -233,7 +233,7 @@ fn check_value_path(path: &str) -> Result<(), String> {
     if ok {
         Ok(())
     } else {
-        Err(format!("bad value path {path:?}"))
+        Err(format!("bad value path \"{path}\""))
     }
 }
 

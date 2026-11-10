@@ -1,7 +1,5 @@
-use std::collections::BTreeMap;
-
 use near_sdk::json_types::{Base64VecU8, U64};
-use near_sdk::serde_json::Value;
+use near_sdk::serde_json::{Map, Value};
 use near_sdk::{near, AccountId};
 
 use crate::routes::RouteIn;
@@ -188,7 +186,7 @@ pub struct Web4Request {
     pub path: String,
     /// Every value is an array of strings. A bare string is accepted too.
     #[serde(default)]
-    pub query: BTreeMap<String, Value>,
+    pub query: Map<String, Value>,
     #[serde(default)]
     pub preloads: Option<Value>,
 }

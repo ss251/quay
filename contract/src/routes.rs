@@ -2,8 +2,6 @@
 //! checks before static files, for production and for `/r/<id>/` previews.
 //! Routes are sealed with the release; the data they read is live.
 
-use std::collections::BTreeMap;
-
 use near_sdk::serde_json::{self, Map, Value};
 use crate::coll::Map as Stored;
 use near_sdk::{env, near, AccountId};
@@ -329,7 +327,7 @@ fn split_target(raw: &str) -> Option<(Option<String>, String)> {
     Some((None, trimmed.to_string()))
 }
 
-fn query_values(query: &BTreeMap<String, Value>) -> Map<String, Value> {
+fn query_values(query: &Map<String, Value>) -> Map<String, Value> {
     let mut out = Map::new();
     for (key, value) in query.iter().take(MAX_QUERY_KEYS) {
         let first = match value {
