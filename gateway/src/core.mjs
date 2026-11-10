@@ -679,8 +679,8 @@ export function createGateway(options = {}) {
           : release && effective === 404
             ? MISSING_RELEASE
             : res.cacheControl
-            ? String(res.cacheControl)
-            : REVALIDATE;
+              ? String(res.cacheControl)
+              : REVALIDATE;
       const out = { status: effective, headers, rpc: used };
       if (typeof res.body === "string") {
         let bytes;
@@ -745,6 +745,8 @@ export function createGateway(options = {}) {
         "content-type": "application/json; charset=utf-8",
         "cache-control": "no-store",
         "x-quay-gateway": "quay",
+        // The dashboard reads this from another origin.
+        "access-control-allow-origin": "*",
         ...(body.rpc ? { "x-quay-rpc": body.rpc } : {}),
       },
     });
@@ -753,6 +755,9 @@ export function createGateway(options = {}) {
   function finish(request, out, head) {
     const headers = new Headers(out.headers);
     headers.set("x-quay-gateway", "quay");
+    // The public manifest is read by the dashboard from another origin.
+    if (new URL(request.url).pathname === "/quay-site.json")
+      headers.set("access-control-allow-origin", "*");
     if (out.rpc) headers.set("x-quay-rpc", out.rpc);
     if (out.cache) headers.set("x-quay-cache", out.cache);
     if (out.etag) headers.set("etag", out.etag);

@@ -562,6 +562,7 @@ test("/_quay/health reports the RPC and latency", async () => {
   const { handler } = gateway();
   const res = await get(handler, "/_quay/health");
   assert.equal(res.status, 200);
+  assert.equal(res.headers.get("access-control-allow-origin"), "*");
   const body = await res.json();
   assert.equal(body.ok, true);
   assert.equal(body.account, "demo.testnet");
@@ -688,30 +689,49 @@ test("bodyUrl: a contract cannot make the gateway fetch internal or plain-http U
   // The gateway runs on the owner's server and on users' machines: whatever it fetches
   // is served back on the site's origin, readable by the site's own scripts.
   const paths = Object.fromEntries(
-    INTERNAL.map((u, i) => [`/x${i}`, () => ({ contentType: "text/plain", bodyUrl: u })]),
+    INTERNAL.map((u, i) => [
+      `/x${i}`,
+      () => ({ contentType: "text/plain", bodyUrl: u }),
+    ]),
   );
   const fetch = fakeNet({ accounts: demo(paths) });
   const { handler } = gateway({ fetch });
   for (let i = 0; i < INTERNAL.length; i += 1) {
     const res = await get(handler, `/x${i}`);
     assert.equal(res.status, 502, INTERNAL[i]);
-    assert.match(await res.text(), /not allowed|unsupported scheme/, INTERNAL[i]);
+    assert.match(
+      await res.text(),
+      /not allowed|unsupported scheme/,
+      INTERNAL[i],
+    );
   }
-  const fetched = fetch.calls.map((c) => c.url).filter((u) => !u.startsWith(RPC_A) && !u.startsWith(RPC_B));
+  const fetched = fetch.calls
+    .map((c) => c.url)
+    .filter((u) => !u.startsWith(RPC_A) && !u.startsWith(RPC_B));
   assert.deepEqual(fetched, [], "nothing internal was fetched");
 });
 
 test("bodyUrl: redirects are followed only to allowed URLs", async () => {
   const fetch = fakeNet({
     accounts: demo({
-      "/hop": () => ({ contentType: "text/css", bodyUrl: "https://cdn.test/hop" }),
-      "/evil": () => ({ contentType: "text/css", bodyUrl: "https://cdn.test/evil" }),
+      "/hop": () => ({
+        contentType: "text/css",
+        bodyUrl: "https://cdn.test/hop",
+      }),
+      "/evil": () => ({
+        contentType: "text/css",
+        bodyUrl: "https://cdn.test/evil",
+      }),
     }),
     urls: {
-      "https://cdn.test/hop": () => new Response(null, { status: 302, headers: { location: "/a.css" } }),
+      "https://cdn.test/hop": () =>
+        new Response(null, { status: 302, headers: { location: "/a.css" } }),
       "https://cdn.test/a.css": () => new Response("body{}"),
       "https://cdn.test/evil": () =>
-        new Response(null, { status: 302, headers: { location: "http://127.0.0.1:2375/containers/json" } }),
+        new Response(null, {
+          status: 302,
+          headers: { location: "http://127.0.0.1:2375/containers/json" },
+        }),
     },
   });
   const { handler } = gateway({ fetch });
@@ -720,8 +740,12 @@ test("bodyUrl: redirects are followed only to allowed URLs", async () => {
   assert.equal(await ok.text(), "body{}");
   const evil = await get(handler, "/evil");
   assert.equal(evil.status, 502);
-  assert.ok(!fetch.calls.some((c) => c.url.startsWith("http://127.0.0.1:2375")));
-  for (const c of fetch.calls.filter((c) => c.url.startsWith("https://cdn.test")))
+  assert.ok(
+    !fetch.calls.some((c) => c.url.startsWith("http://127.0.0.1:2375")),
+  );
+  for (const c of fetch.calls.filter((c) =>
+    c.url.startsWith("https://cdn.test"),
+  ))
     assert.equal(c.init.redirect, "manual", "redirects are not left to fetch");
 });
 
@@ -730,11 +754,13 @@ test("preloadUrls: internal hosts, too many URLs, and huge bodies are refused", 
   const fetch = fakeNet({
     accounts: {
       "demo.testnet": {
-        web4_get: ({ request }) => (request.preloads ? page("done") : { preloadUrls: ask }),
+        web4_get: ({ request }) =>
+          request.preloads ? page("done") : { preloadUrls: ask },
       },
     },
     urls: {
-      "https://cdn.test/huge": () => new Response(new Uint8Array(3 * 1024 * 1024)),
+      "https://cdn.test/huge": () =>
+        new Response(new Uint8Array(3 * 1024 * 1024)),
       "https://cdn.test/small": () => new Response("ok"),
     },
   });
@@ -757,7 +783,14 @@ test("a 404 under /r/<id>/ is not cached for good (the release may not be sealed
   const { handler, fetch } = gateway({
     accounts: {
       "demo.testnet": {
-        web4_get: () => (sealed ? page("release 9") : { status: 404, contentType: "text/plain", body: b64("no such release") }),
+        web4_get: () =>
+          sealed
+            ? page("release 9")
+            : {
+                status: 404,
+                contentType: "text/plain",
+                body: b64("no such release"),
+              },
       },
     },
   });
@@ -773,13 +806,35 @@ test("a 404 under /r/<id>/ is not cached for good (the release may not be sealed
 
 test("the error page never links off-site", async () => {
   const { handler } = gateway({ accounts: {} });
-  const res = await get(handler, "//evil.example/x", { headers: { accept: "text/html" } });
+  const res = await get(handler, "//evil.example/x", {
+    headers: { accept: "text/html" },
+  });
   const html = await res.text();
   assert.doesNotMatch(html, /href="\/\/evil/);
 });
 
 test("view endpoint answers carry nosniff", async () => {
-  const { handler } = gateway({ accounts: { "demo.testnet": { get_x: () => "<script>alert(1)</script>" } } });
+  const { handler } = gateway({
+    accounts: { "demo.testnet": { get_x: () => "<script>alert(1)</script>" } },
+  });
   const res = await get(handler, "/web4/contract/demo.testnet/get_x");
   assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+});
+
+test("the public manifest quay-site.json is readable from another origin", async () => {
+  const { handler } = gateway({
+    fetch: fakeNet({
+      accounts: demo({
+        "/quay-site.json": () => ({
+          contentType: "application/json",
+          body: b64('{"site":"demo.testnet","relay":null}'),
+        }),
+      }),
+    }),
+  });
+  const res = await get(handler, "/quay-site.json");
+  assert.equal(res.headers.get("access-control-allow-origin"), "*");
+  assert.equal((await res.json()).site, "demo.testnet");
+  const other = await get(handler, "/chart.svg");
+  assert.equal(other.headers.get("access-control-allow-origin"), null);
 });
