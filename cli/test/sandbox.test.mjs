@@ -1,12 +1,12 @@
 // Opt-in integration test against a local near-sandbox node:
 //   QUAY_SANDBOX=1 node --test test/sandbox.test.mjs
-// Needs the `near-sandbox` npm package (npm i --no-save near-sandbox) or
+// Uses the `near-sandbox` devDependency of client/ (run npm install there), or
 // QUAY_SANDBOX_MODULE=<path to its dist/esm/index.mjs>. Set
 // NEAR_SANDBOX_BIN_PATH to reuse a neard binary instead of downloading one.
 // Deploys cli/vendor/quay.wasm, or QUAY_WASM=<path>. It skips unless that wasm
 // reports contract version 3.
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
@@ -27,9 +27,16 @@ test(
       process.env.QUAY_WASM ??
       new URL("../vendor/quay.wasm", import.meta.url).pathname;
     const wasm = readFileSync(wasmPath);
+    // Default to the client package's pinned near-sandbox devDependency.
+    const clientSandbox = new URL(
+      "../../client/node_modules/near-sandbox/dist/esm/index.mjs",
+      import.meta.url,
+    );
     const moduleUrl = process.env.QUAY_SANDBOX_MODULE
       ? pathToFileURL(process.env.QUAY_SANDBOX_MODULE).href
-      : "near-sandbox";
+      : existsSync(clientSandbox)
+        ? clientSandbox.href
+        : "near-sandbox";
     const { Sandbox, GenesisAccount } = await import(moduleUrl);
     // The CLI only talks to *.testnet accounts. The sandbox only lets its
     // registrar create `testnet`, so the site account starts in genesis.
