@@ -2,7 +2,7 @@
 //   QUAY_SANDBOX=1 node --test test/sandbox.test.mjs
 // Needs the `near-sandbox` devDependency (it downloads a neard binary on first start; set
 // NEAR_SANDBOX_BIN_PATH to reuse one) or QUAY_SANDBOX_MODULE=<path to near-sandbox/dist/esm/index.mjs>.
-// Deploys cli/vendor/quay.wasm, or QUAY_WASM=<path>. With a v3 wasm it runs the whole product path:
+// Deploys cli/vendor/quay.wasm (v3), or QUAY_WASM=<path>. Run it through the shared lock, one sandbox at a time. With a v3 wasm it runs the whole product path:
 // member joins through the relay server, posts through /relay into a site-paid collection.
 // With a v2 wasm it checks everything that does not need v3 (reads, sign-in, delegates, inner-failure reporting).
 import { test } from "node:test";
@@ -68,6 +68,10 @@ test("sandbox: relay server, member join, relayed writes and sign-in against a r
     assert.equal(member.auth.account, `alice.${SITE}`);
     assert.ok(logs.some((l) => l.startsWith("join ") && l.endsWith(`alice.${SITE}`)));
     assert.equal(await member.members.isMember(`alice.${SITE}`), true);
+    // joining the same name again: the contract's join callback returns false, the server answers 409
+    const dup = await fetch(`${url}/join`, { method: "POST", body: JSON.stringify({ name: "alice", public_key: KeyPair.fromRandom("ed25519").getPublicKey().toString() }) });
+    assert.equal(dup.status, 409);
+    assert.equal((await dup.json()).error, "name_taken");
   } else {
     const kp = KeyPair.fromRandom("ed25519");
     await owner.createSubAccount({ accountOrPrefix: `alice.${SITE}`, publicKey: kp.getPublicKey(), nearToTransfer: 0n });

@@ -18,6 +18,8 @@ export { verifySignIn } from "./verify.mjs";
 const CONNECT_URL = "https://esm.sh/@hot-labs/near-connect@0.12.0";
 const DEFAULT_GAS = 50_000_000_000_000n;
 const DELEGATE_TTL = 120n;
+const MAX_GAS = 300_000_000_000_000n;
+const DOC_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 export class QuayError extends Error {
   constructor(message, code = "quay_error") {
@@ -120,21 +122,19 @@ export function connect(options) {
   // ----- writes -----
   const failMessage = (json, fallback) => (json?.error ? (json.reason ? `${json.error}: ${json.reason}` : json.error) : fallback);
 
-  // OutLayer hosts the relayer as a function: /join, /relay and /health become op calls.
-  async function postOutlayer(path, body) {
-    const { owner, project = "relay", paymentKey, api = "https://testnet-api.outlayer.ai" } = outlayer;
-    if (!owner || !paymentKey) throw new QuayError("relay.outlayer needs { owner, paymentKey }", "bad_config");
-    const op = path.replace(/^\//, "");
+  // One OutLayer call: POST {api}/call/{owner}/{project}, answer envelope {call_id, status, output}.
+  async function outlayerCall({ owner, project, paymentKey, api = "https://testnet-api.outlayer.ai", secretsAccount = owner }, input, label) {
+    if (!owner || !paymentKey) throw new QuayError("OutLayer needs { owner, paymentKey }", "bad_config");
     const res = await doFetch(`${String(api).replace(/\/+$/, "")}/call/${owner}/${project}`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-payment-key": paymentKey },
-      body: JSON.stringify({ input: { op, ...body }, secrets_ref: { profile: "default", account_id: owner } }),
+      body: JSON.stringify({ input, secrets_ref: { profile: "default", account_id: secretsAccount } }),
     });
     let env = null;
     try {
       env = await res.json();
     } catch {}
-    if (!res.ok) throw new QuayError(failMessage(env, `outlayer ${op} failed with HTTP ${res.status}`), "relay_refused");
+    if (!res.ok) throw new QuayError(failMessage(env, `outlayer ${label} failed with HTTP ${res.status}`), "relay_refused");
     let out = env?.output;
     if (typeof out === "string") {
       try {
@@ -142,8 +142,16 @@ export function connect(options) {
       } catch {}
     }
     if (out && typeof out === "object" && out.error) throw new QuayError(failMessage(out), "relay_refused");
-    if (out == null || typeof out !== "object")
-      throw new QuayError(`outlayer ${op} ${env?.status === "failed" ? "failed" : "returned no output"}${env?.error ? `: ${env.error}` : ""}`, "relay_refused");
+    if (out == null)
+      throw new QuayError(`outlayer ${label} ${env?.status === "failed" ? "failed" : "returned no output"}${env?.error ? `: ${env.error}` : ""}`, "relay_refused");
+    return out;
+  }
+
+  // OutLayer hosts the relayer as a function: /join, /relay and /health become op calls.
+  async function postOutlayer(path, body) {
+    const op = path.replace(/^\//, "");
+    const out = await outlayerCall({ project: "relay", ...outlayer }, { op, ...body }, op);
+    if (typeof out !== "object") throw new QuayError(`outlayer ${op} returned no output`, "relay_refused");
     return out;
   }
 
@@ -221,17 +229,33 @@ export function connect(options) {
     return result;
   }
 
-  async function resultOf(method, written) {
-    if (written.outcome) return returnValue(written.outcome, site);
-    // relayed: read the inner receipt from the chain
-    const outcome = await rpc.call("EXPERIMENTAL_tx_status", {
-      tx_hash: written.hash,
-      sender_account_id: relayerId,
-      wait_until: "EXECUTED_OPTIMISTIC",
-    });
-    const bad = failureOf(outcome);
-    if (bad) throw new QuayError(`${method} failed: ${bad}`, "call_failed");
-    return returnValue(outcome, site);
+  /** The call's return value. { final: true } waits for the whole promise chain and reads the transaction result. */
+  async function resultOf(method, written, { final = false } = {}) {
+    let outcome = written.outcome;
+    if (!outcome) {
+      // relayed: read the transaction from the chain
+      outcome = await rpc.call("EXPERIMENTAL_tx_status", {
+        tx_hash: written.hash,
+        sender_account_id: relayerId,
+        wait_until: final ? "FINAL" : "EXECUTED_OPTIMISTIC",
+      });
+      const bad = failureOf(outcome);
+      if (bad) throw new QuayError(`${method} failed: ${bad}`, "call_failed");
+    }
+    return final ? returnValue({ status: outcome.status }, site) : returnValue(outcome, site);
+  }
+
+  // A collection with on_add runs a function after each add and needs the full 300 Tgas.
+  const collectionInfo = new Map();
+  async function addGas(name) {
+    if (!collectionInfo.has(name)) {
+      try {
+        collectionInfo.set(name, (await view("get_collection", { name })) ?? null);
+      } catch {
+        return defaultGas;
+      }
+    }
+    return collectionInfo.get(name)?.on_add ? MAX_GAS : defaultGas;
   }
 
   // ----- db -----
@@ -245,8 +269,12 @@ export function connect(options) {
         },
         async add(data, { id, deposit } = {}) {
           const args = { collection: name, data: JSON.stringify(data) };
-          if (id != null) args.id = String(id);
-          const written = await write("db_add", args, { deposit });
+          if (id != null) {
+            if (!DOC_ID.test(String(id)) || /^\d+$/.test(String(id)))
+              throw new QuayError("a doc id is 1 to 64 characters of A-Z a-z 0-9 _ - and may not be all digits (digits are automatic ids)", "bad_id");
+            args.id = String(id);
+          }
+          const written = await write("db_add", args, { deposit, gas: await addGas(name) });
           if (id != null) return String(id);
           return resultOf("db_add", written);
         },
@@ -374,9 +402,29 @@ export function connect(options) {
     },
   };
 
+  const fnConfig = options.functions ?? {};
+  const httpsKey = fnConfig.httpsKey ?? fnConfig.https_key ?? null;
+
   const functions = {
-    async call(name) {
-      throw new QuayError(`functions are not configured: quay.functions.call("${name}") has no function host for ${site}`, "not_configured");
+    /**
+     * Run a site function. With functions.https_key it calls OutLayer over HTTPS (no wallet needed);
+     * otherwise it sends fn_call (300 Tgas) through the member relayer, the wallet or the explicit key
+     * and returns the function output from the transaction result.
+     */
+    async call(name, input = {}) {
+      if (httpsKey)
+        return outlayerCall({ owner: site, project: name, paymentKey: httpsKey, api: fnConfig.api }, input, name);
+      const spec = await view("fn_get", { name });
+      if (!spec) throw new QuayError(`unknown function ${name}`, "unknown_function");
+      const deposit = spec.payer === "site" ? 0n : toYocto(spec.deposit ?? "5000000000000000000000");
+      const written = await write("fn_call", { name, input: JSON.stringify(input ?? {}) }, { deposit, gas: MAX_GAS });
+      const out = await resultOf("fn_call", written, { final: true });
+      if (typeof out === "string") {
+        try {
+          return JSON.parse(out);
+        } catch {}
+      }
+      return out;
     },
   };
 

@@ -223,7 +223,17 @@ export function createRelayServer(options) {
   };
 }
 
-const GAS_JOIN = 30n * 10n ** 12n;
+function joinResult(outcome) {
+  const b64 = outcome?.status?.SuccessValue;
+  if (typeof b64 !== "string" || b64 === "") return undefined;
+  try {
+    return JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
+const GAS_JOIN = 50n * 10n ** 12n;
 
 /** The real chain behind the server: a near-api-js Account for the relayer. Node only. */
 export async function createNearChain({ rpc, site, relayer, secret }) {
@@ -241,6 +251,8 @@ export async function createNearChain({ rpc, site, relayer, secret }) {
       const outcome = await account.callFunctionRaw({ contractId: site, methodName: "join", args: { name, public_key: publicKey }, gas: GAS_JOIN, deposit: 0n });
       const bad = failures(outcome);
       if (bad.length) throw new Error(`join failed: ${bad.join("; ")}`);
+      // join returns true once the member is recorded, false when the account could not be created
+      if (joinResult(outcome) === false) throw new Error("join failed: the account could not be created (it may already exist)");
       return { hash: outcome?.transaction?.hash };
     },
     relay: (bytes) => relayDelegate(bytes, { account }),

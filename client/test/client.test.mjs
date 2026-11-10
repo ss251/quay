@@ -51,11 +51,6 @@ test("writes need a sign-in", async () => {
   await assert.rejects(quay.db.collection("posts").add({ a: 1 }), (e) => e.code === "not_signed_in");
 });
 
-test("functions.call is not configured", async () => {
-  const quay = connect({ site: SITE, fetch: fakeFetch(), storage: mem() });
-  await assert.rejects(quay.functions.call("preview", {}), (e) => e instanceof QuayError && e.code === "not_configured" && /not configured/.test(e.message));
-});
-
 // ---------- wallet ----------
 function stubWallet({ accountId = "alice.testnet" } = {}) {
   const log = { sent: [], signed: [], opts: null };
@@ -385,4 +380,123 @@ test("token pay errors: member, no token, no price, unknown product", async () =
     await assert.rejects(q.pay("pin", { token: true }), (e) => e.code === code, code);
   }
   assert.equal(w.log.sent.length, 0);
+});
+
+// ---------- v3 alignment: gas, ids, functions ----------
+test("add sends 300 Tgas to a collection with on_add and 50 Tgas otherwise; get_collection is read once", async () => {
+  const w = stubWallet();
+  let reads = 0;
+  const fetch = fakeFetch({ rpc: readRpc({ get_collection: (a) => (reads++, a.name === "posts" ? { name: "posts", on_add: "moderate" } : { name: "notes", on_add: null }) }) });
+  const quay = connect({ site: SITE, fetch, storage: mem(), wallet: w.module });
+  await quay.auth.signIn({ mode: "wallet" });
+  await quay.db.collection("posts").add({ a: 1 });
+  await quay.db.collection("posts").add({ a: 2 });
+  await quay.db.collection("notes").add({ a: 3 });
+  const gas = w.log.sent.map((t) => t.actions[0].params.gas);
+  assert.deepEqual(gas, ["300000000000000", "300000000000000", "50000000000000"]);
+  assert.equal(reads, 2);
+});
+
+test("relayed add carries 300 Tgas for an on_add collection and passes the relay policy", async () => {
+  const r = relayStub();
+  const base = r.fetch;
+  const fetch = async (url, init) => {
+    const body = init?.body ? JSON.parse(init.body) : null;
+    if (body?.method === "query" && body.params.method_name === "get_collection") return { ok: true, status: 200, json: async () => ({ result: viewResult({ name: "posts", on_add: "moderate" }) }) };
+    return base(url, init);
+  };
+  const quay = connect({ site: SITE, fetch, storage: mem(), relay: "https://relay.example" });
+  await quay.auth.signIn({ mode: "member", name: "alice" });
+  await quay.db.collection("posts").add({ a: 1 }, { id: "x" });
+  const dec = decodeSignedDelegate(Buffer.from(r.state.relayed[0], "base64"));
+  assert.equal(dec.delegate.actions[0].gas, 300_000_000_000_000n);
+  const v = await checkDelegate(r.state.relayed[0], { site: SITE, store: memoryStore() }, { ms: Date.now(), height: 5000 });
+  assert.equal(v.ok, true, v.reason);
+});
+
+test("explicit doc ids may not be all digits", async () => {
+  const w = stubWallet();
+  const quay = connect({ site: SITE, fetch: fakeFetch({ rpc: readRpc({ get_collection: () => null }) }), storage: mem(), wallet: w.module });
+  await quay.auth.signIn({ mode: "wallet" });
+  for (const id of ["12", "0", "", "a b", "x".repeat(65)]) await assert.rejects(quay.db.collection("posts").add({ a: 1 }, { id }), (e) => e.code === "bad_id", id);
+  assert.equal(await quay.db.collection("posts").add({ a: 1 }, { id: "a1" }), "a1");
+  assert.equal(w.log.sent.length, 1);
+});
+
+function fnWallet(output) {
+  const w = stubWallet();
+  const base = w.module.NearConnector.prototype.wallet;
+  w.module.NearConnector.prototype.wallet = async function () {
+    const x = await base.call(this);
+    x.signAndSendTransaction = async (tx) => {
+      w.log.sent.push(tx);
+      return { transaction: { hash: "TXF" }, status: { SuccessValue: btoa(JSON.stringify(output)) }, receipts_outcome: [{ outcome: { executor_id: SITE, status: { SuccessValue: "" } } }] };
+    };
+    return x;
+  };
+  return w;
+}
+const fnRpc = (spec) => readRpc({ fn_get: () => spec });
+
+test("functions.call sends fn_call with 300 Tgas and the run deposit, and returns the transaction result", async () => {
+  const w = fnWallet('{"summary":"hi"}'); // the contract returns the output as JSON text
+  const quay = connect({ site: SITE, fetch: fakeFetch({ rpc: fnRpc({ call: "anyone", payer: "caller", deposit: "5000000000000000000000" }) }), storage: mem(), wallet: w.module });
+  await quay.auth.signIn({ mode: "wallet" });
+  const out = await quay.functions.call("preview", { url: "https://x" });
+  assert.deepEqual(out, { summary: "hi" });
+  const p = w.log.sent[0].actions[0].params;
+  assert.equal(p.methodName, "fn_call");
+  assert.equal(p.gas, "300000000000000");
+  assert.equal(p.deposit, "5000000000000000000000");
+  assert.deepEqual(p.args, { name: "preview", input: '{"url":"https://x"}' });
+});
+
+test("functions.call on a site-paid function attaches nothing; unknown function errors", async () => {
+  const w = fnWallet({ ok: true });
+  const quay = connect({ site: SITE, fetch: fakeFetch({ rpc: fnRpc({ call: "anyone", payer: "site", deposit: "5" }) }), storage: mem(), wallet: w.module });
+  await quay.auth.signIn({ mode: "wallet" });
+  assert.deepEqual(await quay.functions.call("preview"), { ok: true });
+  assert.equal(w.log.sent[0].actions[0].params.deposit, "0");
+  assert.equal(w.log.sent[0].actions[0].params.args.input, "{}");
+  const none = connect({ site: SITE, fetch: fakeFetch({ rpc: fnRpc(null) }), storage: mem(), wallet: w.module });
+  await none.auth.signIn({ mode: "wallet" });
+  await assert.rejects(none.functions.call("nope"), (e) => e.code === "unknown_function");
+});
+
+test("functions.call through the member relayer: caller-paid needs a wallet, site-paid reads the final result", async () => {
+  const r = relayStub();
+  let spec = { payer: "caller", deposit: "5" };
+  const base = r.fetch;
+  const seen = [];
+  const fetch = async (url, init) => {
+    const body = init?.body ? JSON.parse(init.body) : null;
+    if (body?.method === "query" && body.params.method_name === "fn_get") return { ok: true, status: 200, json: async () => ({ result: viewResult(spec) }) };
+    if (body?.method === "EXPERIMENTAL_tx_status") {
+      seen.push(body.params);
+      return { ok: true, status: 200, json: async () => ({ result: { status: { SuccessValue: btoa('"{\\"n\\":7}"') }, receipts_outcome: [] } }) };
+    }
+    return base(url, init);
+  };
+  const quay = connect({ site: SITE, fetch, storage: mem(), relay: "https://relay.example" });
+  await quay.auth.signIn({ mode: "member", name: "alice" });
+  await assert.rejects(quay.functions.call("preview", {}), (e) => e.code === "deposit_needs_wallet");
+  spec = { payer: "site", deposit: "5" };
+  assert.deepEqual(await quay.functions.call("preview", {}), { n: 7 });
+  assert.equal(seen[0].wait_until, "FINAL");
+  const dec = decodeSignedDelegate(Buffer.from(r.state.relayed[0], "base64"));
+  assert.equal(dec.delegate.actions[0].methodName, "fn_call");
+  assert.equal(dec.delegate.actions[0].gas, 300_000_000_000_000n);
+});
+
+test("functions.call over HTTPS when the site config has a key", async () => {
+  const ol = outlayerStub((input) => ({ summary: `got ${input.url}` }));
+  const quay = connect({ site: SITE, fetch: ol, storage: mem(), functions: { https_key: "owner:1:secret" } });
+  const out = await quay.functions.call("preview", { url: "u" });
+  assert.deepEqual(out, { summary: "got u" });
+  const c = ol.calls[0];
+  assert.equal(c.url, `https://testnet-api.outlayer.ai/call/${SITE}/preview`);
+  assert.equal(c.headers["x-payment-key"], "owner:1:secret");
+  assert.deepEqual(c.body, { input: { url: "u" }, secrets_ref: { profile: "default", account_id: SITE } });
+  const failing = connect({ site: SITE, fetch: outlayerStub(() => ({ error: "bad_input", reason: "url missing" })), storage: mem(), functions: { httpsKey: "k" } });
+  await assert.rejects(failing.functions.call("preview", {}), /bad_input: url missing/);
 });

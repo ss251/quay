@@ -1054,7 +1054,16 @@ function createRelayServer(options) {
     close: () => new Promise((resolve) => server.close(() => resolve()))
   };
 }
-var GAS_JOIN = 30n * 10n ** 12n;
+function joinResult(outcome) {
+  const b64 = outcome?.status?.SuccessValue;
+  if (typeof b64 !== "string" || b64 === "") return void 0;
+  try {
+    return JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+  } catch {
+    return void 0;
+  }
+}
+var GAS_JOIN = 50n * 10n ** 12n;
 async function createNearChain({ rpc, site, relayer, secret }) {
   const { Account, JsonRpcProvider } = await import("near-api-js");
   const provider = new JsonRpcProvider({ url: rpc });
@@ -1070,6 +1079,7 @@ async function createNearChain({ rpc, site, relayer, secret }) {
       const outcome = await account.callFunctionRaw({ contractId: site, methodName: "join", args: { name, public_key: publicKey }, gas: GAS_JOIN, deposit: 0n });
       const bad = failures(outcome);
       if (bad.length) throw new Error(`join failed: ${bad.join("; ")}`);
+      if (joinResult(outcome) === false) throw new Error("join failed: the account could not be created (it may already exist)");
       return { hash: outcome?.transaction?.hash };
     },
     relay: (bytes) => relay(bytes, { account })
