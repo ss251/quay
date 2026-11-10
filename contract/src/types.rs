@@ -1,7 +1,13 @@
+use std::collections::BTreeMap;
+
 use near_sdk::json_types::{Base64VecU8, U64};
+use near_sdk::serde_json::Value;
 use near_sdk::{near, AccountId};
 
-pub const VERSION: &str = "2.0.0";
+use crate::routes::RouteIn;
+
+pub const VERSION: &str = "3.0.0";
+pub const STATE_VERSION: u32 = 3;
 pub const STANDARD: &str = "quay";
 pub const INDEX_PATH: &str = "index.html";
 pub const NOT_FOUND_PATH: &str = "404.html";
@@ -64,8 +70,31 @@ pub struct Sale {
 #[near(serializers = [json])]
 pub struct FileIn {
     pub path: String,
+    #[serde(default)]
     pub chunks: Vec<String>,
     pub content_type: String,
+    /// A file whose bytes live off chain (section 7). It has no chunks.
+    #[serde(default)]
+    pub external: Option<ExternalIn>,
+}
+
+/// JSON form of an off-chain file reference.
+#[near(serializers = [json])]
+#[derive(Clone, Debug)]
+pub struct ExternalIn {
+    pub cid: String,
+    pub size: U64,
+    pub sha256: String,
+}
+
+/// Borsh form of an off-chain file, stored per release next to the v2 file list.
+/// The digest stays in the release's `StoredFile.sha256`.
+#[near(serializers = [borsh])]
+#[derive(Clone)]
+pub struct ExternalFile {
+    pub path: String,
+    pub cid: String,
+    pub size: u64,
 }
 
 #[near(serializers = [json])]
@@ -74,6 +103,8 @@ pub struct FileOut {
     pub sha256: String,
     pub content_type: String,
     pub chunks: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external: Option<ExternalIn>,
 }
 
 #[near(serializers = [json])]
@@ -86,6 +117,8 @@ pub struct ReleaseDetail {
     pub sha256: String,
     pub spa: bool,
     pub files: Vec<FileOut>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub routes: Vec<RouteIn>,
 }
 
 #[near(serializers = [json])]
@@ -143,11 +176,20 @@ pub struct VersionInfo {
     pub standard: String,
 }
 
+/// The gateway request. Unknown fields are ignored.
 #[near(serializers = [json])]
+#[derive(Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Web4Request {
     #[serde(default)]
+    pub account_id: Option<String>,
+    #[serde(default)]
     pub path: String,
+    /// Every value is an array of strings. A bare string is accepted too.
+    #[serde(default)]
+    pub query: BTreeMap<String, Value>,
+    #[serde(default)]
+    pub preloads: Option<Value>,
 }
 
 #[near(serializers = [json])]
@@ -180,7 +222,7 @@ impl Release {
         }
     }
 
-    pub fn detail(&self, id: String) -> ReleaseDetail {
+    pub fn detail(&self, id: String, externals: &[ExternalFile], routes: Vec<RouteIn>) -> ReleaseDetail {
         ReleaseDetail {
             id,
             timestamp: U64(self.timestamp_ns),
@@ -197,8 +239,17 @@ impl Release {
                     sha256: file.sha256.clone(),
                     content_type: file.content_type.clone(),
                     chunks: file.chunks.clone(),
+                    external: externals
+                        .iter()
+                        .find(|ext| ext.path == file.path)
+                        .map(|ext| ExternalIn {
+                            cid: ext.cid.clone(),
+                            size: U64(ext.size),
+                            sha256: file.sha256.clone(),
+                        }),
                 })
                 .collect(),
+            routes,
         }
     }
 }
