@@ -57,6 +57,9 @@ function fileStorage(name) {
   };
 }
 
+// OutLayer relay calls can stall; give up after 120 s and look before retrying
+const timedFetch = (url, init) =>
+  fetch(url, { ...init, signal: AbortSignal.timeout(120_000) });
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
 async function retry(label, task, tries = 6) {
@@ -66,7 +69,11 @@ async function retry(label, task, tries = 6) {
     } catch (error) {
       if (
         attempt >= tries ||
-        !["member_key_missing", "relay_refused"].includes(error.code) ||
+        !(
+          ["member_key_missing", "relay_refused"].includes(error.code) ||
+          error.name === "TimeoutError" ||
+          error.name === "AbortError"
+        ) ||
         /rate|limit/i.test(error.message)
       )
         throw error;
@@ -109,7 +116,13 @@ export async function seed({
 
   const clients = {};
   for (const name of Object.keys(data.members)) {
-    const quay = connect({ site, rpc, relay, storage: fileStorage(name) });
+    const quay = connect({
+      site,
+      rpc,
+      relay,
+      storage: fileStorage(name),
+      fetch: timedFetch,
+    });
     await retry(`join ${name}`, () =>
       quay.auth.signIn({ mode: "member", name }),
     );

@@ -4,8 +4,8 @@
     "dunstan": "fish market",
     "priya": "lifeboat crew",
     "tobias": "ferry deck",
-    "halvard": "sailing club",
-    "wren": "berth 4"
+    "halvard": "sailing club and berth 4",
+    "promo-bot": "not a harbour member"
   },
   "posts": [
     {
@@ -16,7 +16,7 @@
       "link": "https://www.metoffice.gov.uk/"
     },
     {
-      "by": "wren",
+      "by": "halvard",
       "topic": "berths",
       "title": "Lost oar at berth 4",
       "body": "Found one ash oar, about two metres, green tape round the loom, lying loose on the berth 4 pontoon after Saturday's blow. It is not mine. It is in the office hatch now. Tell Maren what boat it goes with and it is yours."
@@ -53,7 +53,13 @@
       "body": "The club is clearing the loft. There are buoyancy aids in children's sizes, a pile of old sails for covers and cushions, three pairs of wellingtons, odd blocks and cleats, and a lot of rope.\nSaturday morning outside the clubhouse, from nine. Cash box on the table, and anything left goes to the skip at noon."
     },
     {
-      "by": "wren",
+      "by": "promo-bot",
+      "topic": "notice",
+      "title": "FREE MONEY crypto giveaway for harbour members",
+      "body": "Double your coins today. Free money, casino bonus and a crypto giveaway for everyone who sends their seed phrase to this notice board. Act now!!!"
+    },
+    {
+      "by": "halvard",
       "topic": "berths",
       "title": "Slipway gate sticks when it rains",
       "body": "The gate to the public slipway drops on its hinge and will not latch in wet weather. Lift it and push it closed. Someone will bring a plane to it, but until then please do not leave it open, because the trailers on the hard roll on a slope."
