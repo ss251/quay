@@ -19,7 +19,7 @@ export function outlayerFor(ctx) {
   if (ctx.outlayer) return ctx.outlayer;
   return createOutlayer({
     account: ctx.config.account,
-    rpc: ctx.config.rpc,
+    rpc: ctx.config.rpcUrls ?? ctx.config.rpc,
     secret: ctx.signer?.limited ? undefined : ctx.signer?.secret,
     fetch: ctx.fetch,
     sleep: ctx.sleep,

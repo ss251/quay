@@ -11,7 +11,9 @@ import {
   hkdfSync,
   randomBytes,
 } from "node:crypto";
-import { Account, JsonRpcProvider, actions, teraToGas } from "near-api-js";
+import { Account, actions, teraToGas } from "near-api-js";
+
+import { createProvider } from "./chain.mjs";
 
 import { QuayError } from "./errors.mjs";
 import { classifyChainError } from "./text.mjs";
@@ -157,7 +159,7 @@ function outcomeSummary(outcome) {
 
 /** Chain access through near-api-js. Tests pass their own `{ view, call }`. */
 export function nearSender({ account, rpc, secret }) {
-  const provider = new JsonRpcProvider({ url: rpc });
+  const provider = createProvider(rpc);
   const signer = secret ? new Account(account, provider, secret) : null;
   return {
     async view(contractId, method, args = {}) {

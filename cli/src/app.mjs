@@ -583,10 +583,11 @@ async function finishInit(ctx, account, key, hash, adopted, version = "2.0.0") {
       private_key: key.secret,
     });
   }
+  // Write rpc only when the user named one, so failover stays on by default.
   const config = {
     account,
     network: "testnet",
-    rpc: ctx.config.rpc,
+    ...(ctx.config.rpcExplicit ? { rpc: ctx.config.rpc } : {}),
     gateway: gatewayFor(account),
   };
   // Keep sections an existing quay.json already has; add the default store.

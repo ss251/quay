@@ -87,14 +87,18 @@ export async function main(argv, io = {}) {
         ...base,
         config: nextConfig,
         signer: { secret, publicKey, limited: false },
-        chain: createChain({ accountId: account, rpc: nextConfig.rpc, secret }),
+        chain: createChain({
+          accountId: account,
+          rpc: nextConfig.rpcUrls ?? nextConfig.rpc,
+          secret,
+        }),
       };
     };
     const chain =
       config.account && !showingHelp
         ? createChain({
             accountId: config.account,
-            rpc: config.rpc,
+            rpc: config.rpcUrls ?? config.rpc,
             secret: signer?.secret,
           })
         : null;

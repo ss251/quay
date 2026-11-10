@@ -4,7 +4,9 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Account, JsonRpcProvider, KeyPair } from "near-api-js";
+import { Account, KeyPair } from "near-api-js";
+
+import { createProvider } from "./chain.mjs";
 
 import { requireAccount, readKeyFile } from "./config.mjs";
 import { QuayError, usage } from "./errors.mjs";
@@ -65,9 +67,9 @@ function waitForSignal() {
 async function balanceOf(ctx, relayer) {
   if (ctx.relayBalance) return ctx.relayBalance(relayer);
   try {
-    const view = await new JsonRpcProvider({ url: ctx.config.rpc }).viewAccount(
-      { accountId: relayer },
-    );
+    const view = await createProvider(
+      ctx.config.rpcUrls ?? ctx.config.rpc,
+    ).viewAccount({ accountId: relayer });
     return BigInt(view.amount);
   } catch {
     return null;
@@ -228,7 +230,7 @@ async function create(ctx, parsed) {
     (async ({ relayer: id, publicKey: pk, amount: yocto }) => {
       const account = new Account(
         site,
-        new JsonRpcProvider({ url: ctx.config.rpc }),
+        createProvider(ctx.config.rpcUrls ?? ctx.config.rpc),
         ctx.signer.secret,
       );
       const outcome = await account.createSubAccount({

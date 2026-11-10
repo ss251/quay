@@ -7,6 +7,7 @@ import {
   teraToGas,
 } from "near-api-js";
 
+import { createFailoverProvider } from "./failover.mjs";
 import { chainError, QuayError } from "./errors.mjs";
 import {
   classifyChainError,
@@ -27,8 +28,11 @@ export function publicKeyOf(secret) {
   return KeyPair.fromString(secret).getPublicKey().toString();
 }
 
+/** One URL, or a list to fail over across. */
 export function createProvider(rpc) {
-  return new JsonRpcProvider({ url: rpc });
+  const urls = (Array.isArray(rpc) ? rpc : [rpc]).filter(Boolean);
+  if (urls.length > 1) return createFailoverProvider(urls);
+  return new JsonRpcProvider({ url: urls[0] });
 }
 
 export function accountFromSecret(accountId, provider, secret) {

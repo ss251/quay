@@ -5,7 +5,9 @@ import { dirname, join, resolve } from "node:path";
 import { QuayError } from "./errors.mjs";
 import { assertTestnet } from "./text.mjs";
 
-export const DEFAULT_RPC = "https://test.rpc.fastnear.com";
+import { DEFAULT_RPC_URLS } from "./failover.mjs";
+
+export const DEFAULT_RPC = DEFAULT_RPC_URLS[0];
 export const FAUCET_URL = "https://helper.nearprotocol.com/account";
 
 export function findConfig(start = process.cwd()) {
@@ -36,12 +38,22 @@ export function resolveConfig(flags, start = process.cwd()) {
   const file = findConfig(start);
   const account = flags.account || process.env.QUAY_ACCOUNT || file?.account;
   const network = process.env.QUAY_NETWORK || file?.network || "testnet";
-  const rpc = flags.rpc || process.env.QUAY_RPC || file?.rpc || DEFAULT_RPC;
+  const given = flags.rpcList?.length
+    ? flags.rpcList
+    : [flags.rpc || process.env.QUAY_RPC || file?.rpc].filter(
+        (value) => typeof value === "string" && value,
+      );
+  // An RPC the user named is the only one used. Without one, fail over.
+  const rpcExplicit = given.length > 0;
+  const rpcUrls = rpcExplicit ? given : DEFAULT_RPC_URLS;
+  const rpc = rpcUrls[0];
   assertTestnet(network);
   return {
     account,
     network,
     rpc,
+    rpcUrls,
+    rpcExplicit,
     gateway: account ? gatewayFor(account) : file?.gateway,
     path: file?.path ?? null,
   };
