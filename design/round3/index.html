@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quay: your app on your own NEAR account</title>
+<meta name="description" content="Quay seals every deploy as a release with its own URL. Production is a pointer you promote or roll back.">
+<meta name="theme-color" content="#f9fafb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0c0e" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Quay: deploy static sites to NEAR testnet">
+<meta property="og:description" content="Quay seals every deploy as a release with its own URL. Production is a pointer you promote or roll back.">
+<meta property="og:image" content="https://quay-esc0v902.testnet.page/assets/og.png">
+<meta property="og:url" content="https://quay-esc0v902.testnet.page/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/quay.css">
+<script>try{const t=localStorage.getItem("quay-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+<script type="module" src="assets/quay.js"></script>
+<script>const qt=new URLSearchParams(location.search).get("theme");if(qt)document.documentElement.dataset.theme=qt</script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="site-nav"><div class="container">
+<a class="brand" href="index.html"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--live)"/></svg>Quay</a>
+<nav aria-label="Site"><a href="docs/index.html">Docs</a><a class="hide-s" href="dashboard/index.html">Dashboard</a><a class="hide-s" href="https://quay-65nqd3rn.testnet.page/">Sample</a></nav>
+<div class="nav-end"><span class="net hide-s"><span class="dot dot-live"></span>Testnet</span>
+<button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme"><svg class="icon i-moon" aria-hidden="true"><use href="assets/icons.svg#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="assets/icons.svg#i-sun"/></svg></button>
+<a class="btn btn-sm btn-primary" href="dashboard/index.html">Open dashboard</a></div>
+</div></header>
+<main id="content">
+<section class="night">
+<a class="pill" href="#sample"><span class="chip chip-live"><span class="dot dot-live"></span>Live</span>Static hosting runs on NEAR testnet today<svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-right"/></svg></a>
+<h1>Your app, on your own NEAR account.</h1>
+<p class="sub">Every deploy is a sealed release with its own URL, on an account you hold. Production moves only when you say so. No signup, no servers to rent, and data, functions and sign-in are on their way to the same account.</p>
+<div class="ctas"><a class="btn btn-lg btn-primary" href="dashboard/index.html?account=quay-65nqd3rn.testnet">Open the dashboard</a><a class="btn btn-lg" href="docs/index.html">Read the docs</a></div>
+<div class="hero-stage" role="img" aria-label="The Quay canvas for the sample account: quay deploy seals release 5, release 5 is the live site, visitors reach it through the testnet.page gateway, and data and functions are shown as layers that are coming next.">
+<div class="stage" id="hero-stage" aria-hidden="true" data-edges="term>release:plain release>site:deploy visitors>gateway:flow gateway>site:flow site>data:soon:v site>functions:soon:v">
+<svg class="edges" aria-hidden="true"></svg>
+<div class="term-mini" data-node="term" style="left:36px;top:52px"><div class="term-bar"><span>~/harbour</span><span class="state"><span class="dot"></span>sealed</span></div><pre><span class="p">$</span> quay deploy ./dist
+<span class="d">8 files, 8.1 KB new</span>
+<span class="g">5</span>  <span class="u">…testnet.page/r/5/</span>
+<span class="p">$</span> quay promote 5</pre></div>
+<div class="node" data-node="release" style="left:380px;top:44px"><div class="node-head"><span class="svc svc-site"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-box"/></svg></span><div style="min-width:0"><div class="node-name">Release 5</div><div class="node-sub">harbour office, new look</div></div></div><div class="seal-bar"><i></i></div><div class="node-status muted"><span class="dot"></span>Sealed at /r/5/</div><div class="node-foot">8 files, 8,910 B</div></div>
+<div class="node wide" data-node="site" style="left:736px;top:44px;--c:var(--svc-site)"><div class="node-head"><span class="svc svc-site"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-site"/></svg></span><div style="min-width:0"><div class="node-name">Site</div><div class="node-sub">quay-65nqd3rn.testnet.page</div></div><span class="chip chip-accent" style="margin-left:auto">prod 5</span></div><div class="mini"><div class="t-nav"><b>Harbour office</b><span>Board</span><span>Tide log</span><span>Berth 4</span></div><div class="t-body"><strong>Tide, berth, and the board.</strong><span class="rel">Release 5</span><span class="t-p">This page is the build that was sealed as that release.</span><i><b>Berth 1</b><span>Pilot boat</span><span>06:40</span></i><i><b>Berth 2</b><span>Ferry</span><span>07:15</span></i><i><b>Berth 4</b><span>Supply</span><span>09:30</span></i></div></div><div class="node-status"><span class="dot dot-live"></span>Live, release 5</div></div>
+<div class="node" data-node="visitors" style="left:36px;top:340px;width:208px"><div class="node-head"><span class="svc svc-visitor"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-user"/></svg></span><div><div class="node-name">Visitors</div><div class="node-sub">any browser</div></div></div></div>
+<div class="node" data-node="gateway" style="left:380px;top:332px"><div class="node-head"><span class="svc svc-gateway"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-gateway"/></svg></span><div style="min-width:0"><div class="node-name">Gateway</div><div class="node-sub">testnet.page, web4_get</div></div></div><div class="node-status"><span class="dot dot-live"></span>Serving production</div></div>
+<div class="node ghost" data-node="data" style="left:740px;top:388px;width:190px"><div class="node-head"><span class="svc svc-data sm"><svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-db"/></svg></span><div class="node-name">Data</div></div><span class="add">Coming next</span></div>
+<div class="node ghost" data-node="functions" style="left:950px;top:388px;width:190px"><div class="node-head"><span class="svc svc-fn sm"><svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-fn"/></svg></span><div class="node-name">Functions</div></div><span class="add">Coming next</span></div>
+</div></div>
+</section>
+<div class="container">
+<div class="facts">
+<div><strong>5 releases</strong><span>on the sample, each at its own URL</span></div>
+<div><strong>17,717 bytes</strong><span>stored for all five, shared files once</span></div>
+<div><strong>1 call</strong><span>to roll production back</span></div>
+<div><strong>0 keys</strong><span>held by the dashboard page</span></div>
+</div>
+</div>
+<section class="section" id="how">
+<div class="container">
+<div class="section-head">
+<span class="kicker">How it works</span>
+<h2>From a folder to production in three steps</h2>
+<p class="lede">Each step is one command, and the contract on your account records it. Nothing is overwritten: a release you sealed last week still opens at its URL.</p>
+</div>
+<ol class="steps">
+<li class="step">
+<div class="step-vis" aria-hidden="true"><div class="term"><div class="term-bar"><span>~/site</span><span class="state"><span class="dot"></span>sealed</span></div>
+<pre><span class="p">$</span> quay deploy ./site -m "second board"
+<span class="d">8 files, 1.1 KB new, 5.2 KB reused</span>
+<span class="bar" style="width:120px"></span><span class="d">1/1 index.html</span>
+<span class="g">2</span>  <span class="u">…i7qkbbp3.testnet.page/r/2/</span></pre></div></div>
+<div class="step-text"><h3><span class="step-n">1</span>Deploy</h3><p><code>quay deploy</code> uploads the folder in chunks, skips bytes the account already stores, and prints a preview URL.</p></div>
+</li>
+<li class="step">
+<div class="step-vis" aria-hidden="true"><div class="card"><div class="card-head"><span class="l1"><span class="mono">5</span>harbour office, new look</span><span class="chip"><span class="dot"></span>Sealed</span></div><div class="card-body"><dl class="kv"><dt>Preview</dt><dd class="mono">/r/5/</dd><dt>Files</dt><dd class="num">8, 8,910 bytes</dd><dt>Hash</dt><dd class="mono">f3fde7b5…cce8</dd><dt>Sealed</dt><dd>Nov 10, 16:51 UTC</dd></dl></div></div></div>
+<div class="step-text"><h3><span class="step-n">2</span>Seal</h3><p>The release gets a permanent id. Its files, message and byte count are fixed, and <code>/r/&lt;id&gt;/</code> keeps serving that build.</p></div>
+</li>
+<li class="step">
+<div class="step-vis" aria-hidden="true"><div class="card"><div class="card-head"><span class="card-title">Production</span><span class="btn btn-sm"><svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-undo"/></svg>Roll back</span></div><ol class="timeline"><li><span class="ti up"><svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-up"/></svg></span><span class="what"><b>Promoted 5</b> <span class="muted">from 4</span></span><span class="when">16:51</span></li><li><span class="ti back"><svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-undo"/></svg></span><span class="what"><b>Rolled back to 2</b> <span class="muted">from 3</span></span><span class="when">14:06</span></li></ol></div></div>
+<div class="step-text"><h3><span class="step-n">3</span>Promote or roll back</h3><p>The host root follows the production pointer. <code>quay rollback</code> swaps it with the previous release. No re-upload.</p></div>
+</li>
+</ol>
+</div>
+</section>
+<section class="section" id="ci">
+<div class="container split-sec">
+<div>
+<span class="kicker">CI</span>
+<h2>A CI key that can preview, and cannot ship</h2>
+<p class="lede">Give your pipeline a publish-only key. Every pull request gets its own sealed preview. Moving production still takes the owner.</p>
+<ul class="ticks">
+<li><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-check"/></svg><span><b>Scoped on chain.</b> The key may call <code>put_chunk</code> and <code>seal</code>, nothing else.</span></li>
+<li><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-check"/></svg><span><b>Refused twice.</b> The CLI exits 3 before sending a promote, and the contract rejects one sent anyway.</span></li>
+<li><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-check"/></svg><span><b>Shown once.</b> <code>quay keys create --ci</code> prints the secret for <code>QUAY_CI_KEY</code> and keeps a 0600 copy outside the repo.</span></li>
+</ul>
+</div>
+<div class="stack">
+<div class="card" style="box-shadow:0 0 0 1px var(--line),var(--shadow-md)">
+<div class="card-head"><span class="l1"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-key"/></svg>Publish-only key</span><span class="chip chip-outline">Function-call key</span></div>
+<div class="perm"><code>put_chunk</code><span class="yes"><svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-check"/></svg>Allowed</span></div>
+<div class="perm"><code>seal</code><span class="yes"><svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-check"/></svg>Allowed</span></div>
+<div class="perm"><span><code>promote</code>, <code>rollback</code>, <code>delete</code></span><span class="no"><svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-x"/></svg>Needs the owner</span></div>
+</div>
+<div class="term">
+<div class="term-bar"><span>.github/workflows/preview.yml</span><span>exit 3</span></div>
+<pre><span class="p">$</span> quay deploy ./dist --ci --yes
+<span class="g">3</span>  <span class="u">https://quay-i7qkbbp3.testnet.page/r/3/</span>
+<span class="p">$</span> quay promote 3 --ci
+<span class="r">quay: a publish-only key cannot do that</span></pre>
+</div>
+</div>
+</div>
+</section>
+<section class="section" id="cost">
+<div class="container split-sec top">
+<div>
+<span class="kicker">Cost</span>
+<h2>You pay for bytes, not builds</h2>
+<p class="lede">NEAR locks storage on the account that holds it. Quay prints the estimate before it spends, and stores a file once even if ten releases use it. Delete a release that is not production and its bytes unlock on the same account.</p>
+</div>
+<div class="card" style="overflow:hidden">
+<table class="rates">
+<thead><tr><th>Item</th><th class="v">Locked</th></tr></thead>
+<tbody>
+<tr><td>Storage<small>NEAR's rate for contract state</small></td><td class="v">0.01 NEAR / 1,000 B</td></tr>
+<tr><td>The harbour sample<small>5 releases, 17,717 bytes sealed</small></td><td class="v">≈ 0.18 NEAR</td></tr>
+<tr><td>The Quay contract<small>216,419 bytes of wasm, once per account</small></td><td class="v">≈ 2.16 NEAR</td></tr>
+<tr><td>A packed install, end to end<small>2 site releases, a CI preview and an agent page</small></td><td class="v">2.3151 NEAR</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section class="section" id="sample">
+<div class="container">
+<div class="section-head">
+<span class="kicker">Live on testnet</span>
+<h2>The sample site, five releases deep</h2>
+<p class="lede">Production is release 5. Release 4 is where a rollback lands. Every release still answers at its own address, including the four older looks. The frame below is the live site.</p>
+</div>
+<div class="sample-grid">
+<div class="window">
+<div class="window-bar"><div class="lights"><i></i><i></i><i></i></div><div class="url"><span><svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-lock"/></svg>quay-65nqd3rn.testnet.page</span></div><div class="spacer"></div></div>
+<div class="live-frame"><iframe src="https://quay-65nqd3rn.testnet.page/" title="The harbour sample, live" sandbox="allow-scripts allow-same-origin" tabindex="-1" aria-hidden="true"></iframe></div>
+</div>
+<div class="card">
+<div class="card-head"><span class="card-title">quay-65nqd3rn.testnet</span><a class="btn btn-sm" href="dashboard/index.html?account=quay-65nqd3rn.testnet">Open in dashboard</a></div>
+<ol class="rows">
+<li class="rel-row is-live" style="grid-template-columns:40px 1fr auto"><span class="id">5</span><div><div class="l1">harbour office, new look <span class="chip chip-live">Production</span></div><div class="l2 mono">/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="https://quay-65nqd3rn.testnet.page/" aria-label="Open production"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-ext"/></svg></a></li>
+<li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">4</span><div><div class="l1">harbour office <span class="chip chip-prev">Previous</span></div><div class="l2 mono">/r/4/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="https://quay-65nqd3rn.testnet.page/r/4/" aria-label="Open release 4"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-ext"/></svg></a></li>
+<li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">3</span><div><div class="l1">latest preview</div><div class="l2 mono">/r/3/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="https://quay-65nqd3rn.testnet.page/r/3/" aria-label="Open release 3"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-ext"/></svg></a></li>
+<li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">2</span><div><div class="l1">tide log linked</div><div class="l2 mono">/r/2/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="https://quay-65nqd3rn.testnet.page/r/2/" aria-label="Open release 2"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-ext"/></svg></a></li>
+<li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">1</span><div><div class="l1">harbour opens</div><div class="l2 mono">/r/1/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="https://quay-65nqd3rn.testnet.page/r/1/" aria-label="Open release 1"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-ext"/></svg></a></li>
+</ol>
+</div>
+</div>
+</div>
+</section>
+<section class="cta-band">
+<div class="container">
+<h2>Start with four commands</h2>
+<p class="lede">Node 20 or newer, and a checkout of this repository. The faucet funds the testnet account.</p>
+<div class="code-card">
+<div class="term">
+<div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="start-cmds" aria-label="Copy the commands"><svg class="icon sm" aria-hidden="true"><use href="assets/icons.svg#i-copy"/></svg></button></div>
+<pre id="start-cmds">npm install -g ./cli
+quay init
+quay deploy ./dist -m "first release"
+quay promote 1</pre>
+</div>
+</div>
+<div class="ctas"><a class="btn btn-lg btn-primary" href="docs/index.html">Read the docs</a><a class="btn btn-lg" href="dashboard/index.html">Open the dashboard</a></div>
+</div>
+</section>
+</main>
+<footer class="site-foot"><div class="container">
+<div class="cols">
+<div><a class="brand" href="index.html"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--live)"/></svg>Quay</a><p class="muted" style="margin-top:14px;max-width:34ch">Sealed releases and a production pointer for static sites on NEAR testnet.</p></div>
+<div><h2>Product</h2><ul><li><a href="docs/index.html">Docs</a></li><li><a href="dashboard/index.html">Dashboard</a></li><li><a href="docs/index.html#cli">Commands</a></li></ul></div>
+<div><h2>Sample</h2><ul><li><a href="https://quay-65nqd3rn.testnet.page/">Production</a></li><li><a href="https://quay-65nqd3rn.testnet.page/r/1/">Release 1</a></li><li><a href="dashboard/index.html?account=quay-65nqd3rn.testnet">In the dashboard</a></li></ul></div>
+<div><h2>On chain</h2><ul><li><a href="https://explorer.testnet.near.org/accounts/quay-esc0v902.testnet">This site's account</a></li><li><a href="https://explorer.testnet.near.org/accounts/quay-65nqd3rn.testnet">Sample account</a></li><li><a href="docs/index.html#how">How it works</a></li></ul></div>
+</div>
+<div class="small"><span>Testnet only. No mainnet path and no real funds.</span><span class="mono">quay-esc0v902.testnet</span></div>
+</div></footer>
+<script type="module" src="assets/canvas.js"></script>
+</body>
+</html>
