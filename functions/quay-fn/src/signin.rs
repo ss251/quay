@@ -127,6 +127,10 @@ pub fn verify_sign_in(proof: &Value, opts: &Options, rpc: &Rpc) -> Result<SignIn
 
 /// `YYYY-MM-DDTHH:MM:SS[.fff][Z|±HH:MM]` → milliseconds since the epoch.
 pub fn parse_iso8601_ms(text: &str) -> Option<u64> {
+    // Every slice below is by byte offset; a timestamp is ASCII.
+    if !text.is_ascii() {
+        return None;
+    }
     let b = text.as_bytes();
     let num = |s: usize, n: usize| -> Option<i64> {
         let part = text.get(s..s + n)?;
@@ -190,6 +194,16 @@ mod tests {
         assert_eq!(parse_iso8601_ms("2000-02-29T00:00:00Z"), Some(951_782_400_000));
         assert_eq!(parse_iso8601_ms("2026-13-01T00:00:00Z"), None);
         assert_eq!(parse_iso8601_ms("yesterday"), None);
+    }
+
+    #[test]
+    fn odd_offsets_are_refused_not_a_panic() {
+        // The signer picks the message text, so a byte slice inside a multi-byte
+        // character must fail like any other bad timestamp.
+        assert_eq!(parse_iso8601_ms("2026-11-11T10:20:30+0\u{e9}00"), None);
+        assert_eq!(parse_iso8601_ms("2026-11-11T10:20:30+\u{e9}:00"), None);
+        assert_eq!(parse_iso8601_ms("2026-11-11T10:20:3\u{e9}Z"), None);
+        assert_eq!(parse_iso8601_ms("2026\u{e9}11-11T10:20:30Z"), None);
     }
 
     fn proof_for(seed: [u8; 32], site: &str, issued: &str) -> Value {
