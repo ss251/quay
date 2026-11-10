@@ -12,9 +12,12 @@ const KEYS = new Set([
   "order",
   "pinned_first",
   "content_type",
+  "prefix",
 ]);
 const COLLECTION = /^[a-z0-9-][a-z0-9_-]{0,31}$/;
-const SEGMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const SEGMENT_NAME = /^[a-z0-9_]{1,32}$/;
+const LITERAL = /^[A-Za-z0-9._-]+$/;
+const PREFIX = /^[A-Za-z0-9_-]{1,64}$/;
 const INCLUDE = /\{\{>\s*([^\s}]+)\s*\}\}/g;
 
 function bad(index, message) {
@@ -25,21 +28,29 @@ export function checkPattern(pattern, index = 0) {
   if (typeof pattern !== "string" || !pattern.startsWith("/")) {
     throw bad(index, "pattern must start with /");
   }
-  if (pattern === "/") return [];
-  const segments = pattern.slice(1).split("/");
+  if (pattern.length > 128) throw bad(index, "pattern is at most 128 bytes");
+  const body = pattern.slice(1).replace(/\/$/, "");
+  if (body === "") return [];
+  const segments = body.split("/");
   const names = new Set();
   segments.forEach((segment, position) => {
     if (segment === "") throw bad(index, "pattern has an empty segment");
     if (segment.startsWith(":") || segment.startsWith("*")) {
       const name = segment.slice(1);
       if (!SEGMENT_NAME.test(name))
-        throw bad(index, `bad parameter name in ${segment}`);
+        throw bad(
+          index,
+          `bad parameter name in ${segment} (1 to 32 of a-z, 0-9, _)`,
+        );
       if (names.has(name)) throw bad(index, `parameter ${name} is repeated`);
       names.add(name);
       if (segment.startsWith("*") && position !== segments.length - 1)
         throw bad(index, "a *rest segment must be last");
-    } else if (!/^[A-Za-z0-9._~%-]+$/.test(segment)) {
-      throw bad(index, `bad character in segment ${segment}`);
+    } else {
+      if (!LITERAL.test(segment) || segment === "." || segment === "..")
+        throw bad(index, `bad literal segment ${segment}`);
+      if (position === 0 && segment === "r")
+        throw bad(index, "/r/ is reserved for previews");
     }
   });
   return [...names];
@@ -110,6 +121,11 @@ export function validateRoutes(routes, files) {
           index,
           `template ${route.template} is stored off chain. Templates must be on chain.`,
         );
+      try {
+        new TextDecoder("utf-8", { fatal: true }).decode(template.bytes);
+      } catch {
+        throw bad(index, `template ${route.template} is not UTF-8 text`);
+      }
       item.template = route.template;
       checkIncludes(template, byPath, index, new Set([route.template]));
     }
@@ -133,8 +149,13 @@ export function validateRoutes(routes, files) {
           throw bad(index, "pinned_first must be true or false");
         item.pinned_first = route.pinned_first;
       }
+      if (route.prefix !== undefined) {
+        if (typeof route.prefix !== "string" || !PREFIX.test(route.prefix))
+          throw bad(index, "prefix must be 1 to 64 of A-Z, a-z, 0-9, _ -");
+        item.prefix = route.prefix;
+      }
     } else {
-      for (const key of ["limit", "order", "pinned_first"]) {
+      for (const key of ["limit", "order", "pinned_first", "prefix"]) {
         if (route[key] !== undefined)
           throw bad(index, `${key} is for list routes`);
       }

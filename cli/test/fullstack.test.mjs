@@ -494,6 +494,7 @@ test("routes are validated against the folder", () => {
         limit: 10,
         order: "asc",
         pinned_first: true,
+        prefix: "digest-",
       },
     ],
     files,
@@ -506,6 +507,35 @@ test("routes are validated against the folder", () => {
   });
   const bad = (route, message) =>
     assert.throws(() => validateRoutes([route], files), message);
+  bad(
+    {
+      pattern: "/r/:id",
+      kind: "doc",
+      collection: "p",
+      template: "templates/post.html",
+    },
+    /reserved for previews/,
+  );
+  bad(
+    {
+      pattern: "/p/:Id",
+      kind: "doc",
+      collection: "p",
+      template: "templates/post.html",
+    },
+    /bad parameter name/,
+  );
+  bad(
+    {
+      pattern: "/p/:id",
+      kind: "doc",
+      collection: "p",
+      template: "templates/post.html",
+      prefix: "x",
+    },
+    /prefix is for list routes/,
+  );
+
   bad(
     {
       pattern: "posts/:id",
