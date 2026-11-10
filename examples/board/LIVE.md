@@ -58,3 +58,12 @@ site 4.181 (about 0.23 liquid), relayer 0.376, buyer 0.157, pool 0.514 free and 
 ## Not done
 
 - Cron is not armed (needs about 1.1 NEAR liquid; the site has about 0.23).
+
+## Later fixes (2026-11-10)
+
+| Step | Link |
+| --- | --- |
+| removed a relay test post (`posts/relaycheck-a1`) written during relay diagnosis | https://explorer.testnet.near.org/transactions/J4KvLHDEzbrfGWNwQoSHojg1XpvHgwAG1ynkbQVhwBxN |
+| 0.6 NEAR moved to the site for gas headroom (from a throwaway account) | https://explorer.testnet.near.org/transactions/GPZqz41xt69zqdP5U99G5cMpbHPdCJR9vrJtvm69xTcu |
+| release 3: the digest line says it ran by hand until the schedule is armed | https://explorer.testnet.near.org/transactions/9fijEJAWMPHGbSQxuqpjwoBe9jjUMqaECVUXRGqCsyTT |
+| production 3 | https://explorer.testnet.near.org/transactions/6ghSuc2NFGqWjPtXfXk7DDydavZTZtvifPf2rrRuKQ4T |
