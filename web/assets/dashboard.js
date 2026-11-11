@@ -1720,6 +1720,13 @@ const shortPrice = (p) =>
   ]
     .filter(Boolean)
     .join(" or ") || "free";
+// The first few names, then "and N more", so a node never grows past its slot.
+const firstFew = (items, n = 2) =>
+  items.length > n
+    ? `${items.slice(0, n).join(", ")} and ${items.length - n} more`
+    : items.join(", ");
+const trimNear = (yocto) =>
+  nearFromYocto(yocto).replace(/\.?0+ NEAR$/, " NEAR");
 const plural = (n, word) => `${nf.format(n)} ${word}${n === 1 ? "" : "s"}`;
 const shortKey = (key) => `${key.slice(0, 20)}…`;
 const storeName = (url) => {
@@ -1827,10 +1834,13 @@ async function loadCanvas() {
     );
 }
 
+// A canvas node at pos = [left, top, width, target]. target is PANEL (a button
+// that opens the side panel), a URL (a link to a tab), or absent (plain).
+const PANEL = Symbol("panel");
 function node(key, pos, name, ...body) {
   const style = `left:${pos[0]}px;top:${pos[1]}px;width:${pos[2]}px`;
   const kids = [h("span", { class: "node-name", text: name }), ...body];
-  if (pos[3] === "button")
+  if (pos[3] === PANEL)
     return h(
       "button",
       {
@@ -1864,10 +1874,22 @@ const tabHref = (tab) => {
 
 // The release track: one berth per release, production marked from above.
 function track() {
-  const ids = data.releases
+  // The newest releases, always including production and previous; fewer
+  // berths when ids reach three digits, so their labels never touch.
+  const all = data.releases
     .map((r) => r.id)
-    .sort((a, b) => Number(a) - Number(b))
-    .slice(-8);
+    .sort((a, b) => Number(a) - Number(b));
+  const room = all.some((id) => id.length > 2) ? 6 : 8;
+  const keep = new Set(
+    [data.status.production, data.status.previous].filter((id) =>
+      all.includes(id),
+    ),
+  );
+  for (const id of [...all].reverse()) {
+    if (keep.size >= room) break;
+    keep.add(id);
+  }
+  const ids = all.filter((id) => keep.has(id));
   const prodAt = ids.indexOf(data.status.production);
   return h(
     "span",
@@ -1965,11 +1987,11 @@ function drawCanvas() {
           class: "group",
           style: "left:280px;top:72px;width:516px;height:500px",
         },
-        h("span", { class: "group-label", text: c.account }),
+        h("span", { class: "group-label", title: c.account, text: c.account }),
       ),
       node(
         "site",
-        [384, 112, 316, "button"],
+        [384, 112, 316, PANEL],
         "Site",
         sub(stored),
         track(),
@@ -2019,7 +2041,7 @@ function drawCanvas() {
           class: "group",
           style: "left:250px;top:40px;width:500px;height:640px",
         },
-        h("span", { class: "group-label", text: c.account }),
+        h("span", { class: "group-label", title: c.account, text: c.account }),
       ),
     );
     if (routes.length) {
@@ -2029,13 +2051,17 @@ function drawCanvas() {
           "routes",
           [270, 80, 225, tabHref("routes")],
           "Routes",
-          sub(short(patterns.join(", "), 48)),
+          sub(
+            patterns.join(", ").length > 60
+              ? `${plural(patterns.length, "route")}, from ${patterns[0]}`
+              : patterns.join(", "),
+          ),
           note(`Sealed in release ${data.status.production}`),
         ),
       );
     }
     nodes.push(
-      node("site", [510, 80, 225, "button"], "Site", sub(stored), track()),
+      node("site", [510, 80, 225, PANEL], "Site", sub(stored), track()),
     );
     if (c.members !== undefined)
       nodes.push(
@@ -2065,7 +2091,12 @@ function drawCanvas() {
           "Data",
           sub(
             first
-              ? `${first.name}: ${plural(Number(first.count ?? 0), "doc")}, ${bytes(first.bytes)}${c.cols.length > 1 ? `, and ${c.cols.length - 1} more` : ""}`
+              ? c.cols.length > 1
+                ? `${plural(c.cols.length, "collection")}, ${plural(
+                    c.cols.reduce((n, col) => n + Number(col.count ?? 0), 0),
+                    "doc",
+                  )}`
+                : `${first.name}: ${plural(Number(first.count ?? 0), "doc")}, ${bytes(first.bytes)}`
               : "No collections yet",
           ),
           first
@@ -2086,7 +2117,7 @@ function drawCanvas() {
           "Payments",
           sub(
             c.products.length
-              ? c.products.map((p) => `${p.id}: ${shortPrice(p)}`).join("; ")
+              ? `${c.products[0].id}: ${shortPrice(c.products[0])}${c.products.length > 1 ? `, and ${c.products.length - 1} more` : ""}`
               : "No products yet",
           ),
           note(plural(c.receipts.length, "receipt")),
@@ -2113,7 +2144,7 @@ function drawCanvas() {
           "Cron",
           sub(
             job
-              ? `${c.jobs.map((j) => `${j.fn}, every ${j.every_minutes} min`).join("; ")}`
+              ? `${`${job.fn}, every ${job.every_minutes} min${c.jobs.length > 1 ? `, and ${c.jobs.length - 1} more` : ""}`}`
               : "No jobs",
           ),
           note(
@@ -2143,16 +2174,16 @@ function drawCanvas() {
           toolMark("fastnear", storeName(ext[0].external.url)),
         ),
       );
-      edges.push(`fs>site|r|release ${data.status.production} file`);
+      edges.push("fs>site|r|by URL");
     }
     if (c.fns !== undefined) {
       const last = c.runs[0]?.data ?? c.runs[0];
       nodes.push(
         node(
           "functions",
-          [830, 250, 210, "button"],
+          [830, 250, 210, PANEL],
           "Functions",
-          sub(c.fns.length ? c.fns.map((f) => f.name).join(", ") : "None yet"),
+          sub(c.fns.length ? firstFew(c.fns.map((f) => f.name)) : "None yet"),
           last
             ? note(
                 `${last.name} last ran ${when(last.at ?? c.runs[0].created)}`,
@@ -2162,7 +2193,7 @@ function drawCanvas() {
         ),
       );
       const trigger = c.cols?.find((col) => col.on_add);
-      if (trigger) edges.push(`data>functions|h|on_add: ${trigger.on_add}`);
+      if (trigger) edges.push("data>functions|h|on_add");
     }
     if (c.relay) {
       nodes.push(
@@ -2184,7 +2215,12 @@ function drawCanvas() {
     stage.style.cssText = "width:1050px;height:700px";
   }
   stage.dataset.edges = edges.join("; ");
+  // A redraw (after a sign-in or a promote) keeps keyboard focus on the same node.
+  const focused = stage.contains(document.activeElement)
+    ? document.activeElement.closest("[data-node]")?.dataset.node
+    : null;
   stage.replaceChildren(stage.querySelector("svg.edges"), ...nodes);
+  if (focused) stage.querySelector(`[data-node="${focused}"]`)?.focus();
   redraw();
   if (panelKind) fillPanel(panelKind);
 }
@@ -2194,11 +2230,19 @@ function redraw() {
 }
 
 // ----- the side panel -----
+// A closed panel is out of the tab order; on a phone the open sheet is modal,
+// so the canvas behind it is.
+function setPanelInert(open) {
+  $("panel").inert = !open;
+  $("canvas-view").querySelector(".canvas").inert =
+    open && matchMedia("(max-width: 1000px)").matches;
+}
 function openPanel(kind, from) {
   panelKind = kind;
   panelFrom = from || null;
   fillPanel(kind);
   $("panel").setAttribute("data-open", "");
+  setPanelInert(true);
   for (const el of $("stage").querySelectorAll("[data-panel]"))
     el.setAttribute("aria-expanded", String(el.dataset.panel === kind));
   redraw();
@@ -2209,6 +2253,7 @@ function closePanel(quiet) {
   const back = $("stage").querySelector(`[data-panel="${panelKind}"]`);
   panelKind = null;
   $("panel").removeAttribute("data-open");
+  setPanelInert(false);
   for (const el of $("stage").querySelectorAll("[data-panel]"))
     el.setAttribute("aria-expanded", "false");
   redraw();
@@ -2218,6 +2263,10 @@ function fillPanel(kind) {
   if (!canvasData) return;
   if (kind === "functions") return functionsPanel();
   return sitePanel();
+}
+// replaceChildren would print a null child as the text "null".
+function setPanelBody(...children) {
+  $("panel-body").replaceChildren(...children.filter(Boolean));
 }
 function sitePanel() {
   const account = viewed;
@@ -2237,7 +2286,7 @@ function sitePanel() {
   const lastPromote = [...data.history]
     .reverse()
     .find((e) => e.release_id === data.status.production);
-  $("panel-body").replaceChildren(
+  setPanelBody(
     prod
       ? h(
           "section",
@@ -2324,7 +2373,12 @@ function sitePanel() {
         "Releases ",
         h("a", { href: tabHref("releases"), text: "All releases" }),
       ),
-      h("ol", { class: "rows" }, sorted.slice(0, 5).map(panelRelease)),
+      sorted.length
+        ? h("ol", { class: "rows" }, sorted.slice(0, 5).map(panelRelease))
+        : h("p", {
+            class: "muted",
+            text: "Nothing sealed yet. Run quay deploy ./dist from your project folder.",
+          }),
     ),
     data.history.length
       ? h(
@@ -2442,7 +2496,7 @@ function functionsPanel() {
       ["Secret", f.secrets ? "stored on OutLayer, never shown" : "none"],
       [
         "Per call",
-        `${f.deposit ? nearFromYocto(f.deposit) : "nothing"} attached, paid by the ${f.payer === "site" ? "site" : "caller"}; ${f.max_seconds ?? 30} s limit`,
+        `${f.deposit ? trimNear(f.deposit) : "nothing"} attached, paid by the ${f.payer === "site" ? "site" : "caller"}; ${f.max_seconds ?? 30} s limit`,
       ],
       [
         "Last run",
@@ -2512,6 +2566,7 @@ function functionsPanel() {
           { class: "l1" },
           h("span", {
             class: "m",
+            title: r.caller || "",
             text:
               r.caller && r.caller !== c.account
                 ? `${r.name} · ${r.caller.replace(`.${c.account}`, "")}`
@@ -2529,7 +2584,7 @@ function functionsPanel() {
       h("span", { class: "when", title: iso(r.at), text: when(r.at) }),
     );
   });
-  $("panel-body").replaceChildren(
+  setPanelBody(
     ...(cards.length
       ? cards
       : [
@@ -2888,6 +2943,55 @@ $("stage").addEventListener("click", (event) => {
 });
 $("panel-close").addEventListener("click", () => closePanel());
 $("scrim").addEventListener("click", () => closePanel());
+// Phone sheet: drag the handle down to dismiss. While the finger is down the
+// sheet follows it 1:1 and the scrim fades with it; on release it closes past
+// 40% of its height or on a flick faster than 0.5 px/ms, else snaps back.
+// Upward drags rubber-band. One pointer at a time.
+const grab = $("panel").querySelector(".sp-grab");
+let sheetDrag = null;
+grab.addEventListener("pointerdown", (event) => {
+  if (sheetDrag || !matchMedia("(max-width: 1000px)").matches) return;
+  const panel = $("panel");
+  const start = new DOMMatrix(getComputedStyle(panel).transform).m42;
+  sheetDrag = {
+    id: event.pointerId,
+    y0: event.clientY - start,
+    t: event.timeStamp,
+    y: start,
+    v: 0,
+  };
+  grab.setPointerCapture(event.pointerId);
+  panel.setAttribute("data-dragging", "");
+});
+grab.addEventListener("pointermove", (event) => {
+  if (!sheetDrag || event.pointerId !== sheetDrag.id) return;
+  const panel = $("panel");
+  let y = event.clientY - sheetDrag.y0;
+  if (y < 0) y *= 0.2;
+  sheetDrag.v = (y - sheetDrag.y) / Math.max(1, event.timeStamp - sheetDrag.t);
+  sheetDrag.y = y;
+  sheetDrag.t = event.timeStamp;
+  panel.style.transform = `translateY(${y}px)`;
+  $("scrim").style.opacity = String(1 - Math.max(0, y) / panel.offsetHeight);
+});
+function releaseSheet(event) {
+  if (!sheetDrag || event.pointerId !== sheetDrag.id) return;
+  const panel = $("panel");
+  const { y } = sheetDrag;
+  // A finger that stopped before lifting is not a flick.
+  const v = event.timeStamp - sheetDrag.t > 100 ? 0 : sheetDrag.v;
+  sheetDrag = null;
+  panel.removeAttribute("data-dragging");
+  panel.style.transform = "";
+  $("scrim").style.opacity = "";
+  if (y > panel.offsetHeight * 0.4 || v > 0.5) closePanel();
+  else {
+    panel.setAttribute("data-snap", "");
+    setTimeout(() => panel.removeAttribute("data-snap"), 220);
+  }
+}
+grab.addEventListener("pointerup", releaseSheet);
+grab.addEventListener("pointercancel", releaseSheet);
 document.addEventListener("keydown", (event) => {
   if (
     event.key === "Escape" &&

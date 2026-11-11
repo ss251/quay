@@ -3756,3 +3756,37 @@ body:has(.app-main[data-tab="canvas"]) .app-top .app-wrap {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.app-main[data-tab="canvas"] [data-notice] {
+  display: none;
+}
+.layers tbody th a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-decoration-thickness: from-font;
+  text-underline-offset: 3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .layers tbody th a:hover {
+    text-decoration-color: currentColor;
+  }
+}
+.docs4 .prose > p,
+.docs4 .prose > ol {
+  max-width: 68ch;
+}
+.help .term {
+  border-radius: calc(var(--r-md) - 6px);
+}
+.node-sub,
+.node-note {
+  overflow-wrap: anywhere;
+}
+.fn-top {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.fn-top h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

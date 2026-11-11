@@ -190,7 +190,7 @@ function page({
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>${title}</title>
 <meta name="description" content="${description}">
 <meta name="theme-color" content="#f5f7f9" media="(prefers-color-scheme: light)">
@@ -343,7 +343,6 @@ ${layer.sample ? `<p>${layer.sample.intro}</p>\n<pre class="out" tabindex="0">${
 <h2 id="limits">Limits</h2>
 <table class="limits4"><tbody>${layer.limits.map(([th, td]) => `<tr><th scope="row">${th}</th><td>${td}</td></tr>`).join("")}</tbody></table>
 <h2 id="help">Command help</h2>
-<p>Generated from the CLI in this build.</p>
 ${layer.help.map(layerHelp).join("\n")}
 ${pager(prefix, index)}`;
   return [

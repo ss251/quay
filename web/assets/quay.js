@@ -178,6 +178,7 @@ async function refreshReleases(box, done) {
       `rel-${status.production}`
     )
       return; // the visitor already picked a release; leave the list alone
+    if (list.contains(document.activeElement)) return; // never move focus under a keyboard user
     const nf = new Intl.NumberFormat("en-US");
     const rows = [...page.releases].reverse().map((r) => {
       const on = r.id === status.production;

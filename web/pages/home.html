@@ -88,7 +88,7 @@
 <tr><th scope="row">OutLayer</th><td>One operator's TEE network runs functions and holds their secrets. A run takes 5 to 17 seconds.</td><td>No drop-in replacement. Run the logic on your own server, as <code>quay relay serve</code> does, or leave functions out. Posts still land without them.</td></tr>
 <tr><th scope="row">FastNEAR</th><td>The default RPC, FastFS for large files, and FastData reads.</td><td>Pass <code>--rpc</code>; the gateway falls back to other RPCs. Large files can go to Pinata, Filebase or any https URL, and the release keeps the sha256.</td></tr>
 <tr><th scope="row">The relayer</th><td>Its own account and key. Its balance is the spend limit. It cannot move the site.</td><td>Run <code>quay relay serve</code> yourself and fund it with <code>quay relay create</code>.</td></tr>
-<tr><th scope="row">The schedule</th><td>Nobody: the contract keeps itself awake for about 6 hours per arm with an hourly job.</td><td>Run <code>quay cron arm</code> again, on a timer you control.</td></tr>
+<tr><th scope="row">The schedule</th><td>Nobody runs it. The contract keeps itself awake for about 6 hours per arm with an hourly job.</td><td>Run <code>quay cron arm</code> again, on a timer you control.</td></tr>
 <tr><th scope="row">The wallet connector</th><td>The client loads <code>@hot-labs/near-connect</code> and the wallets it lists.</td><td>Pass your own connector, or sign with an explicit key in Node.</td></tr>
 </tbody></table></div>
 <p class="more"><a href="architecture/index.html">The full trust table is on the architecture page{{i:right sm end}}</a></p>

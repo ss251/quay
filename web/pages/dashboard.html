@@ -66,8 +66,8 @@
     <div class="notice" id="notice" data-notice hidden>{{i:lock}}<span class="grow" id="notice-text"></span><span id="notice-action"></span></div>
 
     <div class="app-body" id="canvas-view" data-in="canvas">
-      <div class="canvas"><div class="stage" id="stage" aria-label="What runs on this account"><svg class="edges" aria-hidden="true"></svg></div></div>
-      <aside class="side-panel" id="panel" aria-labelledby="panel-title">
+      <div class="canvas"><div class="stage" id="stage" role="group" aria-label="What runs on this account"><svg class="edges" aria-hidden="true"></svg></div></div>
+      <aside class="side-panel" id="panel" aria-labelledby="panel-title" inert>
         <div class="sp-head">
           <div class="sp-grab" aria-hidden="true"></div>
           <div class="sp-title"><h2 id="panel-title" tabindex="-1"></h2><span class="provider" id="panel-provider"></span><span class="grow"></span><button class="btn btn-sm btn-icon btn-quiet" type="button" id="panel-close" aria-label="Close the panel">{{i:x}}</button></div>

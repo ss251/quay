@@ -35,7 +35,7 @@ quay rollback`,
     how: [
       "Harbour Board has seven releases. Production is 7 and the previous release is 6.",
       "Every release still answers at <code>/r/&lt;id&gt;/</code>, so the home page can load any of them.",
-      "Bytes shared by two releases are stored once: all seven hold 137,411 B.",
+      "Bytes shared by two releases are stored once, so all seven hold 137,411 B.",
     ],
     proofRows: [
       [
@@ -54,7 +54,7 @@ quay rollback`,
     check:
       "<code>view get_status '{}'</code> shows production, previous and the stored bytes.",
     trust:
-      "Nothing to replace: the releases are on your account and any RPC node reads them. A full-access key can replace the contract wasm, so a release is not owner-proof against that key. Keep it off CI and use <code>quay keys create --ci</code> there.",
+      "Nothing to replace. The releases are on your account, and any RPC node reads them. A full-access key can replace the contract wasm, so a release is not owner-proof against that key. Keep it off CI and use <code>quay keys create --ci</code> there.",
     limits: [
       ["Files", "64 per release, 800,000 B each"],
       ["Releases", "32 live at once"],
@@ -77,7 +77,7 @@ quay rollback`,
       [`${BOARD_HOST}/_quay/health`, "Workers host health"],
       ["https://harbour-board.testnet.page/", "testnet.page"],
     ],
-    lede: "A browser cannot call a contract, so a gateway does it: it turns <code>GET /posts/5</code> into a <code>web4_get</code> view call and returns the page. Quay ships its own gateway, and the public <code>testnet.page</code> gateway serves every web4 account too.",
+    lede: "A browser cannot call a contract, so a gateway does. It turns <code>GET /posts/5</code> into a <code>web4_get</code> view call and returns the page. Quay ships its own gateway, and the public <code>testnet.page</code> gateway serves every web4 account too.",
     cmds: `quay gateway --account ${BOARD}
 # serving ${BOARD} at http://127.0.0.1:8787/
 cd gateway/worker && npx wrangler deploy`,
@@ -102,7 +102,7 @@ cd gateway/worker && npx wrangler deploy`,
     limits: [
       [
         "Hosts",
-        "The account host only: an extra label such as <code>www.</code> fails TLS on testnet.page",
+        "The account host only. An extra label such as <code>www.</code> fails TLS on testnet.page.",
       ],
       [
         "Certificate",
@@ -252,7 +252,7 @@ quay functions logs moderate`,
     ],
     check: `<code>view fn_list '{}'</code> and <code>view db_list '{"collection":"_fn","query":{"limit":3,"order":"desc"}}'</code>.`,
     trust:
-      "OutLayer is one operator's TEE network. Secrets are decrypted inside its enclave, so you trust that enclave and that operator. There is no drop-in replacement: run the same logic on your own server, or leave functions out. Without them, posts still land, previews stay empty and scheduled results stop.",
+      "OutLayer is one operator's TEE network. Secrets are decrypted inside its enclave, so you trust that enclave and that operator. There is no drop-in replacement. Run the same logic on your own server, or leave functions out. Without them, posts still land, previews stay empty and scheduled results stop.",
     limits: [
       ["Language", "Rust compiled to WASI. No JavaScript runtime."],
       ["Time", "30 seconds per call on the Board. Runs took 5 to 17 seconds."],
@@ -284,7 +284,7 @@ quay members close`,
       "On 2026-11-11 there were nine members. Six were seeded, one joined from the live <code>/new/</code> page in a headless browser, and two came from Telegram tests.",
       "Wallet sign-in worked with one connector, NEAR CLI. It signed a NEP-413 message for <code>walletchk-he8kli.harbour-board.testnet</code>, the Board accepted it, and a changed message or a wrong site was refused.",
       "Intear's testnet index was empty and Meteor blocks headless browsers, so neither is proven. Ledger and Nightly were not tried.",
-      "Telegram: a <code>telegram-auth</code> function on OutLayer checked test init data signed with a made-up bot token, then joined two members. No real bot has run yet.",
+      "For Telegram, a <code>telegram-auth</code> function on OutLayer checked test init data signed with a made-up bot token, then joined two members. No real bot has run yet.",
     ],
     proofRows: [
       [
@@ -297,7 +297,7 @@ quay members close`,
       ],
       [
         "Wallet sign-in",
-        "Off chain by design: a NEP-413 signature is checked, not sent. The run is written up in <code>examples/board/LIVE.md</code>.",
+        "Off chain by design. A NEP-413 signature is checked, not sent. The run is written up in <code>examples/board/LIVE.md</code>.",
       ],
     ],
     check: `<code>view list_members '{"from_index":0,"limit":50}'</code>.`,
@@ -348,7 +348,7 @@ quay relay status`,
       ],
     ],
     check:
-      "Open the member's post on the explorer: the signer is the member, and the relayer paid.",
+      "Open the member's post on the explorer. The signer is the member, and the relayer paid.",
     trust:
       "The relayer holds a key and spends from its own account. It can refuse requests; it cannot move the site. Run <code>quay relay serve</code> yourself and fund it with <code>quay relay create</code>.",
     limits: [
@@ -464,7 +464,7 @@ quay receipts`,
 quay cron arm
 quay cron status`,
     how: [
-      "The Board's <code>digest</code> job runs every 60 minutes. Its first scheduled run failed: the contract gave OutLayer 45 Tgas. Contract 3.0.1 gives it 80.",
+      "The Board's <code>digest</code> job runs every 60 minutes. Its first scheduled run failed because the contract gave OutLayer 45 Tgas. Contract 3.0.1 gives it 80.",
       "The next run, at 23:22 UTC on 2026-11-10, wrote a digest, and the Board's home page says it came from the hourly job.",
     ],
     proofRows: [
@@ -484,7 +484,7 @@ quay cron status`,
     check:
       "<code>view cron_status '{}'</code> says whether the chain is armed now, its hops and its last tick.",
     trust:
-      "No operator runs the schedule: the contract does, and OutLayer runs each job. When an arm runs out, the page keeps the last digest with its time. Run <code>quay cron arm</code> on a timer you control.",
+      "No operator runs the schedule. The contract does, and OutLayer runs each job. When an arm runs out, the page keeps the last digest with its time. Run <code>quay cron arm</code> on a timer you control.",
     limits: [
       ["Jobs", "At most 8, every 5 minutes or slower"],
       [
