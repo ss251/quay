@@ -183,3 +183,7 @@ Measured from `qfund-1ktajy8t.testnet` calling `outlayer.testnet` directly: 50 T
 **Scheduled run proven.** At 23:22 UTC the fourth tick ran `digest` with 80 Tgas; OutLayer's callback got 75 Tgas and returned the digest, and `fn_on_result` stored `_fn/digest-28` with `ok: true` and `output.scheduled: true`. The home page reads "Written 2026-11-10 23:22 UTC by the hourly digest job." All of it is in the receipts of the arm transaction above. Check without a key: `view cron_status '{}'` (armed, hops, last tick) and `view db_list '{"collection":"_fn","query":{"limit":1,"order":"desc"}}'`.
 
 **How long it lasts.** The chain started with 997 Tgas. A hop takes about 2.25 Tgas every 2 minutes, and each job run takes 95 Tgas from the chain (80 for OutLayer, 15 for the result) whether it uses it or not. With one hourly job that is about 6 hours per arm, so the schedule needs `quay cron arm` again after that. Each arm reserves about 1 NEAR while it runs and refunds the unused gas.
+
+## Cron re-armed for the demo video (2026-11-11)
+
+The schedule had stopped (last tick 17:45 UTC). `quay cron arm --account harbour-board.testnet` armed it again at 22:14 UTC in [Dc8Aokp2…](https://explorer.testnet.near.org/transactions/Dc8Aokp2tSuKEbp6WsqtZezbmRMZZSTFAvKUQg8g2b2M). The first tick ran the overdue `digest` at 22:16 UTC (`quay cron list` shows that last run and the next one due at 23:16 UTC), so the dashboard's Functions panel shows `digest` as "Every 60 min" instead of "Schedule not armed". The arm lasts about 6 hours.
