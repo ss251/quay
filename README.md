@@ -2,6 +2,19 @@
 
 Quay publishes a folder of files to a NEAR testnet account. Each publish is a sealed release with its own URL. Production is a pointer you move with `quay promote` or `quay rollback`. A publish-only key can upload a preview. It cannot move production.
 
+Built at NEAR HACKATHON. What was built in the hackathon window, the libraries used and the AI disclosure are in [Built during NEAR HACKATHON](#built-during-near-hackathon).
+
+## The problem
+
+A NEAR app needs somewhere to serve its pages, and that place is usually a web host the app's owner rents and controls. Web4 lets a contract serve pages itself. Quay adds the deploy loop a web host gives you on top of that, on one NEAR account: a preview URL per release, a production pointer, rollback, and a key that can publish but not go live. The pages, every past release and the pointer to production are contract state that anyone can read and check, and a hosted gateway is only one way to read them.
+
+## Live demo
+
+- Product site: https://quay.ss251.workers.dev/ (served from `quay-esc0v902.testnet`; also https://quay-esc0v902.testnet.page/)
+- Dashboard, no key needed: https://quay.ss251.workers.dev/dashboard/?account=quay-65nqd3rn.testnet
+- Harbour Board, the full-stack sample (pages, data, members, functions, payments, cron on one account): https://harbour-board.ss251.workers.dev/
+- Check everything above without a key: `sh scripts/judge.sh` (see [Judge steps](#judge-steps)).
+
 Hosts, in the order to try them:
 
 | Site | Account | Workers (primary) | testnet.page | Local |
@@ -207,6 +220,27 @@ Testnet only. The CLI refuses any other network. A public page is only as availa
 
 The contract is near-sdk 5.30.1. The CLI uses near-api-js 7.4.0. Sandbox tests use near-sandbox 0.4.0 and near-api 0.8.7, which is what the current `near-smart-contracts` skill uses for a local node. The dashboard loads `@hot-labs/near-connect` 0.12.0 from esm.sh and does not put a key in the page. Skills installed in this worktree: `near-smart-contracts`, `near-contract-audit`, `near-cli-rs`, `near-dapp`, `near-api-js`, and `near-kit`. Contract questions were checked against NEAR Docs at `https://docs.near.org/mcp`. The product CLI does not shell out to `near`.
 
-## Disclosure
+## Built during NEAR HACKATHON
 
-This code was written with AI coding agents: xAI Grok 4.7, through the Grok Build client.
+The hackathon window opened on 2026-10-19. Every commit in this repository is from 2026-11-10 or later. The first commit, `cbe0043`, holds only the licence and a three-line README, so there is no pre-hackathon baseline: the whole history is the hackathon work. No code was taken from another project, and no starter template was used. The contract, CLI, client, gateway, functions, product site and samples were written here.
+
+Libraries and tools, all used as published:
+
+| Where | What |
+| --- | --- |
+| Contract | `near-sdk` 5.30.1 |
+| Contract tests | `near-sandbox` 0.4, `near-api` 0.8, `tokio`, `testresult`, `serde`, `serde_json`, `base64`, `sha2` |
+| CLI | `near-api-js` 7.4.0, `@ipld/dag-pb`, `ipfs-unixfs`, `multiformats` (CIDs for the external file stores) |
+| Client | `@noble/ed25519` 3.0.0; tests use `near-api-js` and `near-sandbox` 0.3.5; bundled with `esbuild` |
+| Functions | `serde_json`, `sha2`, `bs58`, `base64`, `ed25519-dalek`, built for `wasm32-wasip2` and run on OutLayer |
+| Dashboard | `@hot-labs/near-connect` 0.12.0, loaded from esm.sh |
+| Harbour sample | `vite` 6.4.1 |
+| Site fonts | Geist and Geist Mono, SIL Open Font License 1.1, subset with fontTools |
+| Gateway on Workers | Cloudflare `wrangler` to deploy `gateway/worker` |
+| Repo | `@biomejs/biome` for lint and format |
+
+Services the live demo depends on: NEAR testnet and the FastNEAR RPC, OutLayer for functions, FastFS for the large file, `testnet.page` and Cloudflare Workers as hosted gateways.
+
+AI-generated code: AI coding agents wrote this code. Anthropic Claude (Opus 5.5, Sonnet 5.5 and Fable 5.2) worked through Claude Code; each of those commits names the model in a `Co-Authored-By` line. xAI Grok 4.7 worked through the Grok Build client. The owner set the product direction and the design.
+
+Licence: MIT, in `LICENSE`.
