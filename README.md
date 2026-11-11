@@ -108,7 +108,7 @@ No key. You need `cargo`, `curl`, `node`, and `shasum` on `PATH`. The same check
 
    Same paths on `https://quay-esc0v902.testnet.page` if the Workers host is down.
 
-   See "Move production on purpose" and `quay deploy` on `/`, and "Try the sample" on `/dashboard/`. The production release and its seal and promote transactions are in the table at the top of `LIVE.md` (release 14 on 2026-11-11, sealed in [b1cjw1Ah…](https://explorer.testnet.near.org/transactions/b1cjw1AhLzpUAyNUFq7GPNZ5HEvnmKgTiN5Y2LpfVLk) and promoted in [8Zzc3Ss6…](https://explorer.testnet.near.org/transactions/8Zzc3Ss6KkQLRsPXtjeTr9b3zwXdPcUYdZWN5SRxprUV)). The previous design is still release 4, at https://quay.ss251.workers.dev/r/4/.
+   See "Move production on purpose" and `quay deploy` on `/`, and "Try the sample" on `/dashboard/`. The production release and its seal and promote transactions are in the table at the top of `LIVE.md` (release 18 on 2026-11-11, the round 2 look, sealed in [9EAsza5U…](https://explorer.testnet.near.org/transactions/9EAsza5ULu63fTE7yB3ZhVwoNhecqsXyn5bH8qALzBGd) and promoted in [2Wyby4Wm…](https://explorer.testnet.near.org/transactions/2Wyby4WmjiqLV9qaVqsikd4xTwrTc7abwLfDVSoR57X7); release 14 is the rollback target). The previous design is still release 4, at https://quay.ss251.workers.dev/r/4/.
 
    If neither host answers, run `node cli/bin/quay.js gateway --account quay-esc0v902.testnet` (or `quay gateway --account quay-esc0v902.testnet`) and open http://127.0.0.1:8787/, http://127.0.0.1:8787/docs/, http://127.0.0.1:8787/dashboard/?account=quay-65nqd3rn.testnet, and http://127.0.0.1:8787/r/4/.
 
