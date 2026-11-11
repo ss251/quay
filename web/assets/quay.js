@@ -10,6 +10,15 @@ const isDark = () =>
     ? root.dataset.theme === "dark"
     : matchMedia("(prefers-color-scheme: dark)").matches;
 
+// the status bar follows the page's own theme, not only the OS setting
+const barColor = () => {
+  if (!root.dataset.theme) return;
+  const color = root.dataset.theme === "dark" ? "#0a0d0e" : "#fafbfc";
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]'))
+    meta.setAttribute("content", color);
+};
+barColor();
+
 for (const button of document.querySelectorAll("[data-theme-toggle]")) {
   const label = () =>
     button.setAttribute(
@@ -27,6 +36,7 @@ for (const button of document.querySelectorAll("[data-theme-toggle]")) {
     try {
       localStorage.setItem(key, root.dataset.theme);
     } catch {}
+    barColor();
     label();
   });
 }
