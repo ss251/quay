@@ -41,3 +41,15 @@ The account the hackathon demo video was recorded on, on 2026-11-11 (UTC), with 
 | Roll back to 3 | `quay rollback` | [H75U1SJi…](https://explorer.testnet.near.org/transactions/H75U1SJiT2KEbNa4EzSEQoQFsAe4hPnaFQbz8NVgLDux) |
 
 Afterwards `quay status` read production 3, previous 4, 4 releases, 11 KB stored.
+
+The video was then recorded again (v2, larger text) with two new releases, so every page shown matches the chain state at that moment. This is the run the published video shows. Release 5 is the unmodified `examples/harbour` build (its page says release 5); release 6 is the winter timetable. Both reuse the 7.9 KB of files already stored, and only `index.html` is new.
+
+| Step | Command | Transaction |
+| --- | --- | --- |
+| Seal release 5 | `quay deploy ./dist -m "harbour office"` | [AfefniEH…](https://explorer.testnet.near.org/transactions/AfefniEHzotpwS3jav7TMJsaVHV3pmMkWkX4wEVFfvVG) |
+| Promote 5 | `quay promote 5` | [HHgTn4xg…](https://explorer.testnet.near.org/transactions/HHgTn4xgPSmFMzvbL5vhRyoRN7S5H6ZWqv9suBEKCCtF) |
+| Seal release 6 | `quay deploy ./dist -m "winter timetable"` | [96qD9YBu…](https://explorer.testnet.near.org/transactions/96qD9YBuUwMj7xePEp4E6RWtRN4hMgwfJFpMyLCmEVPR) |
+| Promote 6 | `quay promote 6` | [2otnvDdm…](https://explorer.testnet.near.org/transactions/2otnvDdmao1USRn7Mit47sFX8GSmNdjxE5avt14ao7Vp) |
+| Roll back to 5 | `quay rollback` | [7fVJbMM8…](https://explorer.testnet.near.org/transactions/7fVJbMM8rZUVwmkxZbcZ2R89yxct3MuSxNFBcqPahNGr) |
+
+Afterwards `quay status` read production 5, previous 6, 6 releases, 14 KB stored. Leave the account in this state.
