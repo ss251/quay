@@ -198,6 +198,7 @@ async function refreshReleases(box, done) {
         className: "lg-id",
         textContent: r.id,
       });
+      if (r.id < 10) id.dataset.pad = "";
       const msg = Object.assign(document.createElement("span"), {
         className: "lg-msg",
         textContent: r.message || `Release ${r.id}`,

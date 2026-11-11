@@ -1,82 +1,87 @@
-/* Quay. Navy ink, one amber pointer; Red Hat Text and Red Hat Mono. Tokens, then base, then components. */
+/* Quay v6. A harbour at night: near-black water, hairline quay edges, and signal colours with one job each.
+   Archivo (semi-expanded for display, normal width for text) and Quay Mono (a renamed subset of IBM Plex Mono). */
 @font-face {
-  font-family: "Red Hat Text";
+  font-family: "Archivo";
   src: url("fonts/text.woff2") format("woff2");
   font-weight: 400 600;
   font-display: swap;
 }
 @font-face {
-  font-family: "Red Hat Mono";
+  font-family: "Archivo Display";
+  src: url("fonts/display.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Quay Mono";
   src: url("fonts/mono.woff2") format("woff2");
-  font-weight: 400 500;
+  font-weight: 400 600;
   font-display: swap;
 }
 
 :root {
   color-scheme: light dark;
-  /* neutrals: one ramp on hue 250 (the navy of the ink), so surfaces, lines and text agree.
-     Light is a cool paper; dark is a low-chroma harbour grey, not a navy costume. */
-  --bg: light-dark(oklch(0.975 0.004 250), oklch(0.17 0.016 250));
-  --bg-sunken: light-dark(oklch(0.955 0.005 250), oklch(0.145 0.015 250));
-  --surface: light-dark(oklch(0.995 0.002 250), oklch(0.205 0.017 250));
-  --surface-2: light-dark(oklch(0.965 0.005 250), oklch(0.235 0.018 250));
-  --surface-3: light-dark(oklch(0.94 0.007 250), oklch(0.27 0.019 250));
-  --canvas: light-dark(oklch(0.96 0.005 250), oklch(0.155 0.015 250));
-  --line: light-dark(oklch(0.3 0.03 250 / 0.12), oklch(0.31 0.018 250));
-  --line-strong: light-dark(oklch(0.3 0.03 250 / 0.2), oklch(0.38 0.019 250));
-  --text: light-dark(oklch(0.24 0.04 250), oklch(0.96 0.005 250));
-  --text-2: light-dark(oklch(0.44 0.03 250), oklch(0.77 0.014 250));
-  --text-3: light-dark(oklch(0.53 0.025 250), oklch(0.66 0.016 250));
-  /* amber has one job: marking the release production points at. 20% less chroma on dark. */
-  --accent: light-dark(oklch(0.8 0.15 72), oklch(0.78 0.12 72));
-  --accent-ink: light-dark(oklch(0.22 0.04 250), oklch(0.2 0.03 250));
-  --accent-edge: light-dark(
-    oklch(0.6 0.13 65),
-    oklch(0.78 0.12 72)
-  ); /* 3:1 edge for the bare dot on light ground */
-  /* status: green live, amber-free warn, red failed, blue in flight. Each always comes with a word. */
-  --live: light-dark(oklch(0.55 0.13 160), oklch(0.8 0.15 160));
-  --live-text: light-dark(oklch(0.45 0.11 160), oklch(0.83 0.13 160));
-  --live-tint: light-dark(oklch(0.95 0.04 160), oklch(0.27 0.055 165));
+  /* neutrals: one ramp on hue 230, barely chromatic. Dark is harbour water at night, light is a cool chart paper. */
+  --bg: light-dark(oklch(0.988 0.002 230), oklch(0.155 0.006 230));
+  --bg-sunken: light-dark(oklch(0.97 0.003 230), oklch(0.135 0.006 230));
+  --surface: light-dark(oklch(1 0 0), oklch(0.178 0.007 230));
+  --surface-2: light-dark(oklch(0.976 0.003 230), oklch(0.2 0.008 230));
+  --surface-3: light-dark(oklch(0.952 0.004 230), oklch(0.235 0.009 230));
+  --canvas: light-dark(oklch(0.976 0.003 230), oklch(0.14 0.006 230));
+  --line: light-dark(oklch(0.2 0.01 230 / 0.11), oklch(1 0 0 / 0.09));
+  --line-strong: light-dark(oklch(0.2 0.01 230 / 0.2), oklch(1 0 0 / 0.16));
+  --text: light-dark(oklch(0.19 0.01 230), oklch(0.955 0.003 230));
+  --text-2: light-dark(oklch(0.43 0.012 230), oklch(0.75 0.009 230));
+  --text-3: light-dark(oklch(0.51 0.012 230), oklch(0.64 0.01 230));
+  /* signal colours, from harbour lights and the code flags. Each means one thing.
+     green (starboard light): serving, production, live. yellow (the Q flag): Quay's own mark, nothing else.
+     red (port light): failed or destructive. */
+  --accent: light-dark(oklch(0.5 0.13 155), oklch(0.8 0.15 155));
+  --accent-ink: light-dark(oklch(0.99 0.01 155), oklch(0.17 0.03 155));
+  --accent-edge: light-dark(oklch(0.5 0.13 155), oklch(0.8 0.15 155));
+  --signal-q: oklch(0.86 0.16 95);
+  --live: light-dark(oklch(0.55 0.14 155), oklch(0.8 0.15 155));
+  --live-text: light-dark(oklch(0.45 0.12 155), oklch(0.83 0.13 155));
+  --live-tint: light-dark(oklch(0.95 0.04 155), oklch(0.25 0.045 160));
   --warn: light-dark(oklch(0.6 0.14 70), oklch(0.82 0.14 80));
   --warn-text: light-dark(oklch(0.47 0.11 60), oklch(0.85 0.12 82));
-  --warn-tint: light-dark(oklch(0.96 0.045 85), oklch(0.29 0.055 75));
-  --danger: light-dark(oklch(0.55 0.19 27), oklch(0.72 0.16 25));
-  --danger-tint: light-dark(oklch(0.96 0.025 25), oklch(0.28 0.06 25));
-  --info: light-dark(oklch(0.5 0.14 240), oklch(0.75 0.12 240));
-  --info-tint: light-dark(oklch(0.95 0.025 240), oklch(0.28 0.055 240));
-  --ink: light-dark(oklch(0.24 0.04 250), oklch(0.96 0.005 250));
-  --on-ink: light-dark(oklch(0.995 0.002 250), oklch(0.17 0.016 250));
-  --term: oklch(0.17 0.016 250);
-  --term-2: oklch(0.205 0.017 250);
-  --term-line: oklch(0.31 0.018 250);
-  --term-text: oklch(0.95 0.005 250);
-  --term-dim: oklch(0.72 0.014 250);
-  --term-live: oklch(0.8 0.15 160);
-  --term-link: oklch(0.8 0.1 240);
-  --focus: light-dark(oklch(0.24 0.04 250), oklch(0.96 0.005 250));
+  --warn-tint: light-dark(oklch(0.96 0.045 85), oklch(0.27 0.05 75));
+  --danger: light-dark(oklch(0.53 0.19 27), oklch(0.72 0.16 25));
+  --danger-tint: light-dark(oklch(0.96 0.025 25), oklch(0.26 0.06 25));
+  --info: light-dark(oklch(0.5 0.13 240), oklch(0.76 0.11 240));
+  --info-tint: light-dark(oklch(0.95 0.025 240), oklch(0.26 0.05 240));
+  --ink: light-dark(oklch(0.19 0.01 230), oklch(0.955 0.003 230));
+  --on-ink: light-dark(oklch(0.995 0.001 230), oklch(0.155 0.006 230));
+  --term: oklch(0.155 0.006 230);
+  --term-2: oklch(0.178 0.007 230);
+  --term-line: oklch(0.27 0.008 230);
+  --term-text: oklch(0.95 0.003 230);
+  --term-dim: oklch(0.72 0.009 230);
+  --term-live: oklch(0.8 0.15 155);
+  --term-link: oklch(0.8 0.1 230);
+  --focus: light-dark(oklch(0.19 0.01 230), oklch(0.955 0.003 230));
   --shadow-sm: 0 1px 2px
-    light-dark(oklch(0.3 0.03 250 / 0.06), oklch(0 0 0 / 0.25));
+    light-dark(oklch(0.2 0.01 230 / 0.06), oklch(0 0 0 / 0.25));
   --shadow-md:
-    0 1px 2px light-dark(oklch(0.3 0.03 250 / 0.06), oklch(0 0 0 / 0.25)), 0 6px
-    16px -6px light-dark(oklch(0.3 0.03 250 / 0.12), oklch(0 0 0 / 0.45));
+    0 1px 2px light-dark(oklch(0.2 0.01 230 / 0.06), oklch(0 0 0 / 0.25)), 0 6px
+    16px -6px light-dark(oklch(0.2 0.01 230 / 0.12), oklch(0 0 0 / 0.45));
   --shadow-lg:
-    0 1px 2px light-dark(oklch(0.3 0.03 250 / 0.08), oklch(0 0 0 / 0.4)), 0 24px
-    48px -16px light-dark(oklch(0.3 0.03 250 / 0.18), oklch(0 0 0 / 0.6)), 0
-    60px 120px -40px light-dark(oklch(0.3 0.03 250 / 0.14), oklch(0 0 0 / 0.5));
+    0 1px 2px light-dark(oklch(0.2 0.01 230 / 0.08), oklch(0 0 0 / 0.4)), 0 24px
+    48px -16px light-dark(oklch(0.2 0.01 230 / 0.18), oklch(0 0 0 / 0.6)), 0
+    60px 120px -40px light-dark(oklch(0.2 0.01 230 / 0.14), oklch(0 0 0 / 0.5));
   /* elevation: ring + crisp + ambient in light; a single white ring in dark */
   --elev-1:
-    0 0 0 1px light-dark(oklch(0.3 0.03 250 / 0.12), oklch(1 0 0 / 0.09)), 0 1px
-    3px light-dark(oklch(0.3 0.03 250 / 0.06), transparent), 0 4px 10px -4px
-    light-dark(oklch(0.3 0.03 250 / 0.07), transparent);
+    0 0 0 1px light-dark(oklch(0.2 0.01 230 / 0.12), oklch(1 0 0 / 0.09)), 0 1px
+    3px light-dark(oklch(0.2 0.01 230 / 0.06), transparent), 0 4px 10px -4px
+    light-dark(oklch(0.2 0.01 230 / 0.07), transparent);
   --elev-1-hover:
-    0 0 0 1px light-dark(oklch(0.3 0.03 250 / 0.2), oklch(1 0 0 / 0.16)), 0 1px
-    3px light-dark(oklch(0.3 0.03 250 / 0.08), transparent), 0 4px 10px -4px
-    light-dark(oklch(0.3 0.03 250 / 0.1), transparent);
+    0 0 0 1px light-dark(oklch(0.2 0.01 230 / 0.2), oklch(1 0 0 / 0.16)), 0 1px
+    3px light-dark(oklch(0.2 0.01 230 / 0.08), transparent), 0 4px 10px -4px
+    light-dark(oklch(0.2 0.01 230 / 0.1), transparent);
   --elev-3:
-    0 0 0 1px light-dark(oklch(0.3 0.03 250 / 0.12), oklch(1 0 0 / 0.11)), 0 2px
-    4px light-dark(oklch(0.3 0.03 250 / 0.05), transparent), 0 24px 48px -16px
-    light-dark(oklch(0.3 0.03 250 / 0.16), transparent);
+    0 0 0 1px light-dark(oklch(0.2 0.01 230 / 0.12), oklch(1 0 0 / 0.11)), 0 2px
+    4px light-dark(oklch(0.2 0.01 230 / 0.05), transparent), 0 24px 48px -16px
+    light-dark(oklch(0.2 0.01 230 / 0.16), transparent);
   /* image edge: pure black or white at 10%, never tinted */
   --img-edge: light-dark(oklch(0 0 0 / 0.1), oklch(1 0 0 / 0.1));
   /* separators: a hairline on dense screens */
@@ -89,16 +94,18 @@
   --z-toast: 40;
   --z-skip: 50;
   /* focus is neutral ink, never a brand colour */
-  --r-sm: 8px;
-  --r-md: 10px;
-  --r-lg: 14px;
-  --r-xl: 18px;
-  --display: var(--sans);
-  /* type scale (px): 12 caption, 13 meta, 14 UI, 16 body, 18 lede, 20 ids, 24 panel titles, 32 section heads, clamp(36-56) page head */
+  /* radii: small and exact. Controls 6, cards and frames 8, sheets 12. */
+  --r-sm: 5px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 12px;
+  /* type scale (px): 12 caption, 13 meta, 14 UI, 16 body, 18 lede, 20 ids, 24 panel titles, clamp(28-40) section heads, clamp(40-64) page head */
+  --display:
+    "Archivo Display", "Archivo", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
   --sans:
-    "Red Hat Text", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    sans-serif;
-  --mono: "Red Hat Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Quay Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
@@ -335,7 +342,7 @@ code {
   gap: 6px;
   height: 22px;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: 4px;
   font: 500 12px / 1 var(--sans);
   white-space: nowrap;
   background: var(--surface-3);
@@ -540,7 +547,7 @@ code {
   gap: 7px;
   height: 28px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   font: 500 12px / 1 var(--sans);
   color: var(--text-2);
   box-shadow: inset 0 0 0 1px var(--line);
@@ -615,17 +622,17 @@ code {
   }
 }
 .section {
-  padding: 128px 0;
-  border-bottom: 1px solid var(--line);
+  position: relative;
+  padding: 120px 0;
 }
 .section-head {
   max-width: 640px;
   margin-bottom: 56px;
 }
 .section h2 {
-  font-size: clamp(30px, 3.6vw, 44px);
-  line-height: 1.08;
-  letter-spacing: -0.04em;
+  font-size: clamp(28px, 3.1vw, 40px);
+  line-height: 1.06;
+  letter-spacing: -0.022em;
   margin-bottom: 16px;
 }
 .lede {
@@ -780,7 +787,7 @@ code {
   gap: 8px;
   height: 32px;
   padding: 0 10px 0 6px;
-  border-radius: 999px;
+  border-radius: var(--r-md);
   box-shadow: inset 0 0 0 1px var(--line-strong);
   font-size: 13px;
   font-weight: 500;
@@ -1744,8 +1751,8 @@ h2,
 }
 .brand {
   font-family: var(--display);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 620;
+  letter-spacing: -0.005em;
 }
 .card,
 .step,
@@ -1755,7 +1762,7 @@ h2,
 
 /* Badges share one shape: 22px tall, radius 6, 12px text. .chip is the base; variants change colour only. */
 .chip {
-  border-radius: 6px;
+  border-radius: 4px;
 }
 .chip-prev {
   background: transparent;
@@ -1792,10 +1799,10 @@ h2,
   padding: 72px 0 96px;
 }
 .hero4 h1 {
-  font-size: clamp(36px, 4.6vw, 56px);
-  line-height: 1.06;
+  font-size: clamp(38px, 4.9vw, 66px);
+  line-height: 1.01;
   max-width: 21em; /* two lines, broken by hand */
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 .hero4 .sub {
   font-size: 18px;
@@ -1847,9 +1854,9 @@ h2,
 }
 .lg-row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
   width: 100%;
   min-height: 56px;
   padding: 8px 16px;
@@ -1871,10 +1878,25 @@ h2,
   background: var(--surface-2);
   box-shadow: inset 2px 0 0 var(--text);
 }
+.lg-row:has(.ptr) .lg-id {
+  color: var(--accent);
+}
+/* berths: each release is a numbered berth, its number painted on the quay wall, two digits wide */
 .lg-id {
-  font: 500 20px / 1 var(--mono);
-  font-variant-numeric: tabular-nums;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  font: 400 20px / 1 var(--mono);
+  letter-spacing: -0.02em;
   color: var(--text-2);
+  border-inline-end: var(--hair) solid var(--line);
+  margin-block: -8px;
+}
+.lg-id[data-pad]::before {
+  content: "0";
+  content: "0" / "";
+  color: var(--text-3);
+  opacity: 0.55;
 }
 .lg-row[aria-selected="true"] .lg-id {
   color: var(--text);
@@ -2095,7 +2117,7 @@ h2,
 }
 .group {
   position: absolute;
-  border-radius: 30px; /* node 14 + 16 gap */
+  border-radius: 24px; /* node 8 + 16 gap */
   box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 .group-label {
@@ -2389,8 +2411,8 @@ h2,
   text-wrap: pretty;
 }
 .hero4 h1 {
-  letter-spacing: -0.025em;
-  font-weight: 600;
+  letter-spacing: -0.028em;
+  font-weight: 620;
 }
 /* polish: press, hit areas, optical padding, inert decoration */
 .btn:active,
@@ -2599,7 +2621,7 @@ html:has(.canvas) {
     position: fixed;
     inset: 0;
     z-index: calc(var(--z-menu) - 1);
-    background: oklch(0.17 0.016 250 / 0.4);
+    background: oklch(0.155 0.006 230 / 0.4);
     transition:
       opacity 300ms var(--ease-sheet),
       display 300ms allow-discrete;
@@ -3625,4 +3647,152 @@ body:has(.app-main[data-tab="canvas"]) .app-top .app-wrap {
 }
 .demo-frame:has(> iframe:not([data-first])) > .frame-poster {
   visibility: hidden;
+}
+
+/* ===== v6: Vercel-grade restraint, Quay's own marks ===== */
+/* the tide gauge: every section starts at a hairline, with a short staff of ticks hanging from it
+   at the content's left edge, read like the depth marks painted on a quay wall */
+.section {
+  border-top: 1px solid var(--line);
+}
+.section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: max(24px, 50% - 580px);
+  width: 105px;
+  height: 11px;
+  background:
+    repeating-linear-gradient(
+        90deg,
+        var(--line-strong) 0 1px,
+        transparent 1px 32px
+      )
+      0 0 / 100% 11px no-repeat,
+    repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 8px)
+      0 0 / 100% 5px no-repeat;
+  pointer-events: none;
+}
+@media (max-width: 640px) {
+  .section::before {
+    left: 16px;
+  }
+}
+/* display type: Archivo semi-expanded, one weight, set solid */
+h1,
+h2 {
+  font-weight: 620;
+}
+.lede,
+.hero4 .sub {
+  letter-spacing: -0.003em;
+}
+code,
+kbd,
+pre,
+.mono {
+  letter-spacing: -0.01em;
+}
+/* the hero frame: one hairline object on the water, no glow */
+.demo {
+  border-radius: var(--r-xl);
+  margin-top: 64px;
+}
+.demo-head,
+.frame-bar {
+  background: var(--surface-2);
+  height: 46px;
+}
+.demo-head .mono {
+  font-size: 13px;
+}
+/* buttons: flat ink primary, hairline secondary */
+.btn {
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.btn-lg {
+  height: 44px;
+  padding: 0 18px;
+  font-size: 15px;
+}
+/* tables read as ledgers: no filled header band, small labels, hairlines between rows */
+.layers thead th,
+.built thead th,
+.trust thead th,
+.rates th {
+  background: transparent;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.layers tbody th,
+.built tbody th,
+.trust tbody th {
+  font-weight: 600;
+}
+.layers td:nth-child(3) code {
+  color: var(--text);
+}
+/* the production pennant: a signal flag in starboard green, pointing at the berth it marks */
+.ptr {
+  font: 500 12px / 1 var(--mono);
+  letter-spacing: 0;
+  border-radius: 0 4px 4px 0;
+}
+.ptr-down {
+  border-radius: 4px;
+}
+/* section heads: the heading holds the left column, the lede answers it on the right, so a
+   section starts with one line of reading instead of a tall block of space */
+@media (min-width: 1001px) {
+  .section-head {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 72px;
+    align-items: end;
+  }
+  .section-head h2 {
+    margin-bottom: 0;
+    max-width: 14em;
+  }
+  .section-head .lede {
+    max-width: 38em;
+  }
+}
+.lede + .lede {
+  margin-top: 14px;
+}
+.lede + p:has(> .btn) {
+  margin-top: 28px;
+}
+.split-sec .code-card {
+  max-width: none;
+  margin: 0;
+}
+.code-card .term pre {
+  font-size: 14px;
+  line-height: 1.85;
+}
+.demo {
+  grid-template-columns: 360px minmax(0, 1fr);
+  height: 560px;
+}
+@media (max-width: 1000px) {
+  .demo {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+@media (max-width: 640px) {
+  .hero4 h1 {
+    font-size: 34px;
+    line-height: 1.04;
+  }
+  .hero4 h1 br {
+    display: none;
+  }
+  .hero4 .sub {
+    font-size: 17px;
+  }
 }

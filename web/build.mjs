@@ -105,7 +105,7 @@ function escapeHtml(text) {
 }
 
 const mark = () =>
-  `<svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--accent)"/></svg>`;
+  `<svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="var(--signal-q)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="#0f1517" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="#0f1517"/></svg>`;
 
 // Third-party marks, by design/round5-assets rules: NEAR's own logo and
 // "Built on NEAR" badge, unmodified, one colour per theme; every other tool is
@@ -193,8 +193,8 @@ function page({
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>${title}</title>
 <meta name="description" content="${description}">
-<meta name="theme-color" content="#f5f7f9" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0a1016" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#fafbfc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0d0e" media="(prefers-color-scheme: dark)">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${description}">
 <meta property="og:image" content="${SITE}assets/og.png">
@@ -202,6 +202,7 @@ function page({
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="${prefix}assets/mark.svg" type="image/svg+xml">
 <link rel="preload" href="${prefix}assets/fonts/text.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="${prefix}assets/fonts/display.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${prefix}assets/fonts/mono.woff2" as="font" type="font/woff2" crossorigin>
 ${head}<link rel="stylesheet" href="${prefix}assets/quay.css">
 ${theme}${embed}
@@ -391,7 +392,7 @@ function releasePicker() {
       : r.id === BOARD_RELEASES.previous
         ? '<span class="chip chip-prev">previous</span>'
         : "";
-    return `<button class="lg-row" type="button" role="tab" id="rel-${r.id}" aria-controls="demo-panel" aria-selected="${on}" tabindex="${on ? 0 : -1}" data-src="${src}"><span class="lg-id">${r.id}</span><span class="lg-msg">${escapeHtml(r.message)}<small>${r.files} files, ${nf.format(r.bytes)}&nbsp;B</small></span>${badge}</button>`;
+    return `<button class="lg-row" type="button" role="tab" id="rel-${r.id}" aria-controls="demo-panel" aria-selected="${on}" tabindex="${on ? 0 : -1}" data-src="${src}"><span class="lg-id"${r.id < 10 ? " data-pad" : ""}>${r.id}</span><span class="lg-msg">${escapeHtml(r.message)}<small>${r.files} files, ${nf.format(r.bytes)}&nbsp;B</small></span>${badge}</button>`;
   });
   return rows.join("\n");
 }
