@@ -12,17 +12,6 @@
   font-weight: 400 700;
   font-display: swap;
 }
-/* metric-matched fallbacks, so the swap to the webfont does not reflow the hero (widths measured against Arial) */
-@font-face {
-  font-family: "Archivo fallback";
-  src: local("Arial"), local("Helvetica Neue"), local("Roboto");
-  size-adjust: 101%;
-}
-@font-face {
-  font-family: "Archivo Display fallback";
-  src: local("Arial"), local("Helvetica Neue"), local("Roboto");
-  size-adjust: 116%;
-}
 @font-face {
   font-family: "Quay Mono";
   src: url("fonts/mono.woff2") format("woff2");
@@ -39,21 +28,20 @@
   --surface-2: light-dark(oklch(0.976 0.003 230), oklch(0.2 0.008 230));
   --surface-3: light-dark(oklch(0.952 0.004 230), oklch(0.235 0.009 230));
   --canvas: light-dark(oklch(0.976 0.003 230), oklch(0.14 0.006 230));
-  /* hairlines: alpha ink on light so they recede; solid steps on dark so they never glow */
-  --line: light-dark(oklch(0.2 0.01 230 / 0.11), oklch(0.255 0.007 230));
-  --line-strong: light-dark(oklch(0.2 0.01 230 / 0.2), oklch(0.33 0.008 230));
+  --line: light-dark(oklch(0.2 0.01 230 / 0.11), oklch(1 0 0 / 0.09));
+  --line-strong: light-dark(oklch(0.2 0.01 230 / 0.2), oklch(1 0 0 / 0.16));
   --text: light-dark(oklch(0.19 0.01 230), oklch(0.955 0.003 230));
   --text-2: light-dark(oklch(0.43 0.012 230), oklch(0.75 0.009 230));
   --text-3: light-dark(oklch(0.51 0.012 230), oklch(0.64 0.01 230));
   /* signal colours, from harbour lights and the code flags. Each means one thing.
      green (starboard light): serving, production, live. yellow (the Q flag): Quay's own mark, nothing else.
      red (port light): failed or destructive. */
-  --accent: light-dark(oklch(0.5 0.122 155), oklch(0.8 0.15 155));
+  --accent: light-dark(oklch(0.5 0.13 155), oklch(0.8 0.15 155));
   --accent-ink: light-dark(oklch(0.99 0.01 155), oklch(0.17 0.03 155));
-  --accent-edge: light-dark(oklch(0.5 0.122 155), oklch(0.8 0.15 155));
+  --accent-edge: light-dark(oklch(0.5 0.13 155), oklch(0.8 0.15 155));
   --signal-q: oklch(0.86 0.16 95);
-  --live: light-dark(oklch(0.55 0.134 155), oklch(0.8 0.15 155));
-  --live-text: light-dark(oklch(0.45 0.11 155), oklch(0.83 0.13 155));
+  --live: light-dark(oklch(0.55 0.14 155), oklch(0.8 0.15 155));
+  --live-text: light-dark(oklch(0.45 0.12 155), oklch(0.83 0.13 155));
   --live-tint: light-dark(oklch(0.95 0.04 155), oklch(0.25 0.045 160));
   --warn: light-dark(oklch(0.6 0.14 70), oklch(0.82 0.14 80));
   --warn-text: light-dark(oklch(0.47 0.11 60), oklch(0.85 0.12 82));
@@ -91,9 +79,9 @@
     3px light-dark(oklch(0.2 0.01 230 / 0.08), transparent), 0 4px 10px -4px
     light-dark(oklch(0.2 0.01 230 / 0.1), transparent);
   --elev-3:
-    0 0 0 1px light-dark(oklch(0.2 0.01 230 / 0.13), oklch(1 0 0 / 0.11)), 0 1px
-    2px light-dark(oklch(0.2 0.01 230 / 0.05), transparent), 0 12px 28px -14px
-    light-dark(oklch(0.2 0.01 230 / 0.14), transparent);
+    0 0 0 1px light-dark(oklch(0.2 0.01 230 / 0.12), oklch(1 0 0 / 0.11)), 0 2px
+    4px light-dark(oklch(0.2 0.01 230 / 0.05), transparent), 0 24px 48px -16px
+    light-dark(oklch(0.2 0.01 230 / 0.16), transparent);
   /* image edge: pure black or white at 10%, never tinted */
   --img-edge: light-dark(oklch(0 0 0 / 0.1), oklch(1 0 0 / 0.1));
   /* separators: a hairline on dense screens */
@@ -113,11 +101,10 @@
   --r-xl: 12px;
   /* type scale (px): 12 caption, 13 meta, 14 UI, 16 body, 18 lede, 20 ids, 24 panel titles, clamp(28-40) section heads, clamp(40-64) page head */
   --display:
-    "Archivo Display", "Archivo Display fallback", ui-sans-serif, system-ui,
-    sans-serif;
-  --sans:
-    "Archivo", "Archivo fallback", ui-sans-serif, system-ui, -apple-system,
+    "Archivo Display", "Archivo", ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
+  --sans:
+    "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Quay Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -385,6 +372,7 @@ code {
 }
 .dot-live {
   background: var(--live);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--live) 18%, transparent);
 }
 .chip .dot {
   width: 6px;
@@ -530,7 +518,7 @@ code {
   gap: 2px;
 }
 .site-nav nav a {
-  padding: 10px 10px;
+  padding: 6px 10px;
   border-radius: var(--r-sm);
   font-size: 14px;
   color: var(--text-2);
@@ -1890,6 +1878,9 @@ h2,
   background: var(--surface-2);
   box-shadow: inset 2px 0 0 var(--text);
 }
+.lg-row:has(.ptr) .lg-id {
+  color: var(--accent);
+}
 /* berths: each release is a numbered berth, its number painted on the quay wall, two digits wide */
 .lg-id {
   align-self: stretch;
@@ -1902,7 +1893,8 @@ h2,
   margin-block: -8px;
 }
 .lg-id[data-pad]::before {
-  content: "0" / ""; /* alt text empty: read as "7", not "zero seven" */
+  content: "0";
+  content: "0" / "";
   color: var(--text-3);
   opacity: 0.55;
 }
@@ -3145,13 +3137,14 @@ div.node::after {
 }
 .docs-side a {
   display: block;
-  padding: 8px 10px;
-  border-radius: var(--r-md);
+  padding: 6px 10px;
+  border-radius: 8px;
   color: var(--text-2);
 }
 .docs-side a[aria-current] {
   background: var(--surface-2);
   color: var(--text);
+  font-weight: 600;
   box-shadow: inset 2px 0 0 var(--text);
 }
 .docs4 .prose {
@@ -3509,12 +3502,11 @@ div.node::after {
   font-size: 14px;
 }
 .more a {
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
   color: var(--text);
-  text-decoration: underline;
-  text-decoration-thickness: from-font;
-  text-underline-offset: 3px;
-  text-decoration-color: var(--line-strong);
 }
 .docs-side ol + .docs-side-h {
   margin-top: 24px;
@@ -3644,8 +3636,6 @@ body:has(.app-main[data-tab="canvas"]) .app-top .app-wrap {
   background: oklch(0.99 0 0);
 }
 .frame-poster img {
-  outline: 1px solid var(--img-edge);
-  outline-offset: -1px;
   display: block;
   width: 100%;
   height: 100%;
@@ -3674,17 +3664,13 @@ body:has(.app-main[data-tab="canvas"]) .app-top .app-wrap {
   height: 11px;
   background:
     repeating-linear-gradient(
-      90deg,
-      var(--line-strong) 0 1px,
-      transparent 1px 32px
-    )
-    0 0 / 100% 11px no-repeat,
-    repeating-linear-gradient(
-      90deg,
-      var(--line-strong) 0 1px,
-      transparent 1px 8px
-    )
-    0 0 / 100% 5px no-repeat;
+        90deg,
+        var(--line-strong) 0 1px,
+        transparent 1px 32px
+      )
+      0 0 / 100% 11px no-repeat,
+    repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 8px)
+      0 0 / 100% 5px no-repeat;
   pointer-events: none;
 }
 @media (max-width: 640px) {
@@ -3692,19 +3678,20 @@ body:has(.app-main[data-tab="canvas"]) .app-top .app-wrap {
     left: 16px;
   }
 }
-/* display type: Archivo semi-expanded, one weight, set solid, optically kerned */
+/* display type: Archivo semi-expanded, one weight, set solid */
 h1,
 h2 {
   font-weight: 620;
-  font-kerning: normal;
-  text-rendering: optimizeLegibility;
 }
 .lede,
 .hero4 .sub {
-  max-width: min(36em, 100%);
+  letter-spacing: -0.003em;
 }
-a:not(.btn) {
-  text-underline-position: from-font;
+code,
+kbd,
+pre,
+.mono {
+  letter-spacing: -0.01em;
 }
 /* the hero frame: one hairline object on the water, no glow */
 .demo {
@@ -3770,7 +3757,7 @@ a:not(.btn) {
     max-width: 14em;
   }
   .section-head .lede {
-    max-width: 34em;
+    max-width: 38em;
   }
 }
 .lede + .lede {
@@ -3808,31 +3795,4 @@ a:not(.btn) {
   .hero4 .sub {
     font-size: 17px;
   }
-}
-/* polish: the page names are one weight in every state; the current one is ink, the rest text-2 */
-.docs-side a {
-  font-weight: 500;
-}
-.docs-side a,
-.site-nav nav a {
-  transition-property: color, background-color;
-  transition-duration: 150ms;
-  transition-timing-function: ease-out;
-}
-/* landscape phones: content clears the notch; viewport-fit=cover is set in every page's meta */
-.site-nav,
-main,
-.site-foot {
-  padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
-}
-/* the production berth's number is lit in starboard green, whichever berth is selected */
-.lg-row:has(.ptr) .lg-id {
-  color: var(--accent);
-}
-/* a page that opens on a section: the nav's own hairline is the first rule, so no second line or gauge */
-main > .section:first-child {
-  border-top: 0;
-}
-main > .section:first-child::before {
-  content: none;
 }

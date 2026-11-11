@@ -105,7 +105,7 @@ function escapeHtml(text) {
 }
 
 const mark = () =>
-  `<svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="var(--signal-q)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="oklch(0.19 0.01 230)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="oklch(0.19 0.01 230)"/></svg>`;
+  `<svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="var(--signal-q)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="#0f1517" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="#0f1517"/></svg>`;
 
 // Third-party marks, by design/round5-assets rules: NEAR's own logo and
 // "Built on NEAR" badge, unmodified, one colour per theme; every other tool is
@@ -411,7 +411,7 @@ const pages = {
     description:
       "Quay deploys pages, data, functions and sign-in to a NEAR testnet account it creates in one command. No signup, no server to rent. Every deploy is a sealed release.",
     href: "index.html",
-    head: `<link rel="preconnect" href="${BOARD_HOST}">\n<link rel="preload" as="image" href="assets/board-wide.webp" media="(min-width: 641px)" fetchpriority="high">\n<link rel="preload" as="image" href="assets/board-narrow.webp" media="(max-width: 640px)" fetchpriority="high">\n`,
+    head: `<link rel="preconnect" href="${BOARD_HOST}">\n`,
     script: "assets/canvas.js",
     body: home,
   }),
