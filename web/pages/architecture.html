@@ -1,53 +1,58 @@
-<div class="container docs">
-  <nav class="docs-nav" aria-label="Architecture">
-    <a href="{{P}}docs/layers/index.html">Layers</a>
-    <a href="#chain">On chain</a>
-    <a href="#trust">Trust table</a>
-    <a href="#versioned">Versioned per release</a>
-    <a href="#own">Run it yourself</a>
-  </nav>
-  <article class="prose">
-    <h1>Architecture</h1>
-    <p class="lead">One contract account holds the site. Everything else is a service that reads it, writes to it, or runs code for it. This page lists which is which, and what breaks when a service goes away.</p>
-
-    <h2 id="chain">What is on chain</h2>
-    <p>The contract account stores these, and an RPC node can read them without any Quay service:</p>
-    <div class="card"><table class="limits"><tbody>
-      <tr><td>Releases and the production pointer</td><td>live</td></tr>
-      <tr><td>Docs, collections and their rules</td><td>live on the Board</td></tr>
-      <tr><td>Routes and templates, sealed in a release</td><td>live on the Board</td></tr>
-      <tr><td>Members</td><td>live on the Board</td></tr>
-      <tr><td>Products and receipts</td><td>live on the Board</td></tr>
-      <tr><td>Function registry and function results</td><td>live on the Board</td></tr>
-      <tr><td>Cron jobs</td><td>live on the Board</td></tr>
-    </tbody></table></div>
-    <p>Large files are the exception. The release stores an https URL (or a CID) and a sha256, and the bytes live elsewhere. The contract cannot fetch them, so the CLI checks the hash before it seals and anyone can check it again. The contract wasm is 295,899 bytes, which locks about 2.96 NEAR on each site account. Global contracts are not used: a global contract deploy would burn 10 NEAR per 100 KB.</p>
-
-    <h2 id="trust">Trust table</h2>
-    <p>Each row is something Quay uses that one operator runs, or that Quay cannot check for you. "Measured" means we saw it fail.</p>
-    <div class="trust card"><table>
-      <thead><tr><th>Piece</th><th>What you depend on</th><th>Replace or self-host</th></tr></thead>
-      <tbody>
-        <tr><td>Public gateway, <code>testnet.page</code></td><td>One operator serves every site. Measured: from about 18:12 UTC on 2026-11-10 it answered every account with HTTP 400 and a deprecated-RPC error, then came back. Its default RPC was the cause.</td><td><code>quay gateway</code> on your machine, the single-file build under Node, Deno or Bun, or the Workers build. This site runs on the Workers build.</td></tr>
-        <tr><td>Workers mirror</td><td>The owner's Cloudflare account. It runs <code>gateway/worker</code> unchanged, one site per host.</td><td>Deploy the same worker to your own account with <code>npx wrangler deploy</code>.</td></tr>
-        <tr><td>OutLayer functions</td><td>One operator's TEE network. A run takes 5 to 17 seconds. Its governance keys are single keys, by its own NON_CUSTODIAL.md. Secrets are decrypted inside its enclave, so you trust that enclave and that operator. Guests are WASI wasm in Rust. There is no JavaScript runtime.</td><td>No drop-in replacement. Run the same logic on your own server with its own key, as <code>quay relay serve</code> does, or leave the function layer out. Without OutLayer, posts still land, previews stay empty, and cron results stop.</td></tr>
-        <tr><td>FastNEAR</td><td>One operator for three things. The default RPC, <code>test.rpc.fastnear.com</code>. FastFS, <code>test.fastfs.io</code>, the default store for large files and for function wasm: it stores a file for gas only, and a file was served about 5 minutes after upload. A FastData write was read back from <code>kv.test.fastnear.com</code> in a spike, and Quay does not use that index. If FastFS drops a file, the release still points at it, and the sha256 still tells you what it should have been.</td><td>Pass <code>--rpc</code>. The gateway falls back to <code>testnet-rpc.intea.rs</code> and <code>near-testnet.drpc.org</code>. Store large files with Pinata or Filebase, or at any https URL: the contract only records the URL and the sha256. OutLayer fetches function wasm from any public https URL and checks its sha256.</td></tr>
-        <tr><td>NEARFS gateway and indexer</td><td>One operator. Cut as a default: on 2026-11-10 testnet accepted <code>fs_store</code> uploads and never served them, for hours. The store is still in the CLI.</td><td>Use FastFS, Pinata or Filebase.</td></tr>
-        <tr><td>Pinata, Filebase</td><td>An API key you hold, in the environment, and the service's own availability. Implemented, with unit tests. Never run against the live services.</td><td>Any IPFS pinning service. The gateway reads <code>ipfs://</code> through <code>ipfs.io</code> and <code>dweb.link</code> as well.</td></tr>
-        <tr><td>Relayer</td><td>It holds a key and spends from its own account. Its NEAR balance is the spend limit. It can refuse requests. It cannot move the site. Two hosts. <code>quay relay serve</code> is a Node process you run. The OutLayer function needs no server, but the page carries a payment key, and anyone who reads the page can spend it: scope it to the relay project and keep it at a few cents. Calls through OutLayer took 5 to 17 seconds and stalled before a fix.</td><td>Run <code>quay relay serve</code> yourself. Fund it with <code>quay relay create</code>.</td></tr>
-        <tr><td>Wallet connector</td><td>The dashboard and the client load <code>@hot-labs/near-connect</code> from esm.sh, and the wallets it offers.</td><td>Pass your own connector to <code>connect({ wallet })</code>, or sign with an explicit key in Node.</td></tr>
-        <tr><td>Cron</td><td>The contract itself, and OutLayer for each run. A chain lasts about 15 hours per 1 PGas with no jobs and about 6 with one hourly job, then a transaction must arm it again. No operator runs it, and nobody re-arms it for you.</td><td>Run <code>quay cron arm</code> on a timer you control.</td></tr>
-        <tr><td>RPC providers</td><td>A read that matters should not rely on one endpoint.</td><td>Any testnet RPC. <code>rpc.testnet.near.org</code> is deprecated and Quay drops it.</td></tr>
-        <tr><td>Your full-access key</td><td>It can replace the contract wasm, so a release is not owner-proof. Config changes need 1 yoctoNEAR, which a publish-only key cannot attach.</td><td>Keep it off CI. Use <code>quay keys create --ci</code> there.</td></tr>
-      </tbody>
-    </table></div>
-
-    <h2 id="versioned">Versioned per release, and not</h2>
-    <p>A release seals three things together: files, routes and templates. <code>quay rollback</code> swaps all three.</p>
-    <p>These are live state and a rollback does not touch them: docs, collection rules, products, members, receipts, function code and secrets, the relay settings, and cron jobs. <code>quay up</code> and <code>quay rollback</code> print this so nobody expects a data rollback.</p>
-
-    <h2 id="own">Run it yourself</h2>
-    <p>With your own RPC, <code>quay gateway</code> and, for the writes that need it, <code>quay relay serve</code>, nothing between you and the chain belongs to someone else. Functions and large files are the two layers that still lean on a third party today.</p>
-    <p>Everything here is testnet. Read <a href="{{P}}docs/layers/index.html">Layers</a> for what is deployed and what is pending.</p>
-  </article>
+<section class="section page-top">
+<div class="container">
+<div class="section-head">
+<h1>Architecture</h1>
+<p class="lede">One NEAR account holds the app. Everything else is a service that reads it, writes to it or runs code for it. This page lists which is which, and what breaks when a service goes away.</p>
 </div>
+<figure class="mini-canvas arch">
+<ol class="sr"><li>A browser asks a gateway over https: testnet.page, a Workers host or quay gateway.</li><li>The gateway calls web4_get over RPC, by default FastNEAR's test.rpc.fastnear.com.</li><li>The RPC node reads your NEAR account, where the contract holds releases, routes, data, members, receipts, the function registry and cron jobs.</li><li>Large files come from FastFS by URL, and the release keeps their sha256.</li><li>The wallet connector signs NEP-413 sign-in messages.</li><li>The contract sends function requests to OutLayer and records the results.</li></ol>
+<div class="canvas" aria-hidden="true"><div class="stage" id="arch-stage" data-edges="browser>gw|h|https; gw>rpc|h|web4_get; rpc>acct|h|view and call; fs>gw|v|large file by URL; wc>acct|v|NEP-413 sign-in; acct>ol|v|function requests and results" style="width:1100px;height:580px">
+<svg class="edges" aria-hidden="true"></svg>
+<div class="node" data-node="browser" style="left:16px;top:236px;width:160px"><span class="node-name">A browser</span><span class="node-note">Reader or member</span></div>
+<div class="node" data-node="gw" style="left:236px;top:216px;width:210px"><span class="node-name">Gateway</span><span class="node-sub">testnet.page, a Workers host or <code>quay gateway</code></span><span class="provider"><span class="tool tool-text" data-tool="web4">web4</span><span class="tool tool-text" data-tool="cloudflare">Cloudflare Workers</span></span></div>
+<div class="node" data-node="rpc" style="left:526px;top:226px;width:180px"><span class="node-name">RPC</span><span class="node-sub">test.rpc.fastnear.com, with fallbacks</span><span class="provider"><span class="tool tool-text" data-tool="fastnear">FastNEAR</span></span></div>
+<div class="node node-acct" data-node="acct" style="left:800px;top:196px;width:290px"><span class="node-name">Your NEAR account</span><span class="node-sub">The contract holds releases, routes, data, members, receipts, the function registry and cron jobs</span><span class="provider">{{NEAR_MARK}}</span></div>
+<div class="node" data-node="fs" style="left:236px;top:24px;width:210px"><span class="node-name">FastFS</span><span class="node-sub">Large files, stored for gas only</span><span class="provider"><span class="tool tool-text" data-tool="fastnear">FastNEAR</span></span></div>
+<div class="node" data-node="wc" style="left:800px;top:24px;width:290px"><span class="node-name">Wallet connector</span><span class="node-sub">@hot-labs/near-connect and the wallets it lists</span><span class="provider"><span class="tool tool-text" data-tool="connect">near-connect</span></span></div>
+<div class="node" data-node="ol" style="left:800px;top:430px;width:290px"><span class="node-name">OutLayer</span><span class="node-sub">Functions, their secrets, the serverless relayer, each cron run</span><span class="provider"><span class="tool tool-text" data-tool="outlayer">OutLayer</span></span></div>
+</div></div>
+<figcaption>A request goes from the browser through a gateway and an RPC node to your NEAR account. Only the account is on chain; every other box is a service with an operator, and the trust table below says how to replace each one.</figcaption>
+</figure>
+</div>
+</section>
+<section class="section" id="chain">
+<div class="container split-sec top">
+<div><h2>What is on chain</h2><p class="lede">The contract stores these, and any RPC node can read them without a Quay service. Large files are the exception. The release stores an https URL and a sha256, and anyone can check the hash.</p><p class="lede">The contract wasm is 295,899 bytes, which locks about 2.96 NEAR on each site account. Global contracts are not used: a global deploy would burn 10 NEAR per 100 KB.</p></div>
+<ul class="onchain"><li><span>Releases and the production pointer</span><span class="chip chip-live">live</span></li><li><span>Docs, collections and their rules</span><span class="chip chip-live">live on the Board</span></li><li><span>Routes and templates, sealed in a release</span><span class="chip chip-live">live on the Board</span></li><li><span>Members</span><span class="chip chip-live">live on the Board</span></li><li><span>Products and receipts</span><span class="chip chip-live">live on the Board</span></li><li><span>Function registry and function results</span><span class="chip chip-live">live on the Board</span></li><li><span>Cron jobs and the schedule</span><span class="chip chip-live">live on the Board, armed by hand</span></li></ul>
+</div>
+</section>
+<section class="section" id="trust">
+<div class="container">
+<div class="section-head"><h2>Trust table</h2><p class="lede">Each row is something one operator runs, or that Quay cannot check for you. "Measured" means we saw it fail.</p></div>
+<div class="table-wrap" role="region" tabindex="0" aria-label="Trust table"><table class="trust"><thead><tr><th scope="col">Piece</th><th scope="col">What you depend on</th><th scope="col">How to replace it</th></tr></thead><tbody>
+<tr><th scope="row">testnet.page</th><td>One operator serves every web4 site. Measured: from about 18:12 UTC on Nov 10 it answered every account with HTTP 400 and a deprecated-RPC error, then came back. Its default RPC was the cause.</td><td><code>quay gateway</code> on your machine, the single-file build on Node, Deno or Bun, or the Workers build. This site runs on the Workers build.</td></tr>
+<tr><th scope="row">Workers mirror</th><td>The owner's Cloudflare account, running <code>gateway/worker</code> unchanged, one site per host.</td><td>Deploy the same worker to your own account with <code>npx wrangler deploy</code>.</td></tr>
+<tr><th scope="row">OutLayer</th><td>One operator's TEE network. A run takes 5 to 17 seconds. Its governance keys are single keys, by its own NON_CUSTODIAL.md. Secrets are decrypted inside its enclave, so you trust that enclave and that operator. Guests are WASI wasm in Rust; there is no JavaScript runtime.</td><td>No drop-in replacement. Run the same logic on your own server with its own key, as <code>quay relay serve</code> does, or leave functions out. Without OutLayer, posts still land, previews stay empty and cron results stop.</td></tr>
+<tr><th scope="row">FastNEAR</th><td>One operator for three things: the default RPC, <code>test.rpc.fastnear.com</code>; FastFS, <code>test.fastfs.io</code>, for large files and function wasm, which stores a file for gas only and served one about 5 minutes after upload; and FastData KV reads. If FastFS drops a file, the release still points at it, and the sha256 still says what it should be.</td><td>Pass <code>--rpc</code>. The gateway falls back to <code>testnet-rpc.intea.rs</code> and <code>near-testnet.drpc.org</code>. Store large files with Pinata or Filebase, or at any https URL. OutLayer fetches function wasm from any public https URL and checks its sha256.</td></tr>
+<tr><th scope="row">NEARFS</th><td>One operator. Cut as a default: on Nov 10 testnet accepted <code>fs_store</code> uploads and never served them, for hours. The store is still in the CLI.</td><td>Use FastFS, Pinata or Filebase.</td></tr>
+<tr><th scope="row">Pinata, Filebase</th><td>An API key you hold, and the service's own availability. Implemented, with unit tests. Never run against the live services.</td><td>Any IPFS pinning service. The gateway also reads <code>ipfs://</code> through <code>ipfs.io</code> and <code>dweb.link</code>.</td></tr>
+<tr><th scope="row">Relayer</th><td>Its own account and key; its balance is the spend limit. It can refuse requests and cannot move the site. The OutLayer host needs a payment key in the page, so anyone who reads the page can spend it. Scope it to the relay and keep it at a few cents. Calls took 5 to 20 seconds.</td><td>Run <code>quay relay serve</code> and fund it with <code>quay relay create</code>.</td></tr>
+<tr><th scope="row">Wallet connector</th><td><code>@hot-labs/near-connect</code> from esm.sh, and the wallets it lists. Sign-in is proven with the NEAR CLI connector only.</td><td>Pass your own connector, or sign with an explicit key in Node.</td></tr>
+<tr><th scope="row">Cron</th><td>The contract itself, and OutLayer for each run. One arm lasts about 15 hours per 1 PGas with no jobs and about 6 with one hourly job, then a transaction must arm it again. No operator runs it, and nobody re-arms it for you.</td><td>Run <code>quay cron arm</code> on a timer you control.</td></tr>
+<tr><th scope="row">RPC providers</th><td>A read that matters should not rely on one endpoint.</td><td>Any testnet RPC. <code>rpc.testnet.near.org</code> is deprecated and Quay drops it.</td></tr>
+<tr><th scope="row">Your full-access key</th><td>It can replace the contract wasm, so a release is not owner-proof. Config changes need 1 yoctoNEAR, which a publish-only key cannot attach.</td><td>Keep it off CI. Use <code>quay keys create --ci</code> there.</td></tr>
+</tbody></table></div>
+</div>
+</section>
+<section class="section" id="versioned">
+<div class="container split-sec top">
+<div><h2>Versioned with a release, and not</h2></div>
+<div class="prose"><p>A release seals files, routes and templates together, and <code>quay rollback</code> swaps all three.</p><p>Docs, collection rules, products, members, receipts, function code and secrets, relay settings and cron jobs are live state. A rollback does not touch them, and <code>quay up</code> says so before it runs.</p></div>
+</div>
+</section>
+<section class="section" id="own">
+<div class="container split-sec top">
+<div><h2>Run it yourself</h2></div>
+<div class="prose"><p>With your own RPC, <code>quay gateway</code> and, for the writes that need it, <code>quay relay serve</code>, nothing between you and the chain belongs to someone else. Functions and large files are the two layers that still lean on a third party today.</p><p>Everything here is testnet. Read <a href="{{P}}docs/layers/index.html">Layers</a> for what is deployed and what is pending.</p></div>
+</div>
+</section>

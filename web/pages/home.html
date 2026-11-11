@@ -1,215 +1,155 @@
-<section class="hero">
-  <a class="pill" href="#sample"><span class="chip chip-live"><span class="dot dot-live"></span>Live</span>The sample site runs on testnet{{i:right sm}}</a>
-  <h1>Deploy to NEAR.<br>Move production on purpose.</h1>
-  <p class="sub">Quay seals every deploy of your static site as a release with its own URL. Production is a pointer you promote, or roll back to the last release in one call.</p>
-  <div class="ctas">
-    <a class="btn btn-lg btn-primary" href="{{P}}dashboard/index.html?account=quay-65nqd3rn.testnet">Open the dashboard</a>
-    <a class="btn btn-lg" href="{{P}}docs/index.html">Read the docs</a>
-  </div>
-  <div class="shot-clip">
-    <div class="shot" role="img" aria-label="The Quay dashboard for the sample account: release 5 is production and release 4 is previous. A terminal shows quay deploy sealing release 5 and quay promote making it production.">
-      <div class="window" aria-hidden="true">
-        <div class="window-bar"><div class="lights"><i></i><i></i><i></i></div><div class="url"><span>{{i:lock sm}}quay-esc0v902.testnet.page/dashboard</span></div><div class="spacer"></div></div>
-        <div class="app-top">
-          <div class="row1"><svg class="brand-mark" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--live)"/></svg>
-            <div class="crumb"><span class="slash">/</span><span class="acct"><span class="avatar"></span><span>quay-65nqd3rn.testnet</span>{{i:down sm}}</span></div>
-            <div class="nav-end"><span class="net"><span class="dot dot-live"></span>Testnet</span><span class="wallet"><span class="avatar"></span>quay-65nq…testnet</span></div>
-          </div>
-          <div class="tabs"><a aria-current="page">Overview</a><a>Releases</a><a>History</a><a>Storage</a></div>
-        </div>
-        <div class="shot-body">
-          <div class="card">
-            <div class="card-head"><h3>Production</h3><div class="tools"><span class="btn btn-sm">{{i:undo sm}}Roll back to 4</span><span class="btn btn-sm btn-primary">Visit</span></div></div>
-            <div class="prod">
-              <div class="thumb"><div class="t-nav"><b>Harbour office</b><span>Board</span><span>Tide log</span><span>Berth 4</span></div><div class="t-body"><strong>Tide, berth, and the board.</strong><span class="t-rel">Release 5</span><span class="t-p">The build sealed as that release. Its preview URL does not change.</span><div class="t-board"><i><b>Berth 1</b><span>Pilot boat</span><span>06:40</span></i><i><b>Berth 2</b><span>Ferry</span><span>07:15</span></i><i><b>Berth 4</b><span>Supply</span><span>09:30</span></i></div></div></div>
-              <div class="prod-info">
-                <div class="prod-title"><span class="chip chip-live"><span class="dot dot-live"></span>Live</span><strong>Release 5</strong><span class="muted">harbour office, new look</span></div>
-                <span class="prod-url">{{i:globe sm}}quay-65nqd3rn.testnet.page</span>
-                <dl class="facts-grid"><div><dt>Promoted</dt><dd>Nov 10, 16:51 UTC</dd></div><div><dt>Size</dt><dd>8 files, 8,910 B</dd></div><div><dt>Preview</dt><dd class="mono">/r/5/</dd></div><div><dt>Content hash</dt><dd class="mono">f3fde7b5…cce8</dd></div><div><dt>Signed by</dt><dd>Owner key</dd></div></dl>
-                <div class="prev-row">{{i:undo}}<span class="grow">Previous: <b>release 4</b>, harbour office</span><span class="mono faint">/r/4/</span></div>
-              </div>
-            </div>
-          </div>
-          <div class="list-head"><h2>Releases</h2></div>
-          <div class="card"><ol class="rows">
-            <li class="rel-row is-live"><div><div class="l1"><span class="id">5</span><span class="chip chip-live">Production</span></div><div class="l2">harbour office, new look</div></div><div class="c-status"><div class="l1 n"><span class="dot dot-live"></span>Live</div><div class="l2 num">8 files, 8,910 B</div></div><div class="c-msg"><div class="l1 n">{{i:globe sm}}<span class="mono">/r/5/</span></div><div class="l2">{{i:box sm}}<span class="mono">f3fde7b5</span></div></div><div class="when c-when">Nov 10, 16:51</div><div class="acts"><span class="btn btn-sm">Visit</span></div></li>
-            <li class="rel-row"><div><div class="l1"><span class="id">4</span><span class="chip chip-prev">Previous</span></div><div class="l2">harbour office</div></div><div class="c-status"><div class="l1 n"><span class="dot"></span>Sealed</div><div class="l2 num">8 files, 6,280 B</div></div><div class="c-msg"><div class="l1 n">{{i:globe sm}}<span class="mono">/r/4/</span></div><div class="l2">{{i:box sm}}<span class="mono">1deba586</span></div></div><div class="when c-when">Nov 10, 14:38</div><div class="acts"><span class="btn btn-sm">{{i:up sm}}Promote</span></div></li>
-          </ol></div>
-        </div>
-      </div>
-      <div class="term" aria-hidden="true">
-        <div class="term-bar"><span>~/harbour</span><span class="state"><span class="dot"></span>production 5</span></div>
-<pre><span class="p">$</span> quay deploy ./dist -m "harbour office, new look"
-<span class="d">8 files, 8.1 KB new, 781 B reused</span>
-<span class="bar"></span><span class="d">7/7 uploaded</span>
-<span class="g">5</span>  <span class="u">{{SAMPLE}}/r/5/</span>
-<span class="p">$</span> quay promote 5
-<span class="g">5 is production</span></pre>
-      </div>
-    </div>
-  </div>
-</section>
-
+<section class="hero4">
 <div class="container">
-  <div class="facts">
-    <div><strong>5 releases</strong><span>on the sample, each at its own URL</span></div>
-    <div><strong>17,717 bytes</strong><span>stored for all five, shared files once</span></div>
-    <div><strong>1 call</strong><span>to roll production back</span></div>
-    <div><strong>0 keys</strong><span>held by the dashboard page</span></div>
-  </div>
+<h1>Pages, data, functions and sign-in<br>on one NEAR account.</h1>
+<p class="sub">Quay deploys a full-stack app to a NEAR testnet account it creates for you in one command. There is no signup and no server to rent. Every deploy is a sealed release, and production is the one you point at.</p>
+<div class="ctas"><a class="btn btn-lg btn-primary" href="docs/index.html">Deploy your first app</a><a class="btn btn-lg btn-quiet" href="{{BOARD}}/">Open Harbour Board</a></div>
+<div class="demo" data-demo data-account="harbour-board.testnet" data-host="{{BOARD}}">
+<div class="demo-side">
+<div class="demo-head"><span class="mono">harbour-board.testnet</span><span class="muted" data-demo-count>{{RELEASE_COUNT}} releases</span></div>
+<div class="ledger" role="tablist" aria-orientation="vertical" aria-label="Releases of Harbour Board">
+{{RELEASES}}
 </div>
-
-<section class="section" id="how">
-  <div class="container">
-    <div class="section-head">
-      <span class="kicker">How it works</span>
-      <h2>From a folder to production in three steps</h2>
-      <p class="lede">Each step is one command, and the contract on your account records it. Nothing is overwritten: a release you sealed last week still opens at its URL.</p>
-    </div>
-    <ol class="steps">
-      <li class="step">
-        <div class="step-vis" aria-hidden="true"><div class="term"><div class="term-bar"><span>~/site</span><span class="state"><span class="dot"></span>sealed</span></div>
-<pre><span class="p">$</span> quay deploy ./site -m "second board"
-<span class="d">8 files, 1.1 KB new, 5.2 KB reused</span>
-<span class="bar" style="width:120px"></span><span class="d">1/1 index.html</span>
-<span class="g">2</span>  <span class="u">…i7qkbbp3.testnet.page/r/2/</span></pre></div></div>
-        <div class="step-text"><h3><span class="step-n">1</span>Deploy</h3><p><code>quay deploy</code> uploads the folder in chunks, skips bytes the account already stores, and prints a preview URL.</p></div>
-      </li>
-      <li class="step">
-        <div class="step-vis" aria-hidden="true"><div class="card"><div class="card-head"><span class="l1"><span class="mono">5</span>harbour office, new look</span><span class="chip"><span class="dot"></span>Sealed</span></div><div class="card-body"><dl class="kv"><dt>Preview</dt><dd class="mono">/r/5/</dd><dt>Files</dt><dd class="num">8, 8,910 bytes</dd><dt>Hash</dt><dd class="mono">f3fde7b5…cce8</dd><dt>Sealed</dt><dd>Nov 10, 16:51 UTC</dd></dl></div></div></div>
-        <div class="step-text"><h3><span class="step-n">2</span>Seal</h3><p>The release gets a permanent id. Its files, message and byte count are fixed, and <code>/r/&lt;id&gt;/</code> keeps serving that build.</p></div>
-      </li>
-      <li class="step">
-        <div class="step-vis" aria-hidden="true"><div class="card"><div class="card-head"><span class="card-title">Production</span><span class="btn btn-sm">{{i:undo sm}}Roll back</span></div><ol class="timeline"><li><span class="ti up">{{i:up sm}}</span><span class="what"><b>Promoted 5</b> <span class="muted">from 4</span></span><span class="when">16:51</span></li><li><span class="ti back">{{i:undo sm}}</span><span class="what"><b>Rolled back to 2</b> <span class="muted">from 3</span></span><span class="when">14:06</span></li></ol></div></div>
-        <div class="step-text"><h3><span class="step-n">3</span>Promote or roll back</h3><p>The host root follows the production pointer. <code>quay rollback</code> swaps it with the previous release. No re-upload.</p></div>
-      </li>
-    </ol>
-  </div>
+<p class="demo-note">Harbour Board is a noticeboard with members, moderation, pins, an hourly digest and a large photo, all on this account. Choose a release to load it. Production stays on <span data-demo-prod>{{PRODUCTION}}</span>.</p>
+</div>
+<div class="demo-frame" role="tabpanel" id="demo-panel" aria-labelledby="rel-{{PRODUCTION}}">
+<div class="frame-bar"><span class="mono" data-demo-url>{{BOARD_HOST}}/</span><a class="btn btn-sm btn-quiet" data-demo-open href="{{BOARD}}/" target="_blank" rel="noopener">Open{{i:ext sm end}}</a></div>
+<div class="frame-fail" role="status" hidden><strong>The gateway is not answering</strong><p>The release is still sealed on chain; only the host is down. Try again in a minute, or run <code>quay gateway --account harbour-board.testnet</code>.</p><div class="acts"><button class="btn btn-sm" type="button" data-demo-retry>Try again</button><a class="btn btn-sm btn-quiet" href="https://explorer.testnet.near.org/accounts/harbour-board.testnet">Open the explorer</a></div></div>
+<iframe data-demo-frame src="{{BOARD}}/" title="Release {{PRODUCTION}} of Harbour Board, live" sandbox="allow-scripts allow-same-origin" tabindex="-1"></iframe>
+</div>
+</div>
+</div>
 </section>
 
-<section class="section" id="ci">
-  <div class="container split-sec">
-    <div>
-      <span class="kicker">CI</span>
-      <h2>A CI key that can preview, and cannot ship</h2>
-      <p class="lede">Give your pipeline a publish-only key. Every pull request gets its own sealed preview. Moving production still takes the owner.</p>
-      <ul class="ticks">
-        <li>{{i:check}}<span><b>Scoped on chain.</b> The key may call <code>put_chunk</code> and <code>seal</code>, nothing else.</span></li>
-        <li>{{i:check}}<span><b>Refused twice.</b> The CLI exits 3 before sending a promote, and the contract rejects one sent anyway.</span></li>
-        <li>{{i:check}}<span><b>Shown once.</b> <code>quay keys create --ci</code> prints the secret for <code>QUAY_CI_KEY</code> and keeps a 0600 copy outside the repo.</span></li>
-      </ul>
-    </div>
-    <div class="stack">
-      <div class="card" style="box-shadow:0 0 0 1px var(--line),var(--shadow-md)">
-        <div class="card-head"><span class="l1">{{i:key}}Publish-only key</span><span class="chip chip-outline">Function-call key</span></div>
-        <div class="perm"><code>put_chunk</code><span class="yes">{{i:check sm}}Allowed</span></div>
-        <div class="perm"><code>seal</code><span class="yes">{{i:check sm}}Allowed</span></div>
-        <div class="perm"><span><code>promote</code>, <code>rollback</code>, <code>delete</code></span><span class="no">{{i:x sm}}Needs the owner</span></div>
-      </div>
-      <div class="term">
-        <div class="term-bar"><span>.github/workflows/preview.yml</span><span>exit 3</span></div>
-<pre><span class="p">$</span> quay deploy ./dist --ci --yes
-<span class="g">3</span>  <span class="u">https://quay-i7qkbbp3.testnet.page/r/3/</span>
-<span class="p">$</span> quay promote 3 --ci
-<span class="r">quay: a publish-only key cannot do that</span></pre>
-      </div>
-    </div>
-  </div>
+<section class="section" id="layers">
+<div class="container">
+<div class="section-head">
+<h2>What runs on the account, layer by layer</h2>
+<p class="lede">Each layer was run on testnet for Harbour Board. The proof links open the transaction or the live page, and none of them needs a key. Each layer's name opens its docs.</p>
+</div>
+{{LAYERS}}
+</div>
+</section>
+
+<section class="section" id="flow">
+<div class="container">
+<div class="section-head">
+<h2>How a request flows</h2>
+<p class="lede">Reading a post touches only the gateway and the contract. Writing one adds the relayer and a function, and both run on OutLayer.</p>
+</div>
+<figure class="mini-canvas flow">
+<ol class="sr"><li>A reader's browser asks the gateway for /posts/5.</li><li>The gateway calls web4_get on harbour-board.testnet, and the route fills post.html from the posts collection.</li><li>A member signs a delegate action. The relayer, running on OutLayer, sends it and pays the gas, and the contract adds the post.</li><li>The posts collection's on_add rule asks OutLayer to run moderate, which checks the post and adds a link preview.</li></ol>
+<div class="canvas" aria-hidden="true"><div class="stage" id="flow-stage" data-edges="reader>gw|h|GET /posts/5; gw>site|h|web4_get; member>relay|h|signed delegate; relay>site|h|db_add, gas paid; site>fn|h|on_add: moderate">
+<svg class="edges" aria-hidden="true"></svg>
+<div class="node" data-node="reader" style="left:16px;top:40px;width:180px"><span class="node-name">A reader</span><span class="node-note">Any browser, no wallet</span></div>
+<div class="node" data-node="gw" style="left:290px;top:40px;width:220px"><span class="node-name">Gateway</span><span class="node-sub">testnet.page or Workers</span><span class="provider"><span class="tool tool-text" data-tool="web4">web4</span><span class="tool tool-text" data-tool="cloudflare">Cloudflare Workers</span></span></div>
+<div class="node" data-node="site" style="left:620px;top:110px;width:260px"><span class="node-name">harbour-board.testnet</span><span class="node-sub">Route <code>/posts/:id</code> fills <code>post.html</code> from the <code>posts</code> collection</span><span class="provider">{{NEAR_MARK}}</span></div>
+<div class="node" data-node="member" style="left:16px;top:230px;width:180px"><span class="node-name">A member</span><span class="node-note">Signs with a key the page made, no NEAR</span></div>
+<div class="node" data-node="relay" style="left:290px;top:230px;width:220px"><span class="node-name">Relayer</span><span class="node-sub mono">relay.harbour-board.testnet</span><span class="provider"><span class="tool tool-text" data-tool="outlayer">OutLayer</span></span></div>
+<div class="node" data-node="fn" style="left:980px;top:230px;width:180px"><span class="node-name"><code>moderate</code></span><span class="node-note">Checks the post, adds a link preview</span><span class="provider"><span class="tool tool-text" data-tool="outlayer">OutLayer</span></span></div>
+</div></div>
+<figcaption>Read path on top, write path below. In the live check on Nov 10 the relay call took 6.0 seconds, and the page showed the post as checked 17.2 seconds after submit.</figcaption>
+</figure>
+</div>
+</section>
+
+<section class="section" id="built-with">
+<div class="container">
+<div class="section-head">
+<h2>What Quay runs on</h2>
+<p class="lede">Next to each tool is what Quay uses it for. The trust table below says what happens if it goes away.</p>
+</div>
+<div class="table-wrap" role="region" tabindex="0" aria-label="Tools Quay runs on"><table class="built">
+<thead><tr><th scope="col">Tool</th><th scope="col">What Quay uses it for</th><th scope="col">Layers</th></tr></thead>
+<tbody>
+<tr><th scope="row"><a class="tool-link" href="https://near.org/">{{NEAR_LOGO}}</a></th><td>Accounts, the contract, and all on-chain state: releases, docs, members, receipts, the function registry and cron jobs. Every layer above lives on one testnet account.</td><td>All layers</td></tr>
+<tr><th scope="row"><a class="tool-link" href="https://web4.near.page/"><span class="tool tool-text" data-tool="web4">web4</span></a></th><td>The <code>web4_get</code> view that turns a path into a page, and the public <code>testnet.page</code> gateway.</td><td>Routes, Gateway</td></tr>
+<tr><th scope="row"><a class="tool-link" href="https://fastnear.com/"><span class="tool tool-text" data-tool="fastnear">FastNEAR</span></a></th><td>The default RPC (<code>test.rpc.fastnear.com</code>), FastFS for large files and function code, and FastData KV as a gas-only data backend.</td><td>Large files, Data, every read</td></tr>
+<tr><th scope="row"><a class="tool-link" href="https://outlayer.ai/"><span class="tool tool-text" data-tool="outlayer">OutLayer</span></a></th><td>Runs the WASI functions in its TEE workers, holds their secrets, and hosts the serverless relayer.</td><td>Functions, Relay, Cron runs</td></tr>
+<tr><th scope="row"><a class="tool-link" href="https://github.com/hot-dao/near-selector"><span class="tool tool-text" data-tool="connect">near-connect</span></a></th><td>The NEAR wallet connector by HOT Labs, <code>@hot-labs/near-connect</code>. On testnet its picker showed Meteor, Intear, Ledger, Nightly and the NEAR CLI; sign-in is proven with the NEAR CLI. The page never holds a key.</td><td>Sign-in, the dashboard</td></tr>
+<tr><th scope="row"><a class="tool-link" href="https://workers.cloudflare.com/"><span class="tool tool-text" data-tool="cloudflare">Cloudflare Workers</span></a></th><td>Cloudflare Workers™ is one optional host for the gateway. This site and both samples are mirrored there because testnet.page failed for hours.</td><td>Gateway</td></tr>
+<tr><th scope="row"><span class="std std-lg">NEP-413, NEP-366</span></th><td>The NEAR standards for a signed sign-in message and for a delegate action a relayer pays for.</td><td>Sign-in, Relay</td></tr>
+<tr><th scope="row"><span class="std std-lg">near-sdk, near-api-js</span></th><td>The contract is near-sdk 5.30.1. The CLI uses near-api-js 7.4.0, and the tests run on near-sandbox.</td><td>Everything</td></tr>
+</tbody></table></div>
+</div>
+</section>
+
+<section class="section" id="trust">
+<div class="container">
+<div class="section-head">
+<h2>What you trust, and how to replace it</h2>
+<p class="lede">One account holds the app. Everything else is a service that reads it, writes to it or runs code for it, and most of them have one operator today.</p>
+</div>
+<div class="table-wrap" role="region" tabindex="0" aria-label="What you trust"><table class="trust">
+<thead><tr><th scope="col">Piece</th><th scope="col">What you depend on</th><th scope="col">How to replace it</th></tr></thead>
+<tbody>
+<tr><th scope="row">The contract on your account</th><td>Releases, routes, data, members, receipts, the function registry and cron jobs. Any RPC node can read them.</td><td>Nothing to replace. It is yours. A full-access key can replace the wasm, so keep that key off CI.</td></tr>
+<tr><th scope="row">testnet.page</th><td>One operator serves every web4 site. We saw it answer every account with HTTP 400 for hours on Nov 10.</td><td><code>quay gateway</code> on your machine, the single-file build on Node, Deno or Bun, or the Workers build.</td></tr>
+<tr><th scope="row">Cloudflare Workers mirror</th><td>The owner's Cloudflare account, running the gateway unchanged.</td><td>Deploy the same worker to your account with <code>npx wrangler deploy</code>.</td></tr>
+<tr><th scope="row">OutLayer</th><td>One operator's TEE network runs functions and holds their secrets. A run takes 5 to 17 seconds.</td><td>No drop-in replacement. Run the logic on your own server, as <code>quay relay serve</code> does, or leave functions out. Posts still land without them.</td></tr>
+<tr><th scope="row">FastNEAR</th><td>The default RPC, FastFS for large files, and FastData reads.</td><td>Pass <code>--rpc</code>; the gateway falls back to other RPCs. Large files can go to Pinata, Filebase or any https URL, and the release keeps the sha256.</td></tr>
+<tr><th scope="row">The relayer</th><td>Its own account and key. Its balance is the spend limit. It cannot move the site.</td><td>Run <code>quay relay serve</code> yourself and fund it with <code>quay relay create</code>.</td></tr>
+<tr><th scope="row">The schedule</th><td>Nobody: the contract keeps itself awake for about 6 hours per arm with an hourly job.</td><td>Run <code>quay cron arm</code> again, on a timer you control.</td></tr>
+<tr><th scope="row">The wallet connector</th><td>The client loads <code>@hot-labs/near-connect</code> and the wallets it lists.</td><td>Pass your own connector, or sign with an explicit key in Node.</td></tr>
+</tbody></table></div>
+<p class="more"><a href="architecture/index.html">The full trust table is on the architecture page{{i:right sm end}}</a></p>
+</div>
 </section>
 
 <section class="section" id="cost">
-  <div class="container split-sec top">
-    <div>
-      <span class="kicker">Cost</span>
-      <h2>You pay for bytes, not builds</h2>
-      <p class="lede">NEAR locks storage on the account that holds it. Quay prints the estimate before it spends, and stores a file once even if ten releases use it. Delete a release that is not production and its bytes unlock on the same account.</p>
-    </div>
-    <div class="card" style="overflow:hidden">
-      <table class="rates">
-        <thead><tr><th>Item</th><th class="v">Locked</th></tr></thead>
-        <tbody>
-          <tr><td>Storage<small>NEAR's rate for contract state</small></td><td class="v">0.01 NEAR / 1,000 B</td></tr>
-          <tr><td>The harbour sample<small>5 releases, 17,717 bytes sealed</small></td><td class="v">≈ 0.18 NEAR</td></tr>
-          <tr><td>The Quay contract<small>295,899 bytes of wasm, once per account</small></td><td class="v">≈ 2.96 NEAR</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+<div class="container split-sec top">
+<div>
+<h2>What it costs on testnet</h2>
+<p class="lede">NEAR locks storage on the account that holds it and unlocks it when the data is deleted. The numbers are Harbour Board's, read from chain on Nov 11.</p>
+</div>
+<div class="card" style="overflow:hidden">
+<table class="rates costs">
+<thead><tr><th>Item</th><th class="v">Cost</th></tr></thead>
+<tbody>
+<tr><td>The contract, once per account<small>295,899&nbsp;B of wasm</small></td><td class="v"><b>about 2.96&nbsp;NEAR</b><small>locked</small></td></tr>
+<tr><td>All of Harbour Board's storage<small>504,529&nbsp;B, read on Nov 11</small></td><td class="v"><b>about 5.05&nbsp;NEAR</b><small>locked</small></td></tr>
+<tr><td>All seven Board releases<small>137,411&nbsp;B; a file shared by releases is stored once</small></td><td class="v"><b>about 1.37&nbsp;NEAR</b><small>locked</small></td></tr>
+<tr><td>Posts<small>14 docs, 4,692&nbsp;B</small></td><td class="v"><b>from the site's pool</b><small>the visitor pays nothing</small></td></tr>
+<tr><td>A function run<small><code>moderate</code> or <code>digest</code>, each call</small></td><td class="v"><b>0.005&nbsp;NEAR</b><small>attached by the site</small></td></tr>
+<tr><td>A relayed write<small>a member's post</small></td><td class="v"><b>gas only</b><small>paid by the relayer, 1.84&nbsp;NEAR left on Nov 11</small></td></tr>
+<tr><td>A large file on FastFS<small>the 493,183&nbsp;B photo</small></td><td class="v"><b>gas only</b><small>nothing locked</small></td></tr>
+<tr><td>Arming the schedule<small>1 PGas, about 6 hours with an hourly job</small></td><td class="v"><b>about 1&nbsp;NEAR held</b><small>unused gas refunded</small></td></tr>
+<tr><td>Storage on NEAR<small>per 1,000&nbsp;B</small></td><td class="v"><b>0.01&nbsp;NEAR</b><small>locked, unlocked when deleted</small></td></tr>
+</tbody>
+</table>
+</div>
+</div>
 </section>
 
-<section class="section" id="board">
-  <div class="container split-sec top">
-    <div>
-      <span class="kicker">Beyond static files</span>
-      <h2>A whole site on one account</h2>
-      <p class="lede">Harbour Board is a notice board on <code>harbour-board.testnet</code>. Its pages are rendered by the contract from posts it stores. Members join with no NEAR, a function on OutLayer screens each post, and a post can be pinned by paying in NEAR or test USDC. Its 493 KB photo is stored off chain on FastFS and checked by sha256.</p>
-      <p class="lede">Weak spots, stated plainly: OutLayer calls take 5 to 17 seconds, and testnet.page, OutLayer and FastNEAR are one operator each. The scheduled digest runs, but its chain must be armed again about every 6 hours. Wallet sign-in was shown with one near-connect wallet, the NEAR CLI connector; Intear and Meteor were not. Read the <a href="{{P}}architecture/index.html#trust">trust table</a>.</p>
-      <div class="ctas"><a class="btn btn-primary" href="https://harbour-board.ss251.workers.dev/">Open Harbour Board</a><a class="btn" href="{{P}}docs/layers/index.html">What each layer does</a></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="card-title">Layers, checked on testnet</span></div>
-      <ol class="rows">
-        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Data and server-rendered pages</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
-        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Members and a gasless relayer</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
-        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Functions on OutLayer</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
-        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Payments, test USDC only</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
-        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Large files on FastFS</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
-        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Scheduled jobs, re-armed about every 6 hours</div></div><span class="chip chip-live"><span class="dot dot-live"></span>Live</span></li>
-        <li class="rel-row" style="grid-template-columns:1fr auto"><div><div class="l1">Wallet sign-in</div></div><span class="chip chip-warn">One wallet</span></li>
-      </ol>
-    </div>
-  </div>
-</section>
-
-<section class="section" id="host">
-  <div class="container">
-    <div class="section-head">
-      <span class="kicker">Hosting</span>
-      <h2>Serve it from anywhere</h2>
-      <p class="lede">A Quay site is bytes in a contract. Anything that can call <code>web4_get</code> can serve it. <code>testnet.page</code> was down for hours on 2026-11-10, so this page is served by the same gateway code on Cloudflare Workers. <code>quay gateway --account &lt;account&gt;</code> serves a site from your machine over RPC.</p>
-    </div>
-  </div>
-</section>
-
-<section class="section" id="sample">
-  <div class="container">
-    <div class="section-head">
-      <span class="kicker">Live on testnet</span>
-      <h2>The sample site, five releases deep</h2>
-      <p class="lede">Production is release 5. Release 4 is where a rollback lands. Every release still answers at its own address, including the four older looks. The frame below is the live site.</p>
-    </div>
-    <div class="sample-grid">
-      <div class="window">
-        <div class="window-bar"><div class="lights"><i></i><i></i><i></i></div><div class="url"><span>{{i:lock sm}}{{SAMPLE_HOST}}</span></div><div class="spacer"></div></div>
-        <div class="live-frame"><iframe src="{{SAMPLE}}/" title="The harbour sample, live" sandbox="allow-scripts allow-same-origin" tabindex="-1" aria-hidden="true"></iframe></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-title">quay-65nqd3rn.testnet</span><a class="btn btn-sm" href="{{P}}dashboard/index.html?account=quay-65nqd3rn.testnet">Open in dashboard</a></div>
-        <ol class="rows">
-          <li class="rel-row is-live" style="grid-template-columns:40px 1fr auto"><span class="id">5</span><div><div class="l1">harbour office, new look <span class="chip chip-live">Production</span></div><div class="l2 mono">/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="{{SAMPLE}}/" aria-label="Open production">{{i:ext}}</a></li>
-          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">4</span><div><div class="l1">harbour office <span class="chip chip-prev">Previous</span></div><div class="l2 mono">/r/4/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="{{SAMPLE}}/r/4/" aria-label="Open release 4">{{i:ext}}</a></li>
-          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">3</span><div><div class="l1">latest preview</div><div class="l2 mono">/r/3/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="{{SAMPLE}}/r/3/" aria-label="Open release 3">{{i:ext}}</a></li>
-          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">2</span><div><div class="l1">tide log linked</div><div class="l2 mono">/r/2/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="{{SAMPLE}}/r/2/" aria-label="Open release 2">{{i:ext}}</a></li>
-          <li class="rel-row" style="grid-template-columns:40px 1fr auto"><span class="id">1</span><div><div class="l1">harbour opens</div><div class="l2 mono">/r/1/</div></div><a class="btn btn-sm btn-icon btn-quiet" href="{{SAMPLE}}/r/1/" aria-label="Open release 1">{{i:ext}}</a></li>
-        </ol>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="cta-band">
-  <div class="container">
-    <h2>Start with four commands</h2>
-    <p class="lede">Node 20 or newer, and a checkout of this repository. The faucet funds the testnet account.</p>
-    <div class="code-card">
-      <div class="term">
-        <div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="start-cmds" aria-label="Copy the commands">{{i:copy sm}}</button></div>
+<section class="section" id="start">
+<div class="container split-sec top">
+<div>
+<h2>Start with four commands</h2>
+<p class="lede">Node 20 or newer and a checkout of the repository. The faucet funds the testnet account, and every deploy is a preview with its own URL. Move production on purpose with <code>quay promote</code>, and back with <code>quay rollback</code>.</p>
+<p class="lede">For data, functions and routes, describe them in <code>quay.json</code>. <code>quay up --dry-run</code> prints the plan and changes nothing.</p>
+<p><a class="btn btn-lg" href="docs/index.html">Read the docs</a></p>
+</div>
+<div class="code-card">
+<div class="term">
+<div class="term-bar"><span>Terminal</span><button class="btn btn-sm btn-icon btn-quiet" type="button" data-copy-from="start-cmds" aria-label="Copy the commands">{{i:copy sm}}</button></div>
 <pre id="start-cmds">npm install -g ./cli
 quay init
-quay deploy ./dist -m "harbour office"
+quay deploy ./dist -m "first release"
 quay promote 1</pre>
-      </div>
-    </div>
-    <div class="ctas"><a class="btn btn-lg btn-primary" href="{{P}}docs/index.html">Read the docs</a><a class="btn btn-lg" href="{{P}}dashboard/index.html">Open the dashboard</a></div>
-  </div>
+</div>
+</div>
+</div>
+</section>
+
+<section class="section" id="faq">
+<div class="container split-sec top">
+<div><h2>Questions</h2></div>
+<div class="faq">
+<details><summary>Is this on mainnet?</summary><p>No. Quay runs on NEAR testnet only, the CLI refuses any other network, and nothing here holds real funds. Test USDC is <code>usdc.fakes.testnet</code>, which anyone can mint.</p></details>
+<details><summary>Do I need to sign up?</summary><p>No. There is no Quay account. <code>quay init</code> asks the testnet faucet for a NEAR account and deploys the contract to it. The account and its keys are yours.</p></details>
+<details><summary>What happens if the gateway is down?</summary><p>The pages and data stay on chain; only that door is closed. Run <code>quay gateway --account &lt;id&gt;</code> and the same site answers at <code>127.0.0.1:8787</code>, or deploy the Workers build. testnet.page did fail on Nov 10, which is why the mirrors exist.</p></details>
+<details><summary>Who holds the keys?</summary><p>You hold the account's full-access key, in <code>~/.near-credentials</code>. CI gets a publish-only key that cannot move production. Each member holds their own key. The relayer holds its own and can only spend its balance. The dashboard never holds a key.</p></details>
+<details><summary>What can it not do yet?</summary><p>The schedule stops about 6 hours after each arm, and nobody re-arms it for you. Functions are Rust compiled to WASI, with no JavaScript runtime, and take 5 to 17 seconds on OutLayer. Wallet sign-in is proven with one connector, the NEAR CLI. Telegram sign-in has run only on test data, with no real bot. A full-access key can replace the contract, so a release is not owner-proof against it.</p></details>
+<details><summary>Is Quay a NEAR product?</summary><p>No. Quay is an independent hackathon project built on NEAR. NEAR and the other tools named here do not run or endorse it.</p></details>
+</div>
+</div>
 </section>

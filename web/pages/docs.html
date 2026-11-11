@@ -1,16 +1,5 @@
-<div class="container docs">
-  <nav class="docs-nav" aria-label="Docs">
-    <a href="#quickstart">Quickstart</a>
-    <a href="#cli">Commands</a>
-    <a href="#ci">CI</a>
-    <a href="#how">How it works</a>
-    <a href="#limits">Limits</a>
-    <a href="{{P}}docs/layers/index.html">Layers</a>
-    <a href="{{P}}architecture/index.html">Architecture</a>
-  </nav>
-  <article class="prose">
     <h1>Docs</h1>
-    <p class="lead">Install Quay, publish a folder, and point production at a release. Data, sign-in, functions and the rest are on the <a href="{{P}}docs/layers/index.html">layers page</a>.</p>
+    <p class="lede">Install Quay, publish a folder, and point production at a release. Data, sign-in, functions and the rest each have a page under <a href="{{P}}docs/layers/index.html">Layers</a>.</p>
 
     <h2 id="quickstart">Quickstart</h2>
     <p>You need Node 20 or newer and a checkout of this repository. The package is not on the npm registry. The account is on testnet, and the faucet creates it. Keys stay in <code>~/.near-credentials/testnet/</code> and are not written into the project.</p>
@@ -43,23 +32,21 @@ quay open</pre>
     <p>The contract account is the only account that can write. <code>put_chunk</code> stores up to 200,000 bytes under their sha256. <code>seal</code> records a release: the file list, the message, the byte count, and whether unknown paths should serve <code>index.html</code>. A chunk used by two releases is stored once. If sealing fails, an owner key drops the chunks that deploy just uploaded. A publish-only key cannot drop them, because that call needs 1 yoctoNEAR.</p>
     <p><code>promote</code> sets the production id and keeps the previous id. <code>rollback</code> swaps them. <code>delete</code> removes a release that is not production. When the last reference to a chunk is gone, the bytes are removed and the locked NEAR unlocks on the contract account. It is not transferred to you.</p>
     <p>The public gateway calls <code>web4_get</code>. Production responses use <code>public, max-age=0, must-revalidate</code>. A path under <code>/r/&lt;id&gt;/</code> uses a year-long immutable cache. A folder path serves the <code>index.html</code> inside it. If the release was sealed with <code>--spa</code>, an unknown path serves the root <code>index.html</code>. Otherwise <code>404.html</code> is served with status 404 when that file exists.</p>
-    <p>NEAR locks 0.01 NEAR per 1,000 bytes of storage, about 1 NEAR per 100 KB, plus a small amount for each trie record. The CLI adds 80 bytes per new chunk and 200 bytes for the release when it prints the estimate. Gas is small next to that lock. The contract code is about 216 KB and locks a little over 2 NEAR when you deploy it.</p>
-    <p>Events are one log line per action, prefixed with <code>EVENT_JSON:</code>, standard <code>quay</code>, version <code>2.0.0</code>.</p>
+    <p>NEAR locks 0.01 NEAR per 1,000 bytes of storage, about 1 NEAR per 100 KB, plus a small amount for each trie record. The CLI adds 80 bytes per new chunk and 200 bytes for the release when it prints the estimate. Gas is small next to that lock. The contract that <code>quay init</code> deploys today is 295,899 bytes and locks about 2.96 NEAR. The older 2.0.0 contract, which this site runs, is 216,419 bytes and locks a little over 2 NEAR.</p>
+    <p>Events are one log line per action, prefixed with <code>EVENT_JSON:</code>, standard <code>quay</code>, with the contract version: <code>3.0.1</code> on a new account, <code>2.0.0</code> on the older ones.</p>
 
     <h2 id="limits">Limits and caveats</h2>
-    <div class="card"><table class="limits"><tbody>
-      <tr><td>Chunk</td><td>1 to 200,000 bytes</td></tr>
-      <tr><td>File</td><td>800,000 bytes, at most 4 chunks</td></tr>
-      <tr><td>Files in one release</td><td>64</td></tr>
-      <tr><td>Live releases</td><td>32</td></tr>
-      <tr><td>Payload cap</td><td>2,000,000 bytes</td></tr>
-      <tr><td>Message</td><td>200 characters, no control characters</td></tr>
-      <tr><td>Path</td><td>1 to 180 bytes: letters, digits, . _ - /</td></tr>
-    </tbody></table></div>
+    <table class="limits4"><tbody>
+      <tr><th scope="row">Chunk</th><td>1 to 200,000 bytes</td></tr>
+      <tr><th scope="row">File</th><td>800,000 bytes, at most 4 chunks</td></tr>
+      <tr><th scope="row">Files in one release</th><td>64</td></tr>
+      <tr><th scope="row">Live releases</th><td>32</td></tr>
+      <tr><th scope="row">Payload cap</th><td>2,000,000 bytes</td></tr>
+      <tr><th scope="row">Message</th><td>200 characters, no control characters</td></tr>
+      <tr><th scope="row">Path</th><td>1 to 180 bytes: letters, digits, . _ - /</td></tr>
+    </tbody></table>
     <p>This is testnet. The faucet is rate-limited and does not spend mainnet NEAR. There is no mainnet deploy path in the CLI.</p>
     <p>The public gateway issues a TLS certificate the first time a new host is requested. That often takes under a minute, and <code>curl</code> can fail the handshake before it succeeds. <code>quay init</code> and the first <code>quay deploy</code> poll the gateway and print "waiting for the gateway certificate, usually under 2 minutes". If that wait times out, the account and the release are already on chain. Open the URL again in a minute.</p>
     <p>A public site is only as available as the gateway that serves it. On 2026-11-10 <code>testnet.page</code> answered every account with HTTP 400 for several hours. The contract still held the bytes. Run <code>quay gateway --account &lt;account&gt;</code> and open <code>http://127.0.0.1:8787/</code>, or deploy <code>gateway/worker</code> to your own Cloudflare account. The <a href="{{P}}architecture/index.html#trust">trust table</a> lists every service a site depends on.</p>
     <p>A full-access key can replace the contract wasm. A release is not owner-proof against that key. The publish-only key cannot.</p>
     <p>Dotfiles, <code>node_modules</code>, <code>target</code>, and <code>.git</code> are skipped. A directory release needs <code>index.html</code>. About 1 NEAR is locked per 100 KB until you delete the release, so keep the site small. The contract code lock is separate and comes back only if you delete the account.</p>
-  </article>
-</div>

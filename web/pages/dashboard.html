@@ -1,11 +1,10 @@
 <a class="skip" href="#content">Skip to content</a>
 <header class="app-top">
   <div class="row1 app-wrap">
-    <a href="{{P}}index.html" aria-label="Quay home"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--live)"/></svg></a>
-    <div class="crumb" id="crumb" hidden><span class="slash" aria-hidden="true">/</span><a class="acct" id="crumb-acct" href="?" title="Open another account"><span class="avatar"></span><span id="crumb-name"></span>{{i:down sm}}</a></div>
+    <a href="{{P}}index.html" aria-label="Quay home"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--ink)"/><path d="M5.5 17.5h13M9 17.5v-6M14.5 17.5V8.5" stroke="var(--on-ink)" stroke-width="2" fill="none"/><circle cx="14.5" cy="5.6" r="1.6" fill="var(--accent)"/></svg></a>
+    <div class="crumb" id="crumb" hidden><span class="slash" aria-hidden="true">/</span><a class="acct" id="crumb-acct" href="?" title="Open another account"><span class="avatar"></span><span id="crumb-name"></span>{{i:down sm}}</a><span class="chip chip-outline hide-s net-chip"><span class="dot dot-live"></span>NEAR testnet</span></div>
     <div class="nav-end">
       <a class="btn btn-sm btn-quiet hide-s" href="{{P}}docs/index.html">Docs</a>
-      <span class="net hide-s"><span class="dot dot-live"></span>Testnet</span>
       <button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme"><svg class="icon i-moon" aria-hidden="true"><use href="{{P}}assets/icons.svg#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="{{P}}assets/icons.svg#i-sun"/></svg></button>
       <button class="btn btn-sm btn-primary" type="button" id="sign-in">{{i:wallet sm}}Sign in</button>
       <details class="menu" id="wallet-menu" hidden>
@@ -15,12 +14,12 @@
     </div>
   </div>
   <nav class="tabs app-wrap" id="tabs" aria-label="Account views" hidden>
-    <a href="?tab=overview" data-tab="overview" aria-current="page">Overview</a>
+    <a href="?tab=canvas" data-tab="canvas" aria-current="page">Canvas</a>
+    <a href="?tab=releases" data-tab="releases">Releases</a>
     <a href="?tab=data" data-tab="data">Data</a>
     <a href="?tab=functions" data-tab="functions">Functions</a>
     <a href="?tab=routes" data-tab="routes">Routes</a>
     <a href="?tab=keys" data-tab="keys">Keys &amp; Relay</a>
-    <a href="?tab=releases" data-tab="releases">Releases</a>
     <a href="?tab=history" data-tab="history">History</a>
     <a href="?tab=storage" data-tab="storage">Storage</a>
   </nav>
@@ -53,7 +52,7 @@
   </section>
 
   <section id="view-ready" hidden>
-    <div class="page-head">
+    <div class="page-head" data-in="releases data functions routes keys history storage">
       <div>
         <h1><span id="acct-title"></span> <span class="chip chip-outline" id="contract-chip"></span></h1>
         <a class="host" id="host-link" href="#">{{i:globe sm}}<span id="host-text"></span>{{i:ext sm}}</a> <a class="host faint" id="host-public" href="#" title="The public gateway" style="margin-left:12px" hidden>{{i:globe sm}}<span></span></a> <span class="chip" id="gw-chip" hidden></span>
@@ -64,15 +63,28 @@
       </div>
     </div>
 
-    <div class="notice" id="notice" hidden>{{i:lock}}<span class="grow" id="notice-text"></span><span id="notice-action"></span></div>
+    <div class="notice" id="notice" data-notice hidden>{{i:lock}}<span class="grow" id="notice-text"></span><span id="notice-action"></span></div>
 
-    <section class="card" aria-labelledby="layers-h" data-in="overview" style="margin-bottom:20px">
-      <div class="card-head"><h2 id="layers-h">Layers</h2><span class="muted" style="font-size:12.5px" id="layers-note"></span></div>
-      <ul class="layers" id="layers"></ul>
+    <div class="app-body" id="canvas-view" data-in="canvas">
+      <div class="canvas"><div class="stage" id="stage" aria-label="What runs on this account"><svg class="edges" aria-hidden="true"></svg></div></div>
+      <aside class="side-panel" id="panel" aria-labelledby="panel-title">
+        <div class="sp-head">
+          <div class="sp-grab" aria-hidden="true"></div>
+          <div class="sp-title"><h2 id="panel-title" tabindex="-1"></h2><span class="provider" id="panel-provider"></span><span class="grow"></span><button class="btn btn-sm btn-icon btn-quiet" type="button" id="panel-close" aria-label="Close the panel">{{i:x}}</button></div>
+          <div class="sp-meta" id="panel-meta"></div>
+        </div>
+        <div class="sp-body" id="panel-body"></div>
+      </aside>
+      <div class="sheet-scrim" id="scrim" aria-hidden="true"></div>
+    </div>
+
+    <section class="card" aria-labelledby="layers-h" data-in="keys" style="margin-bottom:20px">
+      <div class="card-head"><h2 id="layers-h">Layer health</h2><span class="muted" style="font-size:12.5px" id="layers-note"></span></div>
+      <ul class="layer-list" id="layers"></ul>
     </section>
 
-    <div class="overview" data-in="overview storage">
-      <section class="card" aria-labelledby="prod-h" data-in="overview">
+    <div class="overview" data-in="releases storage">
+      <section class="card" aria-labelledby="prod-h" data-in="releases">
         <div class="card-head"><h2 id="prod-h">Production</h2><div class="tools"><button class="btn btn-sm" type="button" id="rollback" data-action="rollback">{{i:undo sm}}<span>Roll back</span></button></div></div>
         <div class="prod">
           <a class="preview" id="prod-preview" href="#" aria-label="Open production" tabindex="-1"></a>
@@ -92,7 +104,7 @@
         </div>
       </section>
       <div class="side">
-        <section class="card" aria-labelledby="st-h" data-in="overview storage">
+        <section class="card" aria-labelledby="st-h" data-in="releases storage">
           <div class="card-head"><h2 id="st-h">Storage</h2><span class="chip" id="st-chip">{{i:db sm}}<span></span></span></div>
           <div class="card-body" style="display:grid;gap:12px">
             <div class="stat-big"><span id="st-bytes"></span> <small id="st-max"></small></div>
@@ -100,7 +112,7 @@
             <dl class="kv"><dt>Releases lock</dt><dd class="num" id="st-lock"></dd><dt>Account storage</dt><dd class="num" id="st-account"></dd><dt>Balance</dt><dd class="num" id="st-balance"></dd><dt>Rate</dt><dd>0.01 NEAR per 1,000 B</dd></dl>
           </div>
         </section>
-        <section class="card" aria-labelledby="keys-h" data-in="overview storage">
+        <section class="card" aria-labelledby="keys-h" data-in="releases storage">
           <div class="card-head"><h2 id="keys-h">Access keys</h2><span class="muted" style="font-size:12.5px">read from chain</span></div>
           <ul class="keys" id="keys"></ul>
         </section>
@@ -112,16 +124,17 @@
     <div class="vstack" id="tab-routes" data-in="routes"></div>
     <div class="vstack" id="tab-keys" data-in="keys"></div>
 
-    <div data-in="overview releases">
+    <div data-in="releases">
       <div class="list-head"><h2>Releases <span id="rel-count"></span></h2><span class="muted note" style="font-size:13px">Newest first</span></div>
       <section class="card" aria-label="Releases"><ol class="rows" id="releases"></ol></section>
     </div>
 
-    <div data-in="overview history">
+    <div data-in="releases history">
       <div class="list-head"><h2>Production history</h2><span class="muted note" style="font-size:13px">Read from the contract, newest first</span></div>
       <section class="card" aria-label="Production history"><ol class="timeline" id="history"></ol></section>
     </div>
   </section>
+  <p class="app-foot" data-foot>{{FOOT}}</p>
 </main>
 
 <dialog class="confirm" id="confirm" aria-labelledby="confirm-title">

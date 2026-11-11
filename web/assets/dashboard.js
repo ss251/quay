@@ -12,12 +12,12 @@ const EXPLORER = "https://explorer.testnet.near.org/transactions/";
 // The built page carries the icon sprite inline.
 const SPRITE = "";
 const TABS = [
-  "overview",
+  "canvas",
+  "releases",
   "data",
   "functions",
   "routes",
   "keys",
-  "releases",
   "history",
   "storage",
 ];
@@ -723,16 +723,18 @@ function render() {
   );
   setNotice();
   applyTab();
+  if (canvasData?.account === account) drawCanvas();
 }
 
 function currentTab() {
   const tab = new URL(location.href).searchParams.get("tab");
-  return TABS.includes(tab) ? tab : "overview";
+  return TABS.includes(tab) ? tab : "canvas";
 }
 function applyTab() {
   const tab = currentTab();
   const ready = $("view-ready");
   ready.dataset.tab = tab;
+  $("content").dataset.tab = tab;
   for (const el of ready.querySelectorAll("[data-in]"))
     el.hidden = !el.dataset.in.split(" ").includes(tab);
   for (const a of $("tabs").querySelectorAll("a")) {
@@ -743,8 +745,9 @@ function applyTab() {
     a.href = url.search;
   }
   // The status module loads only for the views that show it.
-  if ((tab === "overview" || tab === "keys") && layersFor !== viewed)
-    loadLayers();
+  if (tab === "keys" && layersFor !== viewed) loadLayers();
+  if (tab === "canvas") ensureCanvas();
+  else closePanel(true);
   ensureTab(tab);
 }
 
@@ -1179,7 +1182,7 @@ async function loadDataTab(account, box) {
           body,
           h(
             "div",
-            { class: "pager" },
+            { class: "tbl-pager" },
             h("button", {
               class: "btn btn-sm",
               type: "button",
@@ -1696,11 +1699,877 @@ function resetTabs() {
   ensureTab(currentTab());
 }
 
+// ---------- canvas ----------
+// The account drawn as nodes: the gateways that serve it, the layers inside
+// the contract, and the third-party services it calls. A layer the contract
+// does not have is absent, never a placeholder. Edges come from canvas.js.
+let canvasFor = null;
+let canvasData = null;
+let canvasP = null;
+let panelKind = null;
+let panelFrom = null;
+let drawEdges = null;
+
+// A price for a node: NEAR without trailing zeros, the token amount in its smallest units.
+const shortPrice = (p) =>
+  [
+    p.price_yocto
+      ? nearFromYocto(p.price_yocto).replace(/\.?0+ NEAR$/, " NEAR")
+      : null,
+    p.price_token ? `${nf.format(Number(p.price_token))} token units` : null,
+  ]
+    .filter(Boolean)
+    .join(" or ") || "free";
+const plural = (n, word) => `${nf.format(n)} ${word}${n === 1 ? "" : "s"}`;
+const shortKey = (key) => `${key.slice(0, 20)}…`;
+const storeName = (url) => {
+  try {
+    const host = new URL(url).host;
+    if (host.includes("fastfs")) return "FastFS";
+    if (/ipfs|dweb|pinata|filebase/.test(host)) return "IPFS";
+    return host;
+  } catch {
+    return "an external store";
+  }
+};
+const toolMark = (key, text) =>
+  h(
+    "span",
+    { class: "provider" },
+    h("span", { class: "tool tool-text", "data-tool": key, text }),
+  );
+
+function ensureCanvas() {
+  if (!data) return;
+  if (canvasFor === viewed) {
+    if (canvasData) drawCanvas();
+    return;
+  }
+  loadCanvas();
+}
+
+async function loadCanvas() {
+  const account = viewed;
+  canvasFor = account;
+  canvasData = null;
+  const stage = $("stage");
+  stage.className = "stage";
+  stage.removeAttribute("data-edges");
+  stage.removeAttribute("style");
+  stage.replaceChildren(
+    stage.querySelector("svg.edges"),
+    h(
+      "div",
+      { class: "canvas-wait", role: "status" },
+      h("span", { class: "skel", style: "width:180px" }),
+      h("span", { text: `Reading ${account}` }),
+    ),
+  );
+  // A view the contract does not have answers undefined; a failed read answers null.
+  const opt = (method, args) =>
+    viewOpt(account, method, args).catch(() => null);
+  const relayer = `relay.${account}`;
+  canvasP = Promise.all([
+    opt("list_collections"),
+    opt("list_members", { from_index: 0, limit: 50 }),
+    opt("fn_list"),
+    opt("list_products"),
+    opt("list_receipts", { limit: 50 }),
+    opt("cron_list"),
+    opt("cron_status"),
+    opt("db_list", { collection: "_fn", query: { limit: 50, order: "desc" } }),
+    data.status.production
+      ? callView(account, "get_release", { id: data.status.production }).catch(
+          () => null,
+        )
+      : null,
+    rpc({ request_type: "view_account", account_id: relayer }).catch(
+      () => null,
+    ),
+    drawEdges
+      ? null
+      : import("./canvas.js").then((m) => {
+          drawEdges = m.drawEdges;
+        }),
+  ]);
+  const [
+    cols,
+    members,
+    fns,
+    products,
+    receipts,
+    jobs,
+    cron,
+    runs,
+    release,
+    relay,
+  ] = await canvasP;
+  if (viewed !== account) return;
+  canvasData = {
+    account,
+    cols: cols === undefined ? undefined : rows(cols),
+    members:
+      members === undefined ? undefined : rows(members?.members ?? members),
+    fns: fns === undefined ? undefined : rows(fns),
+    products: products === undefined ? undefined : rows(products),
+    receipts: rows(receipts, "receipts"),
+    jobs: jobs === undefined ? undefined : rows(jobs, "jobs"),
+    cron,
+    runs: rows(runs, "docs"),
+    release,
+    relay: relay?.amount ? { account: relayer, amount: relay.amount } : null,
+  };
+  drawCanvas();
+  const want = new URL(location.href).searchParams.get("panel");
+  if (want !== "none" && matchMedia("(min-width: 1001px)").matches)
+    openPanel(
+      want === "site" || !canvasData.fns?.length ? "site" : "functions",
+    );
+}
+
+function node(key, pos, name, ...body) {
+  const style = `left:${pos[0]}px;top:${pos[1]}px;width:${pos[2]}px`;
+  const kids = [h("span", { class: "node-name", text: name }), ...body];
+  if (pos[3] === "button")
+    return h(
+      "button",
+      {
+        class: "node",
+        type: "button",
+        "data-node": key,
+        "data-panel": key,
+        "aria-expanded": String(panelKind === key),
+        "aria-controls": "panel",
+        style,
+      },
+      kids,
+    );
+  if (pos[3])
+    return h(
+      "a",
+      { class: "node", "data-node": key, href: pos[3], style },
+      kids,
+    );
+  return h("div", { class: "node", "data-node": key, style }, kids);
+}
+const sub = (text, cls = "") =>
+  h("span", { class: `node-sub${cls ? ` ${cls}` : ""}`, text });
+const note = (text) => h("span", { class: "node-note", text });
+const tabHref = (tab) => {
+  const url = new URL(location.href);
+  url.searchParams.set("tab", tab);
+  url.searchParams.delete("panel");
+  return url.search;
+};
+
+// The release track: one berth per release, production marked from above.
+function track() {
+  const ids = data.releases
+    .map((r) => r.id)
+    .sort((a, b) => Number(a) - Number(b))
+    .slice(-8);
+  const prodAt = ids.indexOf(data.status.production);
+  return h(
+    "span",
+    { class: "track-wrap" },
+    h(
+      "ol",
+      {
+        class: "track",
+        "aria-label": `Releases ${ids[0]} to ${ids.at(-1)}. Production is ${data.status.production || "none"}${data.status.previous ? `, previous is ${data.status.previous}` : ""}.`,
+      },
+      ids.map((id) =>
+        h(
+          "li",
+          {
+            class:
+              id === data.status.production
+                ? "is-prod"
+                : id === data.status.previous
+                  ? "is-prev"
+                  : "",
+          },
+          h("i", { "aria-hidden": "true" }),
+          h("span", { text: id }),
+        ),
+      ),
+    ),
+    prodAt >= 0
+      ? h(
+          "span",
+          {
+            class: "track-ptr",
+            "aria-hidden": "true",
+            style: `--n:${ids.length};--i:${prodAt}`,
+            "data-edge":
+              prodAt === ids.length - 1 ? "end" : prodAt === 0 ? "start" : null,
+          },
+          h("span", { class: "ptr ptr-down", text: "production" }),
+        )
+      : null,
+  );
+}
+
+function gatewayNodes(at) {
+  const account = canvasData.account;
+  const mirror = HOSTS.mirrors?.[account];
+  const out = [];
+  if (mirror)
+    out.push(
+      node(
+        "workers",
+        at[0],
+        "Workers host",
+        sub(new URL(mirror).host),
+        note("Primary, answers from RPC"),
+        toolMark("cloudflare", "Cloudflare Workers"),
+      ),
+    );
+  out.push(
+    node(
+      "page",
+      mirror ? at[1] : at[0],
+      "testnet.page",
+      sub(new URL(publicOrigin(account)).host),
+      note("Public web4 gateway"),
+      toolMark("web4", "web4"),
+    ),
+  );
+  return { nodes: out, keys: mirror ? ["workers", "page"] : ["page"] };
+}
+
+function drawCanvas() {
+  const c = canvasData;
+  if (!c || !data || c.account !== data.account) return;
+  const stage = $("stage");
+  const full = c.fns !== undefined || c.cols !== undefined;
+  const keys = data.keys;
+  const fullKeys = keys.filter((k) => k.access_key.permission === "FullAccess");
+  const callKeys = keys.length - fullKeys.length;
+  const stored = `${plural(data.releases.length, "release")}, ${bytes(data.status.stored_bytes)} stored`;
+  const nodes = [];
+  const edges = [];
+  if (!full) {
+    // Contract 2.x: the site, its gateways and its keys.
+    const gw = gatewayNodes([
+      [16, 120, 220],
+      [16, 290, 220],
+    ]);
+    nodes.push(...gw.nodes);
+    for (const key of gw.keys) edges.push(`${key}>site|h|web4_get`);
+    const prod = data.releases.find((r) => r.id === data.status.production);
+    nodes.push(
+      h(
+        "div",
+        {
+          class: "group",
+          style: "left:280px;top:72px;width:516px;height:500px",
+        },
+        h("span", { class: "group-label", text: c.account }),
+      ),
+      node(
+        "site",
+        [384, 112, 316, "button"],
+        "Site",
+        sub(stored),
+        track(),
+        h("span", {
+          class: "node-foot",
+          text: prod
+            ? `Production: ${prod.message || `release ${prod.id}`}`
+            : "Nothing in production yet",
+        }),
+      ),
+      node(
+        "owner",
+        [296, 436, 240, tabHref("storage")],
+        fullKeys.length === 1
+          ? "Full-access key"
+          : plural(fullKeys.length, "full-access key"),
+        fullKeys[0] ? sub(shortKey(fullKeys[0].public_key), "mono") : null,
+        note("Can promote, roll back and delete"),
+      ),
+    );
+    edges.push("site>owner|v|promote, rollback, delete");
+    if (callKeys) {
+      nodes.push(
+        node(
+          "ci",
+          [548, 436, 240, tabHref("storage")],
+          plural(callKeys, "function-call key"),
+          note("Can upload and seal. Cannot move production"),
+        ),
+      );
+      edges.push("site>ci|v|put_chunk, seal");
+    }
+    stage.style.cssText = "width:820px;height:600px";
+  } else {
+    const gw = gatewayNodes([
+      [16, 110, 210],
+      [16, 280, 210],
+    ]);
+    nodes.push(...gw.nodes);
+    const routes = c.release?.routes ?? [];
+    const into = routes.length ? "routes" : "site";
+    for (const key of gw.keys) edges.push(`${key}>${into}|h|web4_get`);
+    nodes.push(
+      h(
+        "div",
+        {
+          class: "group",
+          style: "left:250px;top:40px;width:500px;height:640px",
+        },
+        h("span", { class: "group-label", text: c.account }),
+      ),
+    );
+    if (routes.length) {
+      const patterns = routes.map((r) => r.pattern);
+      nodes.push(
+        node(
+          "routes",
+          [270, 80, 225, tabHref("routes")],
+          "Routes",
+          sub(short(patterns.join(", "), 48)),
+          note(`Sealed in release ${data.status.production}`),
+        ),
+      );
+    }
+    nodes.push(
+      node("site", [510, 80, 225, "button"], "Site", sub(stored), track()),
+    );
+    if (c.members !== undefined)
+      nodes.push(
+        node(
+          "members",
+          [270, 270, 225, tabHref("keys")],
+          "Members",
+          sub(plural(c.members.length, "account")),
+          c.members.length
+            ? note(
+                `${c.members
+                  .slice(0, 3)
+                  .map((m) => m.split(".")[0])
+                  .join(
+                    ", ",
+                  )}${c.members.length > 3 ? ` and ${c.members.length - 3} more` : ""}, made with no NEAR`,
+              )
+            : null,
+        ),
+      );
+    if (c.cols !== undefined) {
+      const first = c.cols[0];
+      nodes.push(
+        node(
+          "data",
+          [510, 270, 225, tabHref("data")],
+          "Data",
+          sub(
+            first
+              ? `${first.name}: ${plural(Number(first.count ?? 0), "doc")}, ${bytes(first.bytes)}${c.cols.length > 1 ? `, and ${c.cols.length - 1} more` : ""}`
+              : "No collections yet",
+          ),
+          first
+            ? note(
+                `${first.write === "anyone" ? "Anyone writes" : `${first.write} write`}, ${first.payer === "site" ? "the site pays" : "the writer pays"}${first.moderated ? ", moderated" : ""}`,
+              )
+            : null,
+        ),
+      );
+      if (routes.some((r) => r.collection === first?.name))
+        edges.push(`routes>data|v|reads ${first.name}`);
+    }
+    if (c.products !== undefined)
+      nodes.push(
+        node(
+          "pay",
+          [270, 440, 225, tabHref("data")],
+          "Payments",
+          sub(
+            c.products.length
+              ? c.products.map((p) => `${p.id}: ${shortPrice(p)}`).join("; ")
+              : "No products yet",
+          ),
+          note(plural(c.receipts.length, "receipt")),
+        ),
+      );
+    nodes.push(
+      node(
+        "keys",
+        [510, 440, 225, tabHref("keys")],
+        "Keys",
+        sub(
+          `${plural(fullKeys.length, "full-access key")}${callKeys ? `, ${callKeys} function-call` : ""}`,
+        ),
+        fullKeys[0] ? note(shortKey(fullKeys[0].public_key)) : null,
+      ),
+    );
+    if (c.jobs !== undefined) {
+      const job = c.jobs[0];
+      const armed = c.cron?.armed;
+      nodes.push(
+        node(
+          "cron",
+          [270, 580, 465, tabHref("functions")],
+          "Cron",
+          sub(
+            job
+              ? `${c.jobs.map((j) => `${j.fn}, every ${j.every_minutes} min`).join("; ")}`
+              : "No jobs",
+          ),
+          note(
+            armed
+              ? `Armed, ${c.cron.hops} hops, last tick ${when(c.cron.last_tick, true)}`
+              : job
+                ? "Set, not armed now. quay cron arm starts it for about 6 hours."
+                : "Add a job with quay cron add",
+          ),
+        ),
+      );
+    }
+    const ext = (c.release?.files ?? []).filter((f) => f.external);
+    if (ext.length) {
+      const size = ext.reduce((n, f) => n + Number(f.external.size ?? 0), 0);
+      nodes.push(
+        node(
+          "fs",
+          [830, 60, 210],
+          "Large files",
+          sub(
+            `${plural(ext.length, "file")} on ${storeName(ext[0].external.url)}, ${bytes(size)}`,
+          ),
+          note(
+            `sha256 ${ext[0].sha256.slice(0, 8)}…${ext[0].sha256.slice(-4)}`,
+          ),
+          toolMark("fastnear", storeName(ext[0].external.url)),
+        ),
+      );
+      edges.push(`fs>site|r|release ${data.status.production} file`);
+    }
+    if (c.fns !== undefined) {
+      const last = c.runs[0]?.data ?? c.runs[0];
+      nodes.push(
+        node(
+          "functions",
+          [830, 250, 210, "button"],
+          "Functions",
+          sub(c.fns.length ? c.fns.map((f) => f.name).join(", ") : "None yet"),
+          last
+            ? note(
+                `${last.name} last ran ${when(last.at ?? c.runs[0].created)}`,
+              )
+            : null,
+          toolMark("outlayer", "OutLayer"),
+        ),
+      );
+      const trigger = c.cols?.find((col) => col.on_add);
+      if (trigger) edges.push(`data>functions|h|on_add: ${trigger.on_add}`);
+    }
+    if (c.relay) {
+      nodes.push(
+        node(
+          "relay",
+          [830, 440, 210, tabHref("keys")],
+          "Relay",
+          sub(c.relay.account),
+          note(`${nearFromYocto(c.relay.amount)}, gas only`),
+          h(
+            "span",
+            { class: "provider" },
+            h("span", { class: "std", text: "NEP-366" }),
+          ),
+        ),
+      );
+      if (c.cols !== undefined) edges.push("relay>data|r|db_add, gas paid");
+    }
+    stage.style.cssText = "width:1050px;height:700px";
+  }
+  stage.dataset.edges = edges.join("; ");
+  stage.replaceChildren(stage.querySelector("svg.edges"), ...nodes);
+  redraw();
+  if (panelKind) fillPanel(panelKind);
+}
+function redraw() {
+  if (drawEdges && currentTab() === "canvas")
+    requestAnimationFrame(() => drawEdges($("stage")));
+}
+
+// ----- the side panel -----
+function openPanel(kind, from) {
+  panelKind = kind;
+  panelFrom = from || null;
+  fillPanel(kind);
+  $("panel").setAttribute("data-open", "");
+  for (const el of $("stage").querySelectorAll("[data-panel]"))
+    el.setAttribute("aria-expanded", String(el.dataset.panel === kind));
+  redraw();
+  if (from) $("panel-title").focus();
+}
+function closePanel(quiet) {
+  if (!panelKind) return;
+  const back = $("stage").querySelector(`[data-panel="${panelKind}"]`);
+  panelKind = null;
+  $("panel").removeAttribute("data-open");
+  for (const el of $("stage").querySelectorAll("[data-panel]"))
+    el.setAttribute("aria-expanded", "false");
+  redraw();
+  if (!quiet) (panelFrom || back)?.focus();
+}
+function fillPanel(kind) {
+  if (!canvasData) return;
+  if (kind === "functions") return functionsPanel();
+  return sitePanel();
+}
+function sitePanel() {
+  const account = viewed;
+  const prod = data.releases.find((r) => r.id === data.status.production);
+  $("panel-title").textContent = "Site";
+  $("panel-provider").replaceChildren();
+  $("panel-meta").replaceChildren(
+    h("a", { href: preview(account) }, host(account), icon("ext", true)),
+    h("span", { text: plural(data.releases.length, "release") }),
+    h("span", {
+      class: "num",
+      text: `${bytes(data.status.stored_bytes)} stored`,
+    }),
+    h("span", { text: `Contract ${data.status.version}` }),
+  );
+  const sorted = [...data.releases].sort((a, b) => Number(b.id) - Number(a.id));
+  const lastPromote = [...data.history]
+    .reverse()
+    .find((e) => e.release_id === data.status.production);
+  $("panel-body").replaceChildren(
+    prod
+      ? h(
+          "section",
+          { class: "live-card", "aria-label": "Production" },
+          h(
+            "div",
+            { class: "lc-frame" },
+            h("span", {
+              class: "lc-wait",
+              text: `Loading from ${host(account)}`,
+            }),
+            h("iframe", {
+              src: preview(account),
+              loading: "lazy",
+              title: `Production, release ${prod.id}`,
+              sandbox: "allow-scripts allow-same-origin",
+              tabindex: "-1",
+              "aria-hidden": "true",
+              onload: (e) => {
+                e.target.dataset.ok = "";
+              },
+            }),
+          ),
+          h(
+            "div",
+            { class: "lc-main" },
+            h(
+              "div",
+              { class: "top" },
+              h("span", { class: "ptr", text: "production" }),
+              h("strong", { text: `Release ${prod.id}` }),
+            ),
+            h("p", { class: "lc-msg", text: prod.message || "No message" }),
+            h(
+              "dl",
+              { class: "facts-line" },
+              h("dt", { text: "Promoted" }),
+              h("dd", {
+                text: lastPromote ? when(lastPromote.timestamp, true) : "never",
+              }),
+              h("dt", { text: "Size" }),
+              h("dd", {
+                class: "num",
+                text: `${prod.file_count} files, ${bytes(prod.bytes)}`,
+              }),
+              h("dt", { text: "Hash" }),
+              h("dd", {
+                class: "mono",
+                text: prod.sha256
+                  ? `${prod.sha256.slice(0, 8)}…${prod.sha256.slice(-4)}`
+                  : "none",
+              }),
+            ),
+            h(
+              "div",
+              { class: "acts" },
+              data.status.previous
+                ? actionButton(
+                    `Roll back to ${data.status.previous}`,
+                    "rollback",
+                    undefined,
+                    "undo",
+                  )
+                : null,
+              h(
+                "a",
+                { class: "btn btn-sm", href: preview(account) },
+                "Visit",
+                icon("ext", true),
+              ),
+            ),
+          ),
+        )
+      : h("p", {
+          class: "muted",
+          text: "Nothing is in production yet. Run quay promote <id>.",
+        }),
+    h(
+      "section",
+      { class: "sp-section" },
+      h(
+        "h3",
+        null,
+        "Releases ",
+        h("a", { href: tabHref("releases"), text: "All releases" }),
+      ),
+      h("ol", { class: "rows" }, sorted.slice(0, 5).map(panelRelease)),
+    ),
+    data.history.length
+      ? h(
+          "section",
+          { class: "sp-section" },
+          h("h3", { text: "Recent changes" }),
+          h(
+            "ol",
+            { class: "timeline" },
+            [...data.history]
+              .reverse()
+              .slice(0, 3)
+              .map((e) =>
+                h(
+                  "li",
+                  null,
+                  h("span", {
+                    class: "what",
+                    text:
+                      e.kind === "rollback"
+                        ? `Rolled back to ${e.release_id} from ${e.previous_id}`
+                        : `Promoted ${e.release_id}${e.previous_id ? `, previous ${e.previous_id}` : ""}`,
+                  }),
+                  h("span", {
+                    class: "when",
+                    title: iso(e.timestamp),
+                    text: when(e.timestamp),
+                  }),
+                ),
+              ),
+          ),
+        )
+      : null,
+  );
+}
+// A release in the Site panel: id, message and size, and Promote for any but production.
+function panelRelease(release) {
+  const isProd = release.id === data.status.production;
+  const isPrev = release.id === data.status.previous;
+  return h(
+    "li",
+    { class: `rel-row${isProd ? " is-live" : ""}` },
+    h("span", { class: "id", text: release.id }),
+    h(
+      "div",
+      { class: "msg" },
+      h(
+        "span",
+        { class: "l1" },
+        h("span", {
+          class: "m",
+          title: release.message || "",
+          text: release.message || "No message",
+        }),
+        isProd
+          ? h("span", { class: "ptr", text: "production" })
+          : isPrev
+            ? h("span", { class: "chip chip-prev", text: "previous" })
+            : null,
+      ),
+      h("span", {
+        class: "l2 num",
+        text: `${release.file_count} files, ${bytes(release.bytes)}`,
+      }),
+    ),
+    h("span", {
+      class: "when",
+      title: iso(release.timestamp),
+      text: when(release.timestamp),
+    }),
+    h(
+      "div",
+      { class: "acts" },
+      isProd ? null : actionButton("Promote", "promote", release.id, "up"),
+    ),
+  );
+}
+function functionsPanel() {
+  const c = canvasData;
+  $("panel-title").textContent = "Functions";
+  $("panel-provider").replaceChildren(
+    h("span", {
+      class: "tool tool-text",
+      "data-tool": "outlayer",
+      text: "OutLayer",
+    }),
+  );
+  const runsOf = (name) =>
+    c.runs
+      .map((d) => ({ id: d.id, ...(d.data ?? d) }))
+      .filter((r) => r.name === name);
+  const secrets = c.fns.filter((f) => f.secrets).length;
+  $("panel-meta").replaceChildren(
+    h("span", { text: plural(c.fns.length, "function") }),
+    h("span", { text: "Rust compiled to WASI" }),
+    h("span", { text: `${secrets} with a secret` }),
+    h("a", { href: tabHref("functions") }, "Every run", icon("right", true)),
+  );
+  const cards = c.fns.map((f) => {
+    const trigger = c.cols?.find((col) => col.on_add === f.name);
+    const job = c.jobs?.find((j) => j.fn === f.name);
+    const last = runsOf(f.name)[0];
+    const out =
+      last?.output && typeof last.output === "object" ? last.output : null;
+    const id = `fn-${f.name}`;
+    const facts = [
+      [
+        "Trigger",
+        trigger
+          ? `on_add on ${trigger.name}`
+          : job
+            ? `cron, every ${job.every_minutes} min`
+            : `fn_call by the ${f.call === "owner" ? "owner" : f.call}`,
+      ],
+      ["Secret", f.secrets ? "stored on OutLayer, never shown" : "none"],
+      [
+        "Per call",
+        `${f.deposit ? nearFromYocto(f.deposit) : "nothing"} attached, paid by the ${f.payer === "site" ? "site" : "caller"}; ${f.max_seconds ?? 30} s limit`,
+      ],
+      [
+        "Last run",
+        last
+          ? `${when(last.at, true)}, ${last.ok === false ? `failed${last.error ? `: ${last.error}` : ""}` : out?.auth ? `auth: ${out.auth}` : out?.scheduled ? "from the schedule" : "ok"}`
+          : "no run yet",
+      ],
+    ];
+    const chipEl = trigger
+      ? h(
+          "span",
+          { class: "chip chip-live" },
+          h("span", { class: "dot dot-live" }),
+          `Runs on every new ${trigger.name.replace(/s$/, "")}`,
+        )
+      : job
+        ? h(
+            "span",
+            { class: c.cron?.armed ? "chip chip-live" : "chip" },
+            c.cron?.armed ? h("span", { class: "dot dot-live" }) : null,
+            c.cron?.armed
+              ? `Every ${job.every_minutes} min`
+              : "Schedule not armed",
+          )
+        : h("span", { class: "chip", text: "Run by call" });
+    return h(
+      "section",
+      { class: "fn-card", "aria-labelledby": id },
+      h(
+        "div",
+        { class: "fn-top" },
+        h("h3", { id, class: "mono", text: f.name }),
+        chipEl,
+      ),
+      h(
+        "dl",
+        { class: "facts-line" },
+        facts.flatMap(([dt, dd]) => [
+          h("dt", { text: dt }),
+          h("dd", { text: dd }),
+        ]),
+      ),
+    );
+  });
+  const recent = c.runs.slice(0, 8).map((d) => {
+    const r = d.data ?? d;
+    const out = r.output && typeof r.output === "object" ? r.output : null;
+    const what =
+      r.ok === false
+        ? `failed${r.error ? `: ${r.error}` : ""}`
+        : out?.hide
+          ? `hidden, ${out.reason || "blocked"}`
+          : out?.scheduled
+            ? "digest, from the schedule"
+            : out?.auth
+              ? `auth ${out.auth}${out.preview?.title ? `, preview: ${out.preview.title}` : ""}`
+              : "ok";
+    return h(
+      "li",
+      { class: "rel-row run-row" },
+      h("span", { class: "id", text: (d.id || "").replace(/^.*-/, "") }),
+      h(
+        "div",
+        { class: "msg" },
+        h(
+          "span",
+          { class: "l1" },
+          h("span", {
+            class: "m",
+            text:
+              r.caller && r.caller !== c.account
+                ? `${r.name} · ${r.caller.replace(`.${c.account}`, "")}`
+                : r.name,
+          }),
+          out?.hide
+            ? h("span", { class: "chip chip-warn-plain", text: "hidden" })
+            : null,
+          r.ok === false
+            ? h("span", { class: "chip chip-warn-plain", text: "failed" })
+            : null,
+        ),
+        h("span", { class: "l2", text: what }),
+      ),
+      h("span", { class: "when", title: iso(r.at), text: when(r.at) }),
+    );
+  });
+  $("panel-body").replaceChildren(
+    ...(cards.length
+      ? cards
+      : [
+          stateBox(
+            "empty",
+            "No functions yet",
+            "A function is Rust compiled to WASI that OutLayer runs when a trigger or a call asks.",
+            "quay functions deploy <name>",
+          ),
+        ]),
+    recent.length
+      ? h(
+          "section",
+          { class: "sp-section" },
+          h(
+            "h3",
+            null,
+            "Recent runs ",
+            h("a", { href: tabHref("functions"), text: "All runs" }),
+          ),
+          h("ol", { class: "rows" }, recent),
+        )
+      : null,
+    h("p", {
+      class: "sp-note",
+      text: "OutLayer is one operator. A run took 5 to 17 seconds in our checks, and a post is saved before its check comes back.",
+    }),
+  );
+}
+
 // ---------- loading ----------
 async function load(account, quiet) {
   viewed = account;
   tabState = {};
   layersFor = null;
+  canvasFor = null;
+  canvasData = null;
+  try {
+    localStorage.setItem("quay-account", account);
+  } catch {}
   $("crumb-name").textContent = account;
   checkGateway();
   if (!quiet) show("loading");
@@ -2011,6 +2880,22 @@ document.addEventListener("keydown", (event) => {
   }
 });
 addEventListener("popstate", start);
+$("stage").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-panel]");
+  if (!button) return;
+  if (panelKind === button.dataset.panel) closePanel();
+  else openPanel(button.dataset.panel, button);
+});
+$("panel-close").addEventListener("click", () => closePanel());
+$("scrim").addEventListener("click", () => closePanel());
+document.addEventListener("keydown", (event) => {
+  if (
+    event.key === "Escape" &&
+    panelKind &&
+    !document.querySelector("details.menu[open], dialog[open]")
+  )
+    closePanel();
+});
 
 function start() {
   const initial = new URL(location.href).searchParams.get("account");
