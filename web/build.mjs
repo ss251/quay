@@ -155,10 +155,15 @@ const INDEPENDENT =
   "Quay is an independent hackathon project. It runs on NEAR testnet and is not made, run or endorsed by the NEAR Foundation or by any tool named on this page. Testnet only, with no mainnet path and no real funds. Cloudflare, the Cloudflare logo, and Cloudflare Workers are trademarks and/or registered trademarks of Cloudflare, Inc. in the United States and other jurisdictions.";
 
 function siteFoot(prefix) {
-  return `<footer class="site-foot"><div class="container foot4">
-${builtOn(prefix)}
-<p>${INDEPENDENT}</p>
-<nav aria-label="Footer"><a href="${prefix}docs/index.html">Docs</a><a href="${prefix}docs/layers/index.html">Layers</a><a href="${prefix}architecture/index.html">Architecture</a><a href="${prefix}dashboard/index.html?account=${BOARD}">Dashboard</a><a href="https://explorer.testnet.near.org/accounts/${BOARD}">${BOARD} on the explorer</a></nav>
+  const ex = (id) => `https://explorer.testnet.near.org/accounts/${id}`;
+  return `<footer class="site-foot"><div class="container">
+<div class="cols">
+<div><a class="brand" href="${prefix}index.html">${mark()}Quay</a><p class="muted blurb">Pages, data, functions and sign-in on one NEAR testnet account.</p>${builtOn(prefix)}</div>
+<div><h2>Product</h2><ul><li><a href="${prefix}docs/index.html">Docs</a></li><li><a href="${prefix}docs/layers/index.html">Layers</a></li><li><a href="${prefix}architecture/index.html">Architecture</a></li><li><a href="${prefix}dashboard/index.html">Dashboard</a></li></ul></div>
+<div><h2>Harbour Board</h2><ul><li><a href="{{BOARD}}/">Live site</a></li><li><a href="${prefix}dashboard/index.html?account=${BOARD}">In the dashboard</a></li><li><a href="${ex(BOARD)}">On the explorer</a></li></ul></div>
+<div><h2>On chain</h2><ul><li><a href="${ex("quay-esc0v902.testnet")}">This site's account</a></li><li><a href="https://explorer.testnet.near.org/">Testnet explorer</a></li></ul></div>
+</div>
+<div class="small"><p>${INDEPENDENT}</p><span class="mono">quay-esc0v902.testnet</span></div>
 </div></footer>`;
 }
 
@@ -193,16 +198,16 @@ function page({
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>${title}</title>
 <meta name="description" content="${description}">
-<meta name="theme-color" content="#f5f7f9" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0a1016" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f9fafb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0c0e" media="(prefers-color-scheme: dark)">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${description}">
 <meta property="og:image" content="${SITE}assets/og.png">
 <meta property="og:url" content="${SITE}${href.replace("index.html", "")}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="${prefix}assets/mark.svg" type="image/svg+xml">
-<link rel="preload" href="${prefix}assets/fonts/text.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="${prefix}assets/fonts/mono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="${prefix}assets/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="${prefix}assets/fonts/geist-mono.woff2" as="font" type="font/woff2" crossorigin>
 ${head}<link rel="stylesheet" href="${prefix}assets/quay.css">
 ${theme}${embed}
 ${scripts.join("\n")}

@@ -1,113 +1,89 @@
-/* Quay. Navy ink, one amber pointer; Red Hat Text and Red Hat Mono. Tokens, then base, then components. */
+/* Quay. Round 2: Geist and Geist Mono, neutral greys, one green that means live. Tokens, then base, then components. */
 @font-face {
-  font-family: "Red Hat Text";
-  src: url("fonts/text.woff2") format("woff2");
+  font-family: "Geist";
+  src: url("fonts/geist.woff2") format("woff2");
   font-weight: 400 600;
   font-display: swap;
 }
 @font-face {
-  font-family: "Red Hat Mono";
-  src: url("fonts/mono.woff2") format("woff2");
+  font-family: "Geist Mono";
+  src: url("fonts/geist-mono.woff2") format("woff2");
   font-weight: 400 500;
   font-display: swap;
 }
 
 :root {
   color-scheme: light dark;
-  /* neutrals: one ramp on hue 250 (the navy of the ink), so surfaces, lines and text agree.
-     Light is a cool paper; dark is a low-chroma harbour grey, not a navy costume. */
-  --bg: light-dark(oklch(0.975 0.004 250), oklch(0.17 0.016 250));
-  --bg-sunken: light-dark(oklch(0.955 0.005 250), oklch(0.145 0.015 250));
-  --surface: light-dark(oklch(0.995 0.002 250), oklch(0.205 0.017 250));
-  --surface-2: light-dark(oklch(0.965 0.005 250), oklch(0.235 0.018 250));
-  --surface-3: light-dark(oklch(0.94 0.007 250), oklch(0.27 0.019 250));
-  --canvas: light-dark(oklch(0.96 0.005 250), oklch(0.155 0.015 250));
-  --line: light-dark(oklch(0.3 0.03 250 / 0.12), oklch(0.31 0.018 250));
-  --line-strong: light-dark(oklch(0.3 0.03 250 / 0.2), oklch(0.38 0.019 250));
-  --text: light-dark(oklch(0.24 0.04 250), oklch(0.96 0.005 250));
-  --text-2: light-dark(oklch(0.44 0.03 250), oklch(0.77 0.014 250));
-  --text-3: light-dark(oklch(0.53 0.025 250), oklch(0.66 0.016 250));
-  /* amber has one job: marking the release production points at. 20% less chroma on dark. */
-  --accent: light-dark(oklch(0.8 0.15 72), oklch(0.78 0.12 72));
-  --accent-ink: light-dark(oklch(0.22 0.04 250), oklch(0.2 0.03 250));
-  --accent-edge: light-dark(
-    oklch(0.6 0.13 65),
-    oklch(0.78 0.12 72)
-  ); /* 3:1 edge for the bare dot on light ground */
-  /* status: green live, amber-free warn, red failed, blue in flight. Each always comes with a word. */
+  --bg: light-dark(oklch(0.985 0.0015 250), oklch(0.145 0.004 260));
+  --bg-sunken: light-dark(oklch(0.965 0.002 250), oklch(0.125 0.004 260));
+  --surface: light-dark(oklch(1 0 0), oklch(0.18 0.005 260));
+  --surface-2: light-dark(oklch(0.975 0.0015 250), oklch(0.21 0.006 260));
+  --surface-3: light-dark(oklch(0.955 0.002 250), oklch(0.245 0.007 260));
+  /* the canvas is the sunken, dotted ground the how-it-works fragments sat on */
+  --canvas: var(--bg-sunken);
+  --line: light-dark(oklch(0.22 0.01 260 / 0.09), oklch(0.27 0.006 260));
+  --line-strong: light-dark(oklch(0.22 0.01 260 / 0.16), oklch(0.34 0.008 260));
+  --text: light-dark(oklch(0.2 0.006 260), oklch(0.965 0.002 260));
+  --text-2: light-dark(oklch(0.45 0.01 260), oklch(0.74 0.008 260));
+  --text-3: light-dark(oklch(0.54 0.01 260), oklch(0.64 0.008 260));
+  /* one accent: green means live. Production, the live dot, the production row's edge, the kickers. */
   --live: light-dark(oklch(0.55 0.13 160), oklch(0.8 0.15 160));
   --live-text: light-dark(oklch(0.45 0.11 160), oklch(0.83 0.13 160));
-  --live-tint: light-dark(oklch(0.95 0.04 160), oklch(0.27 0.055 165));
+  --live-tint: light-dark(oklch(0.96 0.035 160), oklch(0.26 0.05 160));
+  --accent: var(--live);
+  --accent-ink: var(--live-text);
+  --accent-edge: var(--live);
   --warn: light-dark(oklch(0.6 0.14 70), oklch(0.82 0.14 80));
   --warn-text: light-dark(oklch(0.47 0.11 60), oklch(0.85 0.12 82));
-  --warn-tint: light-dark(oklch(0.96 0.045 85), oklch(0.29 0.055 75));
+  --warn-tint: light-dark(oklch(0.97 0.04 85), oklch(0.27 0.05 75));
   --danger: light-dark(oklch(0.55 0.19 27), oklch(0.72 0.16 25));
-  --danger-tint: light-dark(oklch(0.96 0.025 25), oklch(0.28 0.06 25));
-  --info: light-dark(oklch(0.5 0.14 240), oklch(0.75 0.12 240));
-  --info-tint: light-dark(oklch(0.95 0.025 240), oklch(0.28 0.055 240));
-  --ink: light-dark(oklch(0.24 0.04 250), oklch(0.96 0.005 250));
-  --on-ink: light-dark(oklch(0.995 0.002 250), oklch(0.17 0.016 250));
-  --term: oklch(0.17 0.016 250);
-  --term-2: oklch(0.205 0.017 250);
-  --term-line: oklch(0.31 0.018 250);
-  --term-text: oklch(0.95 0.005 250);
-  --term-dim: oklch(0.72 0.014 250);
+  --danger-tint: light-dark(oklch(0.97 0.02 25), oklch(0.27 0.06 25));
+  --info: light-dark(oklch(0.52 0.15 250), oklch(0.76 0.11 245));
+  --info-tint: light-dark(oklch(0.965 0.02 250), oklch(0.26 0.05 250));
+  --ink: light-dark(oklch(0.2 0.006 260), oklch(0.965 0.002 260));
+  --on-ink: light-dark(oklch(0.99 0 0), oklch(0.16 0.004 260));
+  --term: oklch(0.16 0.005 260);
+  --term-2: oklch(0.2 0.006 260);
+  --term-line: oklch(0.29 0.006 260);
+  --term-text: oklch(0.93 0.003 260);
+  --term-dim: oklch(0.68 0.008 260);
   --term-live: oklch(0.8 0.15 160);
-  --term-link: oklch(0.8 0.1 240);
-  --focus: light-dark(oklch(0.24 0.04 250), oklch(0.96 0.005 250));
+  --term-link: oklch(0.82 0.08 230);
+  --focus: light-dark(oklch(0.52 0.15 250), oklch(0.78 0.12 245));
   --shadow-sm: 0 1px 2px
-    light-dark(oklch(0.3 0.03 250 / 0.06), oklch(0 0 0 / 0.25));
+    light-dark(oklch(0.2 0.01 260 / 0.05), oklch(0 0 0 / 0));
   --shadow-md:
-    0 1px 2px light-dark(oklch(0.3 0.03 250 / 0.06), oklch(0 0 0 / 0.25)), 0 6px
-    16px -6px light-dark(oklch(0.3 0.03 250 / 0.12), oklch(0 0 0 / 0.45));
+    0 1px 2px light-dark(oklch(0.2 0.01 260 / 0.05), oklch(0 0 0 / 0)), 0 4px
+    12px -4px light-dark(oklch(0.2 0.01 260 / 0.08), oklch(0 0 0 / 0.3));
   --shadow-lg:
-    0 1px 2px light-dark(oklch(0.3 0.03 250 / 0.08), oklch(0 0 0 / 0.4)), 0 24px
-    48px -16px light-dark(oklch(0.3 0.03 250 / 0.18), oklch(0 0 0 / 0.6)), 0
-    60px 120px -40px light-dark(oklch(0.3 0.03 250 / 0.14), oklch(0 0 0 / 0.5));
-  /* elevation: ring + crisp + ambient in light; a single white ring in dark */
-  --elev-1:
-    0 0 0 1px light-dark(oklch(0.3 0.03 250 / 0.12), oklch(1 0 0 / 0.09)), 0 1px
-    3px light-dark(oklch(0.3 0.03 250 / 0.06), transparent), 0 4px 10px -4px
-    light-dark(oklch(0.3 0.03 250 / 0.07), transparent);
-  --elev-1-hover:
-    0 0 0 1px light-dark(oklch(0.3 0.03 250 / 0.2), oklch(1 0 0 / 0.16)), 0 1px
-    3px light-dark(oklch(0.3 0.03 250 / 0.08), transparent), 0 4px 10px -4px
-    light-dark(oklch(0.3 0.03 250 / 0.1), transparent);
-  --elev-3:
-    0 0 0 1px light-dark(oklch(0.3 0.03 250 / 0.12), oklch(1 0 0 / 0.11)), 0 2px
-    4px light-dark(oklch(0.3 0.03 250 / 0.05), transparent), 0 24px 48px -16px
-    light-dark(oklch(0.3 0.03 250 / 0.16), transparent);
-  /* image edge: pure black or white at 10%, never tinted */
+    0 1px 2px light-dark(oklch(0.2 0.01 260 / 0.06), oklch(0 0 0 / 0.4)), 0 24px
+    48px -16px light-dark(oklch(0.2 0.02 260 / 0.16), oklch(0 0 0 / 0.55)), 0
+    60px 120px -40px light-dark(oklch(0.2 0.02 260 / 0.14), oklch(0 0 0 / 0.5));
+  /* depth, as round 2 drew it: a 1px ring plus a soft shadow in light, a solid border and no shadow in dark */
+  --elev-1: 0 0 0 1px var(--line), var(--shadow-sm);
+  --elev-1-hover: 0 0 0 1px var(--line-strong), var(--shadow-sm);
+  --elev-3: 0 0 0 1px var(--line-strong), var(--shadow-lg);
   --img-edge: light-dark(oklch(0 0 0 / 0.1), oklch(1 0 0 / 0.1));
-  /* separators: a hairline on dense screens */
   --hair: 1px;
-  /* stacking: only these steps */
   --z-raised: 1;
   --z-sheet: 10;
   --z-sticky: 20;
   --z-menu: 30;
   --z-toast: 40;
   --z-skip: 50;
-  /* focus is neutral ink, never a brand colour */
-  --r-sm: 8px;
-  --r-md: 10px;
-  --r-lg: 14px;
-  --r-xl: 18px;
-  --display: var(--sans);
-  /* type scale (px): 12 caption, 13 meta, 14 UI, 16 body, 18 lede, 20 ids, 24 panel titles, 32 section heads, clamp(36-56) page head */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
   --sans:
-    "Red Hat Text", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    sans-serif;
-  --mono: "Red Hat Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --display: var(--sans);
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
 }
-@media (min-resolution: 2dppx) {
-  :root {
-    --hair: 0.5px;
-  }
-}
+
 :root[data-theme="light"] {
   color-scheme: light;
 }
@@ -165,7 +141,7 @@ button {
   outline-offset: 2px;
 }
 ::selection {
-  background: color-mix(in oklch, var(--info) 24%, transparent);
+  background: color-mix(in oklch, var(--live) 26%, transparent);
 }
 code,
 kbd,
@@ -216,7 +192,7 @@ code {
   position: absolute;
   left: 12px;
   top: -48px;
-  z-index: var(--z-skip);
+  z-index: 50;
   padding: 8px 12px;
   border-radius: var(--r-md);
   background: var(--ink);
@@ -284,7 +260,7 @@ code {
 .btn-lg {
   height: 44px;
   padding: 0 20px;
-  font-size: 16px;
+  font-size: 15px;
 }
 .btn-sm {
   height: 30px;
@@ -448,7 +424,7 @@ code {
 .term pre {
   margin: 0;
   padding: 14px 16px 16px;
-  font: 400 13px / 1.7 var(--mono);
+  font: 400 12.5px / 1.7 var(--mono);
   white-space: pre;
   overflow-x: auto;
 }
@@ -483,7 +459,7 @@ code {
 .site-nav {
   position: sticky;
   top: 0;
-  z-index: var(--z-sticky);
+  z-index: 20;
   background: color-mix(in oklch, var(--bg) 88%, transparent);
   backdrop-filter: saturate(1.4) blur(10px);
   -webkit-backdrop-filter: saturate(1.4) blur(10px);
@@ -665,7 +641,7 @@ code {
   display: inline-flex;
   gap: 6px;
   align-items: center;
-  font-size: 13px;
+  font-size: 12.5px;
 }
 .perm .yes {
   color: var(--live-text);
@@ -676,7 +652,7 @@ code {
 .rates {
   width: 100%;
   border-collapse: collapse;
-  font-size: 16px;
+  font-size: 15px;
 }
 .rates th {
   text-align: left;
@@ -717,7 +693,7 @@ code {
   text-align: left;
 }
 .code-card pre {
-  font-size: 14px;
+  font-size: 13.5px;
   padding: 18px 20px;
 }
 
@@ -725,7 +701,7 @@ code {
 .app-top {
   position: sticky;
   top: 0;
-  z-index: var(--z-sticky);
+  z-index: 20;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
 }
@@ -843,7 +819,7 @@ code {
   margin-bottom: 24px;
 }
 .page-head h1 {
-  font-size: 24px;
+  font-size: 26px;
   letter-spacing: -0.03em;
   line-height: 1.2;
   display: flex;
@@ -874,7 +850,7 @@ code {
   border-radius: var(--r-lg);
   background: var(--surface-2);
   box-shadow: 0 0 0 1px var(--line);
-  font-size: 14px;
+  font-size: 13.5px;
 }
 .notice .grow {
   flex: 1;
@@ -955,7 +931,7 @@ code {
   align-items: center;
   gap: 6px;
   max-width: 100%;
-  font: 400 14px / 1 var(--mono);
+  font: 400 13.5px / 1 var(--mono);
   margin-top: -8px;
 }
 .prod-url .icon {
@@ -974,7 +950,7 @@ code {
   margin: 0;
 }
 .facts-grid dt {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text-2);
   margin-bottom: 4px;
 }
@@ -1007,7 +983,7 @@ code {
   color: var(--text-2);
 }
 .stat-big {
-  font: 600 24px / 1.1 var(--sans);
+  font: 600 22px / 1.1 var(--sans);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
@@ -1028,7 +1004,7 @@ code {
   gap: 12px;
   align-items: center;
   padding: 10px 16px;
-  font-size: 14px;
+  font-size: 13.5px;
 }
 .keys li + li {
   border-top: 1px solid var(--line);
@@ -1107,7 +1083,7 @@ code {
   white-space: nowrap;
 }
 .rel-row .mono {
-  font-size: 13px;
+  font-size: 12.5px;
 }
 .rel-row .c-msg .icon {
   color: var(--text-3);
@@ -1126,7 +1102,8 @@ code {
   justify-content: flex-end;
 }
 .rel-row.is-live {
-  background: none;
+  background: linear-gradient(90deg, var(--live-tint), transparent 40%);
+  box-shadow: inset 2px 0 0 var(--live);
 }
 .rel-row.is-busy {
   overflow: clip;
@@ -1162,7 +1139,7 @@ code {
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
-  z-index: var(--z-menu);
+  z-index: 10;
   min-width: 180px;
   padding: 4px;
   border-radius: var(--r-md);
@@ -1190,7 +1167,7 @@ code {
   border: 0;
   border-radius: var(--r-sm);
   background: none;
-  font-size: 14px;
+  font-size: 13.5px;
   text-align: left;
   cursor: pointer;
 }
@@ -1226,7 +1203,7 @@ code {
   align-items: start;
   padding: 10px 16px;
   position: relative;
-  font-size: 14px;
+  font-size: 13.5px;
 }
 .timeline li::before {
   content: "";
@@ -1250,7 +1227,7 @@ code {
   box-shadow: inset 0 0 0 1px var(--line-strong);
   color: var(--text-2);
   position: relative;
-  z-index: var(--z-raised);
+  z-index: 1;
 }
 .ti.up {
   color: var(--live-text);
@@ -1283,7 +1260,7 @@ code {
   margin: 24px auto 0;
 }
 .lookup h1 {
-  font-size: 24px;
+  font-size: 22px;
   letter-spacing: -0.025em;
 }
 .field {
@@ -1400,7 +1377,7 @@ code {
   position: fixed;
   right: 20px;
   bottom: max(20px, env(safe-area-inset-bottom));
-  z-index: var(--z-toast);
+  z-index: 40;
   display: grid;
   gap: 10px;
   width: min(380px, calc(100% - 40px));
@@ -1416,7 +1393,7 @@ code {
   box-shadow:
     0 0 0 1px var(--line-strong),
     var(--shadow-lg);
-  font-size: 14px;
+  font-size: 13.5px;
   animation: toast-in 220ms var(--ease-out);
 }
 @keyframes toast-in {
@@ -1513,14 +1490,14 @@ html.embed .toasts {
   min-width: 0;
 }
 .prose h1 {
-  font-size: 32px;
+  font-size: 34px;
   letter-spacing: -0.035em;
   line-height: 1.15;
   margin-bottom: 10px;
 }
 
 .prose h2 {
-  font-size: 24px;
+  font-size: 22px;
   letter-spacing: -0.025em;
   margin: 56px 0 14px;
   scroll-margin-top: 90px;
@@ -1562,7 +1539,7 @@ html.embed .toasts {
   border-radius: var(--r-lg);
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--line);
-  font-size: 16px;
+  font-size: 15px;
 }
 .callout .icon {
   color: var(--info);
@@ -1742,81 +1719,141 @@ h2,
 .display {
   font-family: var(--display);
 }
-.brand {
-  font-family: var(--display);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-.card,
-.step,
-.window {
+.card {
   box-shadow: var(--elev-1);
 }
-
-/* Badges share one shape: 22px tall, radius 6, 12px text. .chip is the base; variants change colour only. */
-.chip {
-  border-radius: 6px;
-}
-.chip-prev {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-  color: var(--text-2);
-}
-/* The signature: an amber marker that says which release production points at. Amber is used for nothing else. */
+/* production is the live chip: green tint, a dot and the word */
 .ptr {
   position: relative;
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   height: 22px;
   padding: 0 8px;
-  margin-inline-start: 7px; /* room for the notch, part of the shape */
-  border-radius: 0 6px 6px 0;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font: 600 12px / 1 var(--sans);
+  border-radius: 999px;
+  background: var(--live-tint);
+  color: var(--live-text);
+  font: 500 12px / 1 var(--sans);
   white-space: nowrap;
 }
 .ptr::before {
   content: "";
-  position: absolute;
-  right: 100%;
-  top: 0;
-  width: 7px;
-  height: 22px;
-  background: inherit;
-  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--live);
 }
-
-/* home hero: copy, then the sample account itself */
-.hero4 {
+/* home hero: centred copy on a faint grid, then the sample account in a window, as round 2 drew it */
+.hero {
   padding: 72px 0 96px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
 }
-.hero4 h1 {
-  font-size: clamp(36px, 4.6vw, 56px);
-  line-height: 1.06;
-  max-width: 21em; /* two lines, broken by hand */
-  margin-bottom: 20px;
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 760px;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: center -1px;
+  mask-image: radial-gradient(
+    ellipse 60% 70% at 50% 0%,
+    black 30%,
+    transparent 75%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 60% 70% at 50% 0%,
+    black 30%,
+    transparent 75%
+  );
 }
-.hero4 .sub {
-  font-size: 18px;
-  line-height: 1.55;
+.hero > * {
+  position: relative;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px 0 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--line),
+    var(--shadow-sm);
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 24px;
+}
+.pill .chip {
+  height: 20px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .pill:hover {
+    color: var(--text);
+  }
+}
+.hero h1 {
+  font-size: clamp(36px, 5.2vw, 64px);
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+  max-width: 20em;
+  margin: 0 auto 22px;
+}
+.hero .sub {
+  font-size: 19px;
+  line-height: 1.5;
   color: var(--text-2);
   max-width: 36em;
-  margin-bottom: 28px;
+  margin: 0 auto 28px;
   text-wrap: pretty;
 }
-.hero4 .ctas {
-  justify-content: flex-start;
+.kicker {
+  display: block;
+  font: 500 13px / 1 var(--mono);
+  color: var(--live-text);
+  margin-bottom: 18px;
+}
+.cta-band {
+  padding: 112px 0;
+  text-align: center;
+}
+.cta-band h2 {
+  font-size: clamp(30px, 3.6vw, 44px);
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+  margin-bottom: 14px;
+}
+.cta-band .lede {
+  max-width: 36em;
+  margin: 0 auto 32px;
+}
+.lede + .lede {
+  margin-top: 14px;
+}
+.cta-band code {
+  white-space: nowrap;
+}
+.cta-band .lede.small {
+  font-size: 15px;
+  margin-bottom: 28px;
 }
 .demo {
   display: grid;
   grid-template-columns: 340px minmax(0, 1fr);
-  height: 540px;
+  height: 620px;
   margin-top: 56px;
-  border-radius: var(--r-lg);
+  border-radius: var(--r-xl);
   background: var(--surface);
   box-shadow: var(--elev-3);
   overflow: hidden;
+  text-align: left;
 }
 .demo-side {
   display: flex;
@@ -1830,13 +1867,28 @@ h2,
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  height: 44px;
-  padding: 0 8px 0 16px;
-  border-bottom: var(--hair) solid var(--line);
-  font-size: 13px;
+  height: 40px;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 12px;
 }
 .demo-head {
-  padding-right: 16px;
+  padding-right: 14px;
+}
+.demo-head .mono {
+  margin-inline-end: auto;
+  font-weight: 500;
+}
+.lights {
+  display: flex;
+  gap: 6px;
+}
+.lights i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--line-strong);
 }
 .ledger {
   display: grid;
@@ -1847,7 +1899,7 @@ h2,
 }
 .lg-row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -1869,10 +1921,15 @@ h2,
 }
 .lg-row[aria-selected="true"] {
   background: var(--surface-2);
-  box-shadow: inset 2px 0 0 var(--text);
+  box-shadow: inset 2px 0 0 var(--line-strong);
+}
+/* the production row carries round 2's live edge: a green rule and a fading tint */
+.lg-row:has(.ptr) {
+  background: linear-gradient(90deg, var(--live-tint), transparent 40%);
+  box-shadow: inset 2px 0 0 var(--live);
 }
 .lg-id {
-  font: 500 20px / 1 var(--mono);
+  font: 500 14px / 1 var(--mono);
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
 }
@@ -1905,7 +1962,16 @@ h2,
   min-width: 0;
 }
 .frame-bar .mono {
-  font-size: 13px;
+  margin-inline: auto;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 12px;
+  max-width: 100%;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+  font-size: 12px;
   color: var(--text-2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1930,7 +1996,13 @@ h2,
 .canvas {
   position: relative;
   min-height: calc(100dvh - 101px);
-  background: var(--canvas);
+  /* round 2's sunken, dotted ground */
+  background-color: var(--canvas);
+  background-image: radial-gradient(
+    color-mix(in oklch, var(--line-strong) 60%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 16px 16px;
   overflow: hidden;
 }
 .stage {
@@ -2084,14 +2156,6 @@ h2,
   bottom: calc(100% + 6px);
   right: 0;
   margin: 0;
-  border-radius: 6px;
-}
-.ptr-down::before {
-  right: 17px;
-  top: 100%;
-  width: 12px;
-  height: 6px;
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 .group {
   position: absolute;
@@ -2371,14 +2435,6 @@ h2,
   }
 }
 
-.site-foot {
-  padding: 24px 0 32px;
-}
-.site-foot .small {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
-}
 .no-trans,
 .no-trans * {
   transition: none !important;
@@ -2387,10 +2443,6 @@ h2,
 .node-note,
 .lc-msg {
   text-wrap: pretty;
-}
-.hero4 h1 {
-  letter-spacing: -0.025em;
-  font-weight: 600;
 }
 /* polish: press, hit areas, optical padding, inert decoration */
 .btn:active,
@@ -2444,10 +2496,6 @@ h2,
   right: auto;
   margin: 0;
   transform: translateX(-50%);
-}
-.track-ptr .ptr-down::before {
-  right: auto;
-  left: calc(50% - 6px);
 }
 .track i {
   transition:
@@ -2621,12 +2669,11 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 @media (max-width: 640px) {
-  .hero4 {
-    padding: 48px 0 64px;
+  .hero {
+    padding: 56px 0 64px;
   }
-  .hero4 .ctas {
-    flex-direction: column;
-    align-items: stretch;
+  .hero .sub {
+    font-size: 17px;
   }
   .demo {
     margin-top: 40px;
@@ -2637,9 +2684,6 @@ html {
   }
   .lg-msg small {
     display: none;
-  }
-  .lg-id {
-    font-size: 18px;
   }
   .demo-frame iframe {
     height: 440px;
@@ -2752,19 +2796,12 @@ html {
   margin-top: 4px;
 }
 
-/* the production label stays inside the track at either end; its notch still points at the mark */
+/* the production label stays inside the track at either end */
 .track-ptr[data-edge="start"] .ptr-down {
   transform: translateX(-17px);
 }
-.track-ptr[data-edge="start"] .ptr-down::before {
-  left: 11px;
-}
 .track-ptr[data-edge="end"] .ptr-down {
   transform: translateX(calc(-100% + 17px));
-}
-.track-ptr[data-edge="end"] .ptr-down::before {
-  left: auto;
-  right: 11px;
 }
 /* review fixes: press scale respects reduced motion; focus rings inside clipped containers draw inward;
    nodes that open nothing yet are not buttons and do not pretend to be */
@@ -3053,39 +3090,12 @@ div.node::after {
   text-wrap: pretty;
 }
 
-/* footer with the Built on NEAR mark and the independence line */
-.foot4 {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 16px 32px;
-  font-size: 13px;
-  color: var(--text-3);
-}
-.foot4 p {
-  max-width: 70ch;
-  text-wrap: pretty;
-}
-.foot4 nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-}
-.foot4 nav a {
-  color: var(--text-2);
-}
 .built-on .tool {
   font-size: 13px;
 }
 .built-on img {
   height: 28px;
 }
-@media (max-width: 860px) {
-  .foot4 {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* docs layer page */
 .docs4 {
   padding: 48px 0 96px;
@@ -3116,26 +3126,25 @@ div.node::after {
 .docs-side a {
   display: block;
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   color: var(--text-2);
 }
 .docs-side a[aria-current] {
-  background: var(--surface-2);
+  background: var(--surface-3);
   color: var(--text);
-  font-weight: 600;
-  box-shadow: inset 2px 0 0 var(--text);
 }
 .docs4 .prose {
   max-width: 72ch;
 }
 .docs4 h1 {
-  font-size: 40px;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
 }
 .docs4 h2 {
-  margin: 40px 0 12px;
-  font-size: 24px;
+  margin: 48px 0 14px;
+  font-size: 22px;
+  letter-spacing: -0.025em;
 }
 .crumbs {
   margin-bottom: 12px;
@@ -3223,9 +3232,10 @@ div.node::after {
   padding-top: 56px;
 }
 .page-top h1 {
-  font-size: clamp(32px, 4vw, 48px);
+  font-size: clamp(30px, 3.6vw, 44px);
   line-height: 1.08;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.04em;
+  margin-bottom: 16px;
 }
 .arch {
   margin-top: 32px;
@@ -3352,8 +3362,13 @@ div.node::after {
 .site-nav .built-on {
   margin-inline-end: 8px;
 }
-.foot4 .built-on .tool img {
-  height: 30px;
+.site-foot .blurb {
+  margin: 14px 0 18px;
+  max-width: 34ch;
+}
+.site-foot .small p {
+  max-width: 76ch;
+  text-wrap: pretty;
 }
 .status-line .tool[data-tool="outlayer"] img {
   height: 14px;
