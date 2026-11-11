@@ -1846,6 +1846,8 @@ h2,
 .demo {
   display: grid;
   grid-template-columns: 340px minmax(0, 1fr);
+  /* one row the height of the window, so the release list scrolls and the note under it stays whole */
+  grid-template-rows: minmax(0, 1fr);
   height: 620px;
   margin-top: 56px;
   border-radius: var(--r-xl);
@@ -1895,6 +1897,7 @@ h2,
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  flex: 1 1 auto;
 }
 .lg-row {
   display: grid;
@@ -2380,6 +2383,7 @@ h2,
 @media (max-width: 1000px) {
   .demo {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
     height: auto;
   }
   .demo-side {
