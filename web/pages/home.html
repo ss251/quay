@@ -14,7 +14,8 @@
 <div class="demo-frame" role="tabpanel" id="demo-panel" aria-labelledby="rel-{{PRODUCTION}}">
 <div class="frame-bar"><span class="mono" data-demo-url>{{BOARD_HOST}}/</span><a class="btn btn-sm btn-quiet" data-demo-open href="{{BOARD}}/" target="_blank" rel="noopener">Open{{i:ext sm end}}</a></div>
 <div class="frame-fail" role="status" hidden><strong>The gateway is not answering</strong><p>The release is still sealed on chain; only the host is down. Try again in a minute, or run <code>quay gateway --account harbour-board.testnet</code>.</p><div class="acts"><button class="btn btn-sm" type="button" data-demo-retry>Try again</button><a class="btn btn-sm btn-quiet" href="https://explorer.testnet.near.org/accounts/harbour-board.testnet">Open the explorer</a></div></div>
-<iframe data-demo-frame src="{{BOARD}}/" title="Release {{PRODUCTION}} of Harbour Board, live" sandbox="allow-scripts allow-same-origin" tabindex="-1"></iframe>
+<a class="frame-poster" data-demo-poster href="{{BOARD}}/" tabindex="-1" aria-hidden="true"><picture><source media="(max-width: 640px)" srcset="assets/board-narrow.webp" width="716" height="880"><img src="assets/board-wide.webp" alt="" width="1230" height="900" fetchpriority="high"></picture></a>
+<iframe data-demo-frame data-first onload="this.removeAttribute('data-first')" src="{{BOARD}}/" title="Release {{PRODUCTION}} of Harbour Board, live" sandbox="allow-scripts allow-same-origin" tabindex="-1"></iframe>
 </div>
 </div>
 </div>

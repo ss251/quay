@@ -68,6 +68,9 @@ if (demo) {
       t.tabIndex = on ? 0 : -1;
     }
     const url = tab.dataset.src;
+    // The poster is production's first screen; another release never shows behind it.
+    frame.removeAttribute("data-first");
+    demo.querySelector("[data-demo-poster]")?.remove();
     frame.dataset.loading = "";
     frame.src = url;
     watch(url);

@@ -3600,3 +3600,29 @@ body:has(.app-main[data-tab="canvas"]) .app-top .app-wrap {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* home hero: a same-origin poster of the Board's first screen holds the frame
+   area until the live frame has loaded, so a slow phone never sees an empty box */
+.demo-frame > .frame-poster,
+.demo-frame > iframe {
+  grid-area: 2 / 1;
+}
+.frame-poster {
+  display: block;
+  min-height: 0;
+  overflow: hidden;
+  background: oklch(0.99 0 0);
+}
+.frame-poster img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+.demo-frame iframe[data-first] {
+  opacity: 0;
+}
+.demo-frame:has(> iframe:not([data-first])) > .frame-poster {
+  visibility: hidden;
+}
