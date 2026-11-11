@@ -1,6 +1,6 @@
 # Site fonts
 
-The site uses the round 2 type: Geist and Geist Mono (SIL Open Font License 1.1, by Vercel). `web/assets/fonts/` holds subsets: only the characters the built pages and the dashboard script use, Geist at weights 400 to 600 and Geist Mono at 400 to 500.
+The site uses the round 2 type: Geist and Geist Mono (SIL Open Font License 1.1, by Vercel; the licence is `OFL.txt` in this folder). `web/assets/fonts/` holds subsets: only the characters the built pages and the dashboard script use, Geist at weights 400 to 600 and Geist Mono at 400 to 500.
 
 Rebuild them after copy changes that add new characters:
 
