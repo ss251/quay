@@ -159,7 +159,7 @@ No key. You need `cargo`, `curl`, `node`, and `shasum` on `PATH`. The same check
 
 ## Full-stack layers
 
-One account holds a site's pages, data, sign-in, scheduled work and payments. The interface is in `docs/fullstack-interface.md`. Command help for every layer is on the docs site at `/docs/layers/`. Who you trust for each layer, and how to replace it, is at `/architecture/`. Every transaction is recorded in `examples/board/LIVE.md`.
+One account holds a site's pages, data, sign-in, scheduled work and payments. The interface is in `docs/fullstack-interface.md`. Each layer has a docs page under `/docs/layers/` with its commands, proof and limits, and the help for every command is on `/docs/`. Who you trust for each layer, and how to replace it, is at `/architecture/`. Every transaction is recorded in `examples/board/LIVE.md`.
 
 "Live" means we made the transaction or request on testnet, and the link or command below lets you check it. The sample is Harbour Board, https://harbour-board.ss251.workers.dev/ (or https://harbour-board.testnet.page/), account `harbour-board.testnet`. All checks need no key. `sh scripts/judge.sh` runs them.
 
