@@ -26,3 +26,18 @@ The full-stack sample (v3 contract). Every transaction, call id and check is in 
 ## Harbour static sample: `quay-65nqd3rn.testnet`
 
 https://quay-harbour.ss251.workers.dev/ (Workers mirror) or https://quay-65nqd3rn.testnet.page/. Unchanged by this work.
+
+## Demo video account: `quay-2v5y8etg.testnet`
+
+The account the hackathon demo video was recorded on, on 2026-11-11 (UTC), with the CLI from this repo and the Harbour sample built from `examples/harbour` (the index page edited to say release 3, then a winter timetable for release 4). Releases 1 and 2 were earlier smoke tests. https://quay-2v5y8etg.testnet.page/ serves production; `/r/3/` and `/r/4/` stay up. Dashboard: https://quay.ss251.workers.dev/dashboard/?account=quay-2v5y8etg.testnet.
+
+| Step | Command | Transaction |
+| --- | --- | --- |
+| Top-up, 1 NEAR from `quay-i7qkbbp3.testnet` for storage | `near tokens … send-near` | [EdfVdon8…](https://explorer.testnet.near.org/transactions/EdfVdon8kU4dihzkG68QTLegCbs13MaajtVrSpz1fukn) |
+| Seal release 3 | `quay deploy ./dist -m "harbour office"` | [J4nqY1Nv…](https://explorer.testnet.near.org/transactions/J4nqY1NvYvQsLvVUEtUHtDC8cPgfJQ8rQc39HXZASiH8) |
+| Promote 3 | `quay promote 3` | [CkWhiEmi…](https://explorer.testnet.near.org/transactions/CkWhiEmi4APotQA9Dwnt8Hq7hVUMZQo6qCFKSqpv6ikz) |
+| Seal release 4 (1.4 KB new, 7.9 KB reused) | `quay deploy ./dist -m "winter timetable"` | [BehoitHY…](https://explorer.testnet.near.org/transactions/BehoitHYwqJMjYpUnHdS4hoxCVzMJHVGFRn1voTajJNe) |
+| Promote 4 | `quay promote 4` | [GpQosErP…](https://explorer.testnet.near.org/transactions/GpQosErPd8EFnKjhpVYHMjMiYSygT2BfTBwQhJEkdxUL) |
+| Roll back to 3 | `quay rollback` | [H75U1SJi…](https://explorer.testnet.near.org/transactions/H75U1SJiT2KEbNa4EzSEQoQFsAe4hPnaFQbz8NVgLDux) |
+
+Afterwards `quay status` read production 3, previous 4, 4 releases, 11 KB stored.
