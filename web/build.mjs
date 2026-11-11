@@ -147,7 +147,7 @@ ${builtOn(prefix, " hide-s")}
 <nav aria-label="Site">${link("docs/index.html", "Docs")}${link("architecture/index.html", "Architecture", "hide-s")}<a class="hide-s" href="{{BOARD}}/">Harbour Board</a></nav>
 <div class="nav-end"><span class="net hide-s"><span class="dot dot-live"></span>NEAR testnet</span>
 <button class="btn btn-sm btn-icon btn-quiet theme-btn" type="button" data-theme-toggle aria-label="Switch theme"><svg class="icon i-moon" aria-hidden="true"><use href="#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="#i-sun"/></svg></button>
-<a class="btn btn-sm" data-cta-account="href" href="${prefix}dashboard/index.html">Open dashboard</a></div>
+<a class="btn btn-sm btn-primary" data-cta-account="href" href="${prefix}dashboard/index.html">Open dashboard</a></div>
 </div></header>`;
 }
 
@@ -392,9 +392,9 @@ function releasePicker() {
     const on = r.id === BOARD_RELEASES.production;
     const src = on ? `${BOARD_HOST}/` : `${BOARD_HOST}/r/${r.id}/`;
     const badge = on
-      ? '<span class="ptr">production</span>'
+      ? '<span class="ptr">Production</span>'
       : r.id === BOARD_RELEASES.previous
-        ? '<span class="chip chip-prev">previous</span>'
+        ? '<span class="chip chip-prev">Previous</span>'
         : "";
     return `<button class="lg-row" type="button" role="tab" id="rel-${r.id}" aria-controls="demo-panel" aria-selected="${on}" tabindex="${on ? 0 : -1}" data-src="${src}"><span class="lg-id">${r.id}</span><span class="lg-msg">${escapeHtml(r.message)}<small>${r.files} files, ${nf.format(r.bytes)}&nbsp;B</small></span>${badge}</button>`;
   });

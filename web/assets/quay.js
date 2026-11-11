@@ -212,14 +212,14 @@ async function refreshReleases(box, done) {
         row.append(
           Object.assign(document.createElement("span"), {
             className: "ptr",
-            textContent: "production",
+            textContent: "Production",
           }),
         );
       else if (r.id === status.previous)
         row.append(
           Object.assign(document.createElement("span"), {
             className: "chip chip-prev",
-            textContent: "previous",
+            textContent: "Previous",
           }),
         );
       return row;

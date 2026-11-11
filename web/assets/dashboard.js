@@ -1926,7 +1926,7 @@ function track() {
             "data-edge":
               prodAt === ids.length - 1 ? "end" : prodAt === 0 ? "start" : null,
           },
-          h("span", { class: "ptr ptr-down", text: "production" }),
+          h("span", { class: "ptr ptr-down", text: "Production" }),
         )
       : null,
   );
@@ -2316,7 +2316,7 @@ function sitePanel() {
             h(
               "div",
               { class: "top" },
-              h("span", { class: "ptr", text: "production" }),
+              h("span", { class: "ptr", text: "Production" }),
               h("strong", { text: `Release ${prod.id}` }),
             ),
             h("p", { class: "lc-msg", text: prod.message || "No message" }),
@@ -2434,9 +2434,9 @@ function panelRelease(release) {
           text: release.message || "No message",
         }),
         isProd
-          ? h("span", { class: "ptr", text: "production" })
+          ? h("span", { class: "ptr", text: "Production" })
           : isPrev
-            ? h("span", { class: "chip chip-prev", text: "previous" })
+            ? h("span", { class: "chip chip-prev", text: "Previous" })
             : null,
       ),
       h("span", {
