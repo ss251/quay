@@ -254,14 +254,10 @@ const cli = escapeHtml(
     "\n\n",
   ),
 );
-// Command help for one layer, cut before the global options.
-function layerHelp(name) {
+// Each layer page names the commands whose help covers it; they must exist.
+for (const name of [...LAYERS, UP].flatMap((layer) => layer.help))
   if (!COMMANDS.some((command) => command.name === name))
     throw new Error(`quay ${name} is not in this build of the CLI`);
-  const text = helpText(name).split("\n\nGlobal options")[0];
-  const more = helpText(name).split("\n\nGlobal options")[1]?.split("\n\n")[1];
-  return `<details class="help"><summary><code>quay ${name} --help</code></summary><div class="term"><pre tabindex="0" aria-label="quay ${name} help">${escapeHtml(more ? `${text}\n\n${more}` : text)}</pre></div></details>`;
-}
 const read = (name) => readFileSync(join(root, "pages", name), "utf8");
 
 // ---------- the layer table (home and the layers overview) ----------
@@ -342,8 +338,7 @@ ${layer.sample ? `<p>${layer.sample.intro}</p>\n<pre class="out" tabindex="0">${
 <p>${layer.trust}</p>
 <h2 id="limits">Limits</h2>
 <table class="limits4"><tbody>${layer.limits.map(([th, td]) => `<tr><th scope="row">${th}</th><td>${td}</td></tr>`).join("")}</tbody></table>
-<h2 id="help">Command help</h2>
-${layer.help.map(layerHelp).join("\n")}
+<p>Every flag is in the <a href="${prefix}docs/index.html#cli">command reference</a>, generated from ${layer.help.map((name) => `<code>quay ${name} --help</code>`).join(", ")}.</p>
 ${pager(prefix, index)}`;
   return [
     href,
@@ -367,8 +362,7 @@ function upPage() {
 ${term("cmd-up", UP.cmds)}
 <h2 id="versioned">Versioned with a release, and not</h2>
 <p>${UP.versioned}</p>
-<h2 id="help">Command help</h2>
-${UP.help.map(layerHelp).join("\n")}
+<p>Every flag is in the <a href="${prefix}docs/index.html#cli">command reference</a>, generated from <code>quay up --help</code>.</p>
 ${pager(prefix, ORDER.length - 1)}`;
   return [
     href,

@@ -2936,6 +2936,15 @@ document.addEventListener("keydown", (event) => {
 });
 addEventListener("popstate", start);
 $("stage").addEventListener("click", (event) => {
+  // A node that links to a tab switches in place, like the tab bar.
+  const link = event.target.closest("a.node");
+  if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
+    event.preventDefault();
+    history.replaceState(null, "", link.href);
+    applyTab();
+    $("tabs").querySelector('[aria-current="page"]')?.focus();
+    return;
+  }
   const button = event.target.closest("[data-panel]");
   if (!button) return;
   if (panelKind === button.dataset.panel) closePanel();
