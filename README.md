@@ -14,7 +14,7 @@ A NEAR app needs somewhere to serve its pages, and that place is usually a web h
 - Dashboard, no key needed: https://quay.ss251.workers.dev/dashboard/?account=quay-65nqd3rn.testnet
 - Harbour Board, the full-stack sample (pages, data, members, functions, payments, cron on one account): https://harbour-board.ss251.workers.dev/
 - Check everything above without a key: `sh scripts/judge.sh` (see [Judge steps](#judge-steps)).
-- The demo video was recorded on `quay-2v5y8etg.testnet`: release 5 at https://quay-2v5y8etg.testnet.page/r/5/, release 6 at `/r/6/`, and the deploy, promote and rollback transactions in `LIVE.md`.
+- Demo video (70 s): https://x.com/thescoho/status/2121361625324376276. It was recorded on `quay-2v5y8etg.testnet`. Release 7 is at https://quay-2v5y8etg.testnet.page/r/7/. Release 8, sealed with the publish-only key, is at `/r/8/`. Every transaction, including the refused promote, is in `LIVE.md`.
 
 Hosts, in the order to try them:
 
