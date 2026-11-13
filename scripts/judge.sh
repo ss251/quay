@@ -30,6 +30,14 @@ rpc() {
     -d "$1"
 }
 
+# A regular node forgets a transaction after a few epochs (about two and a half
+# days on testnet). Old transactions are looked up on an archival node.
+archival_rpc() {
+  curl -fsS https://archival-rpc.testnet.fastnear.com \
+    -H 'content-type: application/json' \
+    -d "$1"
+}
+
 free_port() {
   node -e 'const s=require("node:net").createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})'
 }
@@ -180,7 +188,7 @@ if (!text.includes("\"previous\":\"4\"")) process.exit(1);
 echo "   version 2.0.0, production 5, previous 4"
 
 echo "6. publish-only promote was refused"
-refusal=$(rpc '{"jsonrpc":"2.0","id":"1","method":"tx","params":{"tx_hash":"58YRcXZZZMPrmNgNCpEm4ssTWC6sCM73we6wKKD9smTT","sender_account_id":"quay-i7qkbbp3.testnet","wait_until":"NONE"}}')
+refusal=$(archival_rpc '{"jsonrpc":"2.0","id":"1","method":"tx","params":{"tx_hash":"58YRcXZZZMPrmNgNCpEm4ssTWC6sCM73we6wKKD9smTT","sender_account_id":"quay-i7qkbbp3.testnet","wait_until":"NONE"}}')
 printf '%s\n' "$refusal" | grep -E 'MethodNameMismatch|does not allow method' >/dev/null
 echo "   58YRcXZZZMPrmNgNCpEm4ssTWC6sCM73we6wKKD9smTT refused promote"
 
