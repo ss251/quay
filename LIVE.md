@@ -52,4 +52,17 @@ The video was then recorded again (v2, larger text) with two new releases, so ev
 | Promote 6 | `quay promote 6` | [2otnvDdm…](https://explorer.testnet.near.org/transactions/2otnvDdmao1USRn7Mit47sFX8GSmNdjxE5avt14ao7Vp) |
 | Roll back to 5 | `quay rollback` | [7fVJbMM8…](https://explorer.testnet.near.org/transactions/7fVJbMM8rZUVwmkxZbcZ2R89yxct3MuSxNFBcqPahNGr) |
 
-Afterwards `quay status` read production 5, previous 6, 6 releases, 14 KB stored. Leave the account in this state.
+Afterwards `quay status` read production 5, previous 6, 6 releases, 14 KB stored.
+
+On 2026-11-13 (UTC) a third run was recorded for the v4 video. It adds a publish-only key and its refusal on chain. Release 7 is "Berth 2 closed for repairs."; release 8 is a summer timetable draft sealed with the publish-only key. The key was added off camera with `quay keys create --ci`, and its secret is only in `~/.near-credentials`.
+
+| Step | Command | Transaction |
+| --- | --- | --- |
+| Seal release 7 | `quay deploy ./dist -m "berth 2 closed"` | [ChEXf7Fi…](https://explorer.testnet.near.org/transactions/ChEXf7FiNqx92F4LZWqbXjduzBBZjmaCqyAtUzXQoMNJ) |
+| Promote 7 | `quay promote 7` | [EbEHR5Pz…](https://explorer.testnet.near.org/transactions/EbEHR5PzKVsYTgYvZpB9ULUAYZvkuM29DRgDeNiQE6wc) |
+| Roll back to 5 | `quay rollback` | [CTpp1V4g…](https://explorer.testnet.near.org/transactions/CTpp1V4gYWd8H1JDEmGg7Gap9MEJTzGeV9HFYAete5mX) |
+| Add the publish-only key `ed25519:CFX5mn5X…` (`put_chunk`, `seal`) | `quay keys create --ci` | [GJ3L9rb3…](https://explorer.testnet.near.org/transactions/GJ3L9rb3wh2HMhG6YtW36eUrqH1uMFsHbJNN8TqzTBLh) |
+| Seal release 8 with the publish-only key | `quay deploy ./dist --ci -m "summer draft from CI"` | [mnLyRZhm…](https://explorer.testnet.near.org/transactions/mnLyRZhmSEzSBmBTcndS2vYgctK5adXu1eXHA774CjP) |
+| Promote signed by the publish-only key: refused on chain ("the signing key cannot call that method") | `quay keys prove` | [AR9sVtG1…](https://explorer.testnet.near.org/transactions/AR9sVtG14bMQj3GKWu1KHQzXgt6jYfuc66Tgxi3XenPt) |
+
+Afterwards `quay status` read production 5, previous 7, 8 releases. Leave the account in this state.
